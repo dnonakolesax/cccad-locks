@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	s3AddrKey       = "s3.addr"
+	s3AddrKey       = "s3.address"
 	s3DefaultAddr   = "https://storage.yandexcloud.net"
 	s3BucketKey     = "s3.bucket"
 	s3DefaultBucket = "cccad"

@@ -8,12 +8,14 @@ import (
 	dbredis "github.com/dnonakolesax/cccad-locks/internal/db/redis"
 	dbsql "github.com/dnonakolesax/cccad-locks/internal/db/sql"
 	"github.com/dnonakolesax/cccad-locks/internal/s3"
+	"github.com/dnonakolesax/cccad-locks/internal/solver"
 )
 
 type Components struct {
-	redis *dbredis.Client
-	pgsql *dbsql.PGXWorker
-	s3    *s3.Worker
+	redis  *dbredis.Client
+	pgsql  *dbsql.PGXWorker
+	s3     *s3.Worker
+	solver *solver.Client
 }
 
 func (a *App) SetupComponents() error {
@@ -69,10 +71,22 @@ func (a *App) SetupComponents() error {
 	}
 
 	a.initLogger.InfoContext(context.Background(), "Created S3 client")
+
+	/************************************************/
+	/*              SOLVER GRPC CLIENT              */
+	/************************************************/
+	solverClient, err := solver.NewClient(a.configs.Solver, a.loggers.GRPC)
+	if err != nil {
+		a.initLogger.ErrorContext(context.Background(), "Error creating solver grpc client",
+			slog.String(consts.ErrorLoggerKey, err.Error()))
+		return err
+	}
+
 	a.components = &Components{
-		pgsql: psqlWorker,
-		redis: redisClient,
-		s3:    s3Worker,
+		pgsql:  psqlWorker,
+		redis:  redisClient,
+		s3:     s3Worker,
+		solver: solverClient,
 	}
 	return nil
 }

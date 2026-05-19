@@ -21,6 +21,8 @@ type Config struct {
 
 	S3 *S3Config
 
+	Solver *SolverConfig
+
 	Vault *VaultConfig
 
 	Logger *LoggerConfig
@@ -73,6 +75,7 @@ func SetupConfigs(initLogger *slog.Logger, configsDir string, hc *atomic.Bool) (
 	serviceConfig := &ServiceConfig{}
 	loggerConfig := &LoggerConfig{}
 	s3Config := &S3Config{}
+	solverConfig := &SolverConfig{}
 	vaultConfig := NewVaultConfig()
 	creds := &vault.Credentials{
 		Login:    vaultConfig.Login,
@@ -88,7 +91,7 @@ func SetupConfigs(initLogger *slog.Logger, configsDir string, hc *atomic.Bool) (
 	hc.Store(true)
 
 	err = Load(configsDir, v, initLogger, vaultClient.Client, vaultClient.UpdateChan, psqlConfig,
-		redisConfig, s3Config, serverConfig, serviceConfig, loggerConfig)
+		redisConfig, s3Config, solverConfig, serverConfig, serviceConfig, loggerConfig)
 
 	if err != nil {
 		initLogger.ErrorContext(context.Background(), "Error loading config",
@@ -106,6 +109,7 @@ func SetupConfigs(initLogger *slog.Logger, configsDir string, hc *atomic.Bool) (
 		Service:     serviceConfig,
 		Logger:      loggerConfig,
 		S3:          s3Config,
+		Solver:      solverConfig,
 		Vault:       vaultConfig,
 		UpdateChans: updates,
 	}, nil

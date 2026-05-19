@@ -103,7 +103,7 @@ func (a *App) Run() {
 
 	metricsServer := &http.Server{
 		Handler:           metricsMux,
-		Addr:              "127.0.0.1:" + strconv.Itoa(a.configs.Service.MetricsPort),
+		Addr:              ":" + strconv.Itoa(a.configs.Service.MetricsPort),
 		ReadHeaderTimeout: a.configs.HTTPServer.ReadTimeout,
 	}
 
@@ -197,6 +197,11 @@ func (a *App) closeComponents() {
 	if a.components.redis != nil && a.components.redis.Client != nil {
 		if err := a.components.redis.Client.Close(); err != nil {
 			a.initLogger.Error("Redis close error", slog.String(consts.ErrorLoggerKey, err.Error()))
+		}
+	}
+	if a.components.solver != nil {
+		if err := a.components.solver.Close(); err != nil {
+			a.initLogger.Error("Solver grpc close error", slog.String(consts.ErrorLoggerKey, err.Error()))
 		}
 	}
 }

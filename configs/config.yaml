@@ -1,0 +1,52 @@
+service:
+  base-path: /sketches # Базовый путь для всех запросов (https://<url>/api/v<version>/<base-path>/...)
+  port: 7700
+  grpc-port: 7701
+  metrics-port: 7702
+  log-level: debug
+  log-add-source: true
+  log-timeout: 10s
+  log-max-file-size: 100 # Максимальный размер файла лога (Мб)
+  log-max-backups: 3 # Максимальное количество бэкапов лога
+  log-max-age: 28 # Максимальный возраст файла лога (дней)
+  metrics-endpoint: /metrics
+
+postgres:
+  address: sk-psql
+  port: 5432
+  database: cccad
+  user: sketcher
+  conn-timeout: 10s # Таймаут на установку соединения
+  max-conns: 20 # Максимальное количество соединений
+  min-conns: 5  # Минимальное количество соединений
+  max-conn-lifetime: 1h # Максимальное время жизни соединения
+  max-conn-idle-time: 30m # Максимальное время бездействия
+  healthcheck-period: 1m # Период проверки состояния соединения
+  request-timeout: 30s # Таймаут на выполнение запроса
+  requests-path: "./db/requests/"
+
+redis:
+  address: sk-redis
+  port: 6379
+  request-timeout: 10s
+
+s3:
+  address: https://storage.yandexcloud.net
+  bucket: cccad
+
+solver:
+  address: sk-solver:7701
+  request-timeout: 10s
+
+http-server: 
+  read-timeout: 5s # Таймаут на чтение запроса
+  write-timeout: 10s # Таймаут на запись ответа
+  idle-timeout: 30s # Таймаут на ожидание проставающего соединения
+  max-idle-worker-duration: 10s # Таймаут для горутин-воркеров
+  max-req-body-size: 4*1024*1024 # Максимальный размер тела запроса (байты)
+  read-buffer-size: 8*1024 # Размер буфера чтения (байты)
+  write-buffer-size: 4*1024 # Размер буфера записи (байты)
+  concurrency: 256*1024 # Максимальное количество одновременных соединений
+  max-conns-per-ip: 100 # Максимальное количество соединений на IP
+  max-requests-per-conn: 1000 # Максимальное количество запросов на соединение
+  tcp-keepalive-period: 3m # Период проверки TCP-подключения

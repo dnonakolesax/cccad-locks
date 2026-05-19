@@ -1,0 +1,9 @@
+.git
+.agents
+.codex
+.vscode
+bin
+tmp
+*.log
+.env
+aws

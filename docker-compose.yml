@@ -1,0 +1,51 @@
+services:
+  sketcher:
+    build: .
+    image: dnonakolesax/cccad-sketches:0.0.1
+    ports:
+      - "7700:7700"
+      - "7702:7702"
+    volumes:
+      - ./configs:/configs:ro
+      - ./aws:/sketch-runner/.aws:ro
+    depends_on:
+      sk-redis:
+        condition: service_started
+      sk-psql:
+        condition: service_healthy
+    environment:
+      VAULT_ADDRESS: ${VAULT_ADDRESS}
+      VAULT_LOGIN: ${VAULT_LOGIN}
+      VAULT_PASSWORD: ${VAULT_PASSWORD}
+      CI_COMMIT_HASH: ${CI_COMMIT_HASH}
+    networks:
+      - sknet
+
+  sk-redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - sknet
+    command: --requirepass ${REDIS_PASS}
+
+  sk-psql:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: sketcher
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+      POSTGRES_DB: cccad
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "sketcher"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sknet
+
+networks:
+  sknet:
+    driver: bridge
