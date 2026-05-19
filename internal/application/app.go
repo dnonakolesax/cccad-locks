@@ -13,6 +13,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/configs"
 	"github.com/dnonakolesax/cccad-locks/internal/consts"
 	"github.com/dnonakolesax/cccad-locks/internal/logger"
@@ -84,6 +85,7 @@ func (a *App) Run() {
 	if a.configs.HTTPServer.MaxReqBodySize > 0 {
 		handler = http.MaxBytesHandler(handler, int64(a.configs.HTTPServer.MaxReqBodySize))
 	}
+	handler = auth.NewMiddleware(a.components.auth, a.loggers.HTTP).Handle(handler)
 	handler = a.loggingMiddleware(handler)
 
 	server := &http.Server{
@@ -100,9 +102,10 @@ func (a *App) Run() {
 		metricsEndpoint,
 		promhttp.HandlerFor(a.metrics.Reg, promhttp.HandlerOpts{Registry: a.metrics.Reg}),
 	)
+	metricsHandler := auth.NewMiddleware(a.components.auth, a.loggers.HTTP).Handle(metricsMux)
 
 	metricsServer := &http.Server{
-		Handler:           metricsMux,
+		Handler:           metricsHandler,
 		Addr:              ":" + strconv.Itoa(a.configs.Service.MetricsPort),
 		ReadHeaderTimeout: a.configs.HTTPServer.ReadTimeout,
 	}
@@ -202,6 +205,11 @@ func (a *App) closeComponents() {
 	if a.components.solver != nil {
 		if err := a.components.solver.Close(); err != nil {
 			a.initLogger.Error("Solver grpc close error", slog.String(consts.ErrorLoggerKey, err.Error()))
+		}
+	}
+	if a.components.auth != nil {
+		if err := a.components.auth.Close(); err != nil {
+			a.initLogger.Error("Auth grpc close error", slog.String(consts.ErrorLoggerKey, err.Error()))
 		}
 	}
 }

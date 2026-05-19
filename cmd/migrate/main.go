@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
-	"log/slog"
 	"net/url"
 	"os"
 	"strings"
@@ -98,16 +96,24 @@ func loadPostgresConfig(configDir string) (*configs.RDBConfig, error) {
 
 	v := viper.New()
 	v.PanicOnNil = true
-	cfg := &configs.RDBConfig{}
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-
-	if err := configs.Load(configDir, v, logger, nil, nil, cfg); err != nil {
-		return nil, err
+	cfg := &configs.RDBConfig{
+		DBName:   "cccad",
+		Address:  "gobddocker-postgres-1",
+		Port:     5432,
+		Login:    "kopilka",
+		Password: "12345",
 	}
+	// cfg.SetDefaults(v)
 
-	if strings.TrimSpace(cfg.Login) == "" || strings.TrimSpace(cfg.DBName) == "" {
-		return nil, errors.New("postgres config is incomplete; provide -dsn or DATABASE_URL")
-	}
+	// logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+
+	// if err := configs.Load(configDir, v, logger, nil, nil, cfg); err != nil {
+	// 	return nil, err
+	// }
+
+	// if strings.TrimSpace(cfg.Login) == "" || strings.TrimSpace(cfg.DBName) == "" {
+	// 	return nil, errors.New("postgres config is incomplete; provide -dsn or DATABASE_URL")
+	// }
 
 	return cfg, nil
 }

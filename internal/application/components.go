@@ -4,18 +4,23 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/consts"
 	dbredis "github.com/dnonakolesax/cccad-locks/internal/db/redis"
 	dbsql "github.com/dnonakolesax/cccad-locks/internal/db/sql"
+	permissionsRepo "github.com/dnonakolesax/cccad-locks/internal/repository/permissions"
 	"github.com/dnonakolesax/cccad-locks/internal/s3"
+	permissionsService "github.com/dnonakolesax/cccad-locks/internal/service/permissions"
 	"github.com/dnonakolesax/cccad-locks/internal/solver"
 )
 
 type Components struct {
-	redis  *dbredis.Client
-	pgsql  *dbsql.PGXWorker
-	s3     *s3.Worker
-	solver *solver.Client
+	redis       *dbredis.Client
+	pgsql       *dbsql.PGXWorker
+	s3          *s3.Worker
+	solver      *solver.Client
+	permissions *permissionsService.Service
+	auth        *auth.Client
 }
 
 func (a *App) SetupComponents() error {
@@ -82,11 +87,23 @@ func (a *App) SetupComponents() error {
 		return err
 	}
 
+	/************************************************/
+	/*               AUTH GRPC CLIENT               */
+	/************************************************/
+	authClient, err := auth.NewClient(a.configs.Auth, a.loggers.GRPC)
+	if err != nil {
+		a.initLogger.ErrorContext(context.Background(), "Error creating auth grpc client",
+			slog.String(consts.ErrorLoggerKey, err.Error()))
+		return err
+	}
+
 	a.components = &Components{
-		pgsql:  psqlWorker,
-		redis:  redisClient,
-		s3:     s3Worker,
-		solver: solverClient,
+		pgsql:       psqlWorker,
+		redis:       redisClient,
+		s3:          s3Worker,
+		solver:      solverClient,
+		permissions: permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
+		auth:        authClient,
 	}
 	return nil
 }

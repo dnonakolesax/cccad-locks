@@ -1,20 +1,22 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/model"
 	"github.com/mailru/easyjson"
 )
 
 type PermissionsService interface {
-	List(sketchID string) ([]model.Permission, error)
-	Put(permission *model.Permission) (*model.Permission, error)
-	Delete(userID, sketchID string) error
+	List(ctx context.Context, sketchID string) ([]model.Permission, error)
+	Put(ctx context.Context, permission *model.Permission) (*model.Permission, error)
+	Delete(ctx context.Context, userID, sketchID string) error
 }
 
 type PermissionsHandler struct {
@@ -40,7 +42,7 @@ func (h *PermissionsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	permissions, err := h.service.List(sketchID)
+	permissions, err := h.service.List(r.Context(), sketchID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
@@ -70,10 +72,12 @@ func (h *PermissionsHandler) Put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	permission, err := h.service.Put(&model.Permission{
-		SketchID: sketchID,
-		UserID:   userID,
-		Role:     request.Role,
+	grantedByUserID, _ := auth.UserIDFromContext(r.Context())
+	permission, err := h.service.Put(r.Context(), &model.Permission{
+		SketchID:        sketchID,
+		UserID:          userID,
+		Role:            request.Role,
+		GrantedByUserID: &grantedByUserID,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
@@ -95,7 +99,7 @@ func (h *PermissionsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.Delete(userID, sketchID); err != nil {
+	if err := h.service.Delete(r.Context(), userID, sketchID); err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}

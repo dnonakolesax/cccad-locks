@@ -18,7 +18,7 @@ type Layers struct {
 
 func (a *App) SetupLayers() error {
 	a.layers = &Layers{
-		// PermissionsHTTP: permissionsDelivery.NewPermissionsHandler(a.components.permissions),
+		PermissionsHTTP: permissionsDelivery.NewPermissionsHandler(a.components.permissions),
 		// LocksHTTP:       locksDelivery.NewLocksHandler(a.components.locks),
 		// OperationsHTTP:  operationsDelivery.NewOperationsHandler(a.components.operations),
 		// SketchesHTTP:    sketchesDelivery.NewSketchesHandler(a.components.sketches),

@@ -38,6 +38,10 @@ solver:
   address: sk-solver:7701
   request-timeout: 10s
 
+auth:
+  address: auth:7701
+  request-timeout: 5s
+
 http-server: 
   read-timeout: 5s # Таймаут на чтение запроса
   write-timeout: 10s # Таймаут на запись ответа

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+// protoc --go_out=. --go-grpc_out=. --go-grpc_opt=paths=source_relative --go_opt=paths=source_relative *.proto 
+option go_package = "github.com/dnonakolesax/cccad-locks/internal/proto/auth/v1;authv1";
+
+package auth;
+
+message UserTokens {
+    string Auth=1;
+    string Refresh=2;
+}
+
+message TokenData {
+    string ID=1;
+    optional string at=2;
+    optional string rt=3;
+    optional string it=4;
+}
+
+service AuthService {
+    rpc AuthUserIDCtx(UserTokens) returns (TokenData) {}
+}
