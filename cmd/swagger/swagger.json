@@ -1,0 +1,3527 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "cccAD Sketch Collaboration API",
+    "version": "0.1.0",
+    "description": "REST API for collaborative 2D sketch editing.\n\nThe Go backend is the authoritative application layer:\n- validates Keycloak JWT tokens;\n- checks workspace permissions;\n- persists sketches, operation log, snapshots and locks;\n- invokes the C++ geometric constraint solver;\n- broadcasts collaboration events via WebSocket.\n\nWebSocket endpoint is documented as an HTTP upgrade endpoint and uses the message schemas\nfrom the `RealtimeMessage` union.\n"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local development"
+    },
+    {
+      "url": "https://api.example.com",
+      "description": "Production placeholder"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sketches",
+      "description": "Sketch document lifecycle and current state"
+    },
+    {
+      "name": "Operations",
+      "description": "Persistent sketch operations and operation log"
+    },
+    {
+      "name": "Solver",
+      "description": "Preview solving and sketch diagnostics"
+    },
+    {
+      "name": "Permissions",
+      "description": "Sketch access grants and revocation"
+    },
+    {
+      "name": "Locks",
+      "description": "Soft edit locks for collaborative editing"
+    },
+    {
+      "name": "Realtime",
+      "description": "WebSocket collaboration channel"
+    }
+  ],
+  "paths": {
+    "/api/v1/workspaces/{workspaceId}/sketches": {
+      "post": {
+        "tags": [
+          "Sketches"
+        ],
+        "operationId": "createSketch",
+        "summary": "Create a new sketch document in a workspace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSketchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sketch created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchMetadata"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}": {
+      "get": {
+        "tags": [
+          "Sketches"
+        ],
+        "operationId": "getSketch",
+        "summary": "Get the current materialized sketch state",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current sketch state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchDocument"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Sketches"
+        ],
+        "operationId": "updateSketchMetadata",
+        "summary": "Update sketch metadata",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSketchMetadataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated sketch metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchMetadata"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Sketches"
+        ],
+        "operationId": "deleteSketch",
+        "summary": "Delete or archive a sketch document",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Sketch deleted or archived"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/ops": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "listSketchOperations",
+        "summary": "List persistent operations after a given sketch version",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "name": "afterVersion",
+            "in": "query",
+            "required": false,
+            "description": "Return operations with version greater than this value.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation log page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchOperationPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "submitSketchOperation",
+        "summary": "Submit a persistent sketch operation",
+        "description": "Applies a user CAD operation to the authoritative sketch state.\nThe backend validates references, checks permissions and locks, invokes the solver when needed,\npersists the operation, increments the sketch version and broadcasts an `op.committed` event.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitOperationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation accepted, rejected, or returned from idempotency cache",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitOperationResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/solve-preview": {
+      "post": {
+        "tags": [
+          "Solver"
+        ],
+        "operationId": "solvePreview",
+        "summary": "Preview a solver intent without committing it to the operation log",
+        "description": "Intended for throttled drag previews and UI diagnostics. This endpoint must not mutate the sketch.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolvePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preview result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SolvePreviewResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/analyze": {
+      "post": {
+        "tags": [
+          "Solver"
+        ],
+        "operationId": "analyzeSketch",
+        "summary": "Analyze constraint components, DOF and diagnostics",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Constraint analysis result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyzeSketchResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/locks": {
+      "post": {
+        "tags": [
+          "Locks"
+        ],
+        "operationId": "acquireSketchLock",
+        "summary": "Acquire a soft edit lock",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcquireLockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lock acquisition result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquireLockResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/locks/{lockId}/refresh": {
+      "post": {
+        "tags": [
+          "Locks"
+        ],
+        "operationId": "refreshSketchLock",
+        "summary": "Refresh a soft edit lock TTL",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "$ref": "#/components/parameters/LockId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshLockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refreshed lock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchLock"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/locks/{lockId}": {
+      "delete": {
+        "tags": [
+          "Locks"
+        ],
+        "operationId": "releaseSketchLock",
+        "summary": "Release a soft edit lock",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "$ref": "#/components/parameters/LockId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Lock released"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/ws": {
+      "get": {
+        "tags": [
+          "Realtime"
+        ],
+        "operationId": "openSketchWebSocket",
+        "summary": "Open sketch collaboration WebSocket",
+        "description": "WebSocket upgrade endpoint.\n\nClient and server exchange JSON messages described by `RealtimeClientMessage`\nand `RealtimeServerMessage` schemas.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "name": "lastSeenVersion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Switching Protocols"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/permissions": {
+      "get": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "listSketchPermissions",
+        "summary": "List explicit user permissions for a sketch",
+        "description": "Returns explicit access grants for the sketch. The creator is represented as an admin grant with source `creator`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sketch permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchPermissionList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/sketches/{sketchId}/permissions/{userId}": {
+      "put": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "setSketchPermission",
+        "summary": "Grant or update a user permission for a sketch",
+        "description": "Access rules:\n- admin can grant or update reader/editor permissions;\n- admin can revoke reader/editor permissions;\n- only the sketch creator can grant or revoke admin permissions;\n- the creator admin grant cannot be removed from the creator.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSketchPermissionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permission granted or updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchPermission"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Permissions"
+        ],
+        "operationId": "revokeSketchPermission",
+        "summary": "Revoke a user permission for a sketch",
+        "description": "Admin users may revoke reader/editor permissions. Only the sketch creator may revoke admin permissions. The creator's own admin permission cannot be revoked.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Permission revoked"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Keycloak access token. Client ID is expected to be `cad`."
+      }
+    },
+    "parameters": {
+      "WorkspaceId": {
+        "name": "workspaceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "ws_01HX7E7Y3M6X9E7XKJ1J4Z2R9Q"
+      },
+      "SketchId": {
+        "name": "sketchId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "sk_01HX7E7Y3M6X9E7XKJ1J4Z2R9Q"
+      },
+      "LockId": {
+        "name": "lockId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "lock_01HX7E7Y3M6X9E7XKJ1J4Z2R9Q"
+      },
+      "UserId": {
+        "name": "userId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "usr_01HX7E7Y3M6X9E7XKJ1J4Z2R9Q"
+      }
+    },
+    "responses": {
+      "ErrorResponse": {
+        "description": "Error response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "CreateSketchRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "unit": {
+            "$ref": "#/components/schemas/LengthUnit",
+            "default": "mm"
+          }
+        }
+      },
+      "UpdateSketchMetadataRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "unit": {
+            "$ref": "#/components/schemas/LengthUnit"
+          }
+        }
+      },
+      "SketchMetadata": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspaceId",
+          "name",
+          "createdByUserId",
+          "unit",
+          "version",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/LengthUnit"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User ID of the sketch creator. Only this user can grant or revoke the admin role."
+          }
+        }
+      },
+      "LengthUnit": {
+        "type": "string",
+        "enum": [
+          "mm",
+          "cm",
+          "m",
+          "inch"
+        ]
+      },
+      "SketchDocument": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspaceId",
+          "name",
+          "createdByUserId",
+          "unit",
+          "version",
+          "entities",
+          "constraints",
+          "dimensions",
+          "groups",
+          "solveStatus"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/LengthUnit"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "entities": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SketchEntity"
+            }
+          },
+          "constraints": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SketchConstraint"
+            }
+          },
+          "dimensions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SketchDimension"
+            }
+          },
+          "groups": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SketchGroup"
+            }
+          },
+          "solveStatus": {
+            "$ref": "#/components/schemas/SolveStatusInfo"
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SketchConflict"
+            }
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User ID of the sketch creator. Only this user can grant or revoke the admin role."
+          }
+        }
+      },
+      "SketchEntity": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/PointEntity"
+          },
+          {
+            "$ref": "#/components/schemas/LineEntity"
+          },
+          {
+            "$ref": "#/components/schemas/CircleEntity"
+          },
+          {
+            "$ref": "#/components/schemas/ArcEntity"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "point": "#/components/schemas/PointEntity",
+            "line": "#/components/schemas/LineEntity",
+            "circle": "#/components/schemas/CircleEntity",
+            "arc": "#/components/schemas/ArcEntity"
+          }
+        }
+      },
+      "EntityBase": {
+        "type": "object",
+        "required": [
+          "id",
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "deletedAtOpId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PointEntity": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EntityBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "x",
+              "y"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "point"
+                ]
+              },
+              "x": {
+                "type": "number",
+                "format": "double"
+              },
+              "y": {
+                "type": "number",
+                "format": "double"
+              },
+              "fixed": {
+                "type": "boolean",
+                "default": false
+              }
+            }
+          }
+        ]
+      },
+      "LineEntity": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EntityBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "startPointId",
+              "endPointId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "line"
+                ]
+              },
+              "startPointId": {
+                "type": "string"
+              },
+              "endPointId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "CircleEntity": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EntityBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "centerPointId",
+              "radius"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "circle"
+                ]
+              },
+              "centerPointId": {
+                "type": "string"
+              },
+              "radius": {
+                "type": "number",
+                "format": "double",
+                "minimum": 0,
+                "exclusiveMinimum": true
+              }
+            }
+          }
+        ]
+      },
+      "ArcEntity": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EntityBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "centerPointId",
+              "startPointId",
+              "endPointId",
+              "clockwise"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "arc"
+                ]
+              },
+              "centerPointId": {
+                "type": "string"
+              },
+              "startPointId": {
+                "type": "string"
+              },
+              "endPointId": {
+                "type": "string"
+              },
+              "clockwise": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "SketchConstraint": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CoincidentConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/HorizontalConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/VerticalConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/ParallelConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/PerpendicularConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/TangentConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/EqualConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/FixedConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/MidpointConstraint"
+          },
+          {
+            "$ref": "#/components/schemas/ConcentricConstraint"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "ConstraintBase": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConstraintStatus"
+          }
+        }
+      },
+      "ConstraintStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "suppressed",
+          "invalid",
+          "deleted"
+        ]
+      },
+      "CoincidentConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "pointAId",
+              "pointBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "coincident"
+                ]
+              },
+              "pointAId": {
+                "type": "string"
+              },
+              "pointBId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "HorizontalConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "lineId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "horizontal"
+                ]
+              },
+              "lineId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "VerticalConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "lineId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "vertical"
+                ]
+              },
+              "lineId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ParallelConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "lineAId",
+              "lineBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "parallel"
+                ]
+              },
+              "lineAId": {
+                "type": "string"
+              },
+              "lineBId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "PerpendicularConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "lineAId",
+              "lineBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "perpendicular"
+                ]
+              },
+              "lineAId": {
+                "type": "string"
+              },
+              "lineBId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "TangentConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "entityAId",
+              "entityBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "tangent"
+                ]
+              },
+              "entityAId": {
+                "type": "string"
+              },
+              "entityBId": {
+                "type": "string"
+              },
+              "branch": {
+                "$ref": "#/components/schemas/TangentBranch"
+              }
+            }
+          }
+        ]
+      },
+      "TangentBranch": {
+        "type": "string",
+        "enum": [
+          "unspecified",
+          "external",
+          "internal"
+        ],
+        "default": "unspecified"
+      },
+      "EqualConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "entityAId",
+              "entityBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "equal"
+                ]
+              },
+              "entityAId": {
+                "type": "string"
+              },
+              "entityBId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "FixedConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "entityId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "fixed"
+                ]
+              },
+              "entityId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "MidpointConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "midpointId",
+              "pointAId",
+              "pointBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "midpoint"
+                ]
+              },
+              "midpointId": {
+                "type": "string"
+              },
+              "pointAId": {
+                "type": "string"
+              },
+              "pointBId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ConcentricConstraint": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConstraintBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "circleAId",
+              "circleBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "concentric"
+                ]
+              },
+              "circleAId": {
+                "type": "string"
+              },
+              "circleBId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "SketchDimension": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DistanceDimension"
+          },
+          {
+            "$ref": "#/components/schemas/RadiusDimension"
+          },
+          {
+            "$ref": "#/components/schemas/DiameterDimension"
+          },
+          {
+            "$ref": "#/components/schemas/AngleDimension"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "DimensionBase": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "value",
+          "driving",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "driving": {
+            "type": "boolean",
+            "default": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConstraintStatus"
+          }
+        }
+      },
+      "DistanceDimension": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DimensionBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "refAId",
+              "refBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "distance"
+                ]
+              },
+              "refAId": {
+                "type": "string"
+              },
+              "refBId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "RadiusDimension": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DimensionBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "entityId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "radius"
+                ]
+              },
+              "entityId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "DiameterDimension": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DimensionBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "entityId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "diameter"
+                ]
+              },
+              "entityId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "AngleDimension": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DimensionBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "lineAId",
+              "lineBId"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "angle"
+                ]
+              },
+              "lineAId": {
+                "type": "string"
+              },
+              "lineBId": {
+                "type": "string"
+              },
+              "orientation": {
+                "$ref": "#/components/schemas/AngleOrientation"
+              }
+            }
+          }
+        ]
+      },
+      "AngleOrientation": {
+        "type": "string",
+        "enum": [
+          "unspecified",
+          "cw",
+          "ccw"
+        ],
+        "default": "unspecified"
+      },
+      "SketchGroup": {
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "entityIds"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "examples": [
+              "rectangle_macro",
+              "polyline"
+            ]
+          },
+          "entityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SubmitOperationRequest": {
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "clientOpId",
+          "op"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "clientOpId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Idempotency key unique per sketch and actor."
+          },
+          "lockId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional lock token acquired before editing."
+          },
+          "op": {
+            "$ref": "#/components/schemas/SketchOperation"
+          }
+        }
+      },
+      "SubmitOperationResponse": {
+        "type": "object",
+        "required": [
+          "accepted",
+          "currentVersion"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "default": false
+          },
+          "opId": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer",
+            "nullable": true,
+            "format": "int64"
+          },
+          "currentVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/SketchPatch"
+          },
+          "solveStatus": {
+            "$ref": "#/components/schemas/SolveStatusInfo"
+          },
+          "changedEntityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SketchConflict"
+            }
+          },
+          "rejection": {
+            "$ref": "#/components/schemas/OperationRejection"
+          }
+        }
+      },
+      "SketchOperationPage": {
+        "type": "object",
+        "required": [
+          "sketchId",
+          "fromVersionExclusive",
+          "toVersion",
+          "ops"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "sketchId": {
+            "type": "string"
+          },
+          "fromVersionExclusive": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "toVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommittedOperation"
+            }
+          }
+        }
+      },
+      "CommittedOperation": {
+        "type": "object",
+        "required": [
+          "id",
+          "sketchId",
+          "version",
+          "actorUserId",
+          "createdAt",
+          "payload"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sketchId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "clientOpId": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/SketchOperation"
+          }
+        }
+      },
+      "SketchOperation": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CreatePointOp"
+          },
+          {
+            "$ref": "#/components/schemas/CreateLineOp"
+          },
+          {
+            "$ref": "#/components/schemas/CreateCircleOp"
+          },
+          {
+            "$ref": "#/components/schemas/CreateArcOp"
+          },
+          {
+            "$ref": "#/components/schemas/CreateRectangleOp"
+          },
+          {
+            "$ref": "#/components/schemas/CreatePolylineOp"
+          },
+          {
+            "$ref": "#/components/schemas/DeleteEntityOp"
+          },
+          {
+            "$ref": "#/components/schemas/MovePointOp"
+          },
+          {
+            "$ref": "#/components/schemas/MoveEntityOp"
+          },
+          {
+            "$ref": "#/components/schemas/AddConstraintOp"
+          },
+          {
+            "$ref": "#/components/schemas/RemoveConstraintOp"
+          },
+          {
+            "$ref": "#/components/schemas/AddDimensionOp"
+          },
+          {
+            "$ref": "#/components/schemas/SetDimensionValueOp"
+          },
+          {
+            "$ref": "#/components/schemas/RemoveDimensionOp"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "CreatePointOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "x",
+          "y"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "create_point"
+            ]
+          },
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          },
+          "fixed": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "PointRefInput": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NewPointInput"
+          },
+          {
+            "$ref": "#/components/schemas/ExistingPointInput"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind"
+        }
+      },
+      "NewPointInput": {
+        "type": "object",
+        "required": [
+          "kind",
+          "x",
+          "y"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "new_point"
+            ]
+          },
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "ExistingPointInput": {
+        "type": "object",
+        "required": [
+          "kind",
+          "pointId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "existing_point"
+            ]
+          },
+          "pointId": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateLineOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "start",
+          "end"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "create_line"
+            ]
+          },
+          "start": {
+            "$ref": "#/components/schemas/PointRefInput"
+          },
+          "end": {
+            "$ref": "#/components/schemas/PointRefInput"
+          }
+        }
+      },
+      "CreateCircleOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "center",
+          "radius"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "create_circle"
+            ]
+          },
+          "center": {
+            "$ref": "#/components/schemas/PointRefInput"
+          },
+          "radius": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        }
+      },
+      "CreateArcOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "center",
+          "start",
+          "end",
+          "clockwise"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "create_arc"
+            ]
+          },
+          "center": {
+            "$ref": "#/components/schemas/PointRefInput"
+          },
+          "start": {
+            "$ref": "#/components/schemas/PointRefInput"
+          },
+          "end": {
+            "$ref": "#/components/schemas/PointRefInput"
+          },
+          "clockwise": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Vec2": {
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "CreateRectangleOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "cornerA",
+          "cornerB"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "create_rectangle"
+            ]
+          },
+          "cornerA": {
+            "$ref": "#/components/schemas/Vec2"
+          },
+          "cornerB": {
+            "$ref": "#/components/schemas/Vec2"
+          }
+        }
+      },
+      "CreatePolylineOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "points",
+          "closed"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "create_polyline"
+            ]
+          },
+          "points": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "$ref": "#/components/schemas/Vec2"
+            }
+          },
+          "closed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DeleteEntityOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "delete_entity"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "cascade": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "MovePointOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "pointId",
+          "target"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "move_point"
+            ]
+          },
+          "pointId": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Vec2"
+          }
+        }
+      },
+      "MoveEntityOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityId",
+          "delta"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "move_entity"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "delta": {
+            "$ref": "#/components/schemas/Vec2"
+          }
+        }
+      },
+      "AddConstraintOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "constraint"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "add_constraint"
+            ]
+          },
+          "constraint": {
+            "$ref": "#/components/schemas/SketchConstraintInput"
+          }
+        }
+      },
+      "RemoveConstraintOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "constraintId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "remove_constraint"
+            ]
+          },
+          "constraintId": {
+            "type": "string"
+          }
+        }
+      },
+      "AddDimensionOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "dimension"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "add_dimension"
+            ]
+          },
+          "dimension": {
+            "$ref": "#/components/schemas/SketchDimensionInput"
+          }
+        }
+      },
+      "SetDimensionValueOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "dimensionId",
+          "value"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "set_dimension_value"
+            ]
+          },
+          "dimensionId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "RemoveDimensionOp": {
+        "type": "object",
+        "required": [
+          "type",
+          "dimensionId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "remove_dimension"
+            ]
+          },
+          "dimensionId": {
+            "type": "string"
+          }
+        }
+      },
+      "SketchConstraintInput": {
+        "description": "Same as SketchConstraint, but the backend generates the final ID and active status.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CoincidentConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/HorizontalConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/VerticalConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/ParallelConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/PerpendicularConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/TangentConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/EqualConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/FixedConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/MidpointConstraintInput"
+          },
+          {
+            "$ref": "#/components/schemas/ConcentricConstraintInput"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "CoincidentConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "pointAId",
+          "pointBId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "coincident"
+            ]
+          },
+          "pointAId": {
+            "type": "string"
+          },
+          "pointBId": {
+            "type": "string"
+          }
+        }
+      },
+      "HorizontalConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "lineId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "horizontal"
+            ]
+          },
+          "lineId": {
+            "type": "string"
+          }
+        }
+      },
+      "VerticalConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "lineId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "vertical"
+            ]
+          },
+          "lineId": {
+            "type": "string"
+          }
+        }
+      },
+      "ParallelConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "lineAId",
+          "lineBId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "parallel"
+            ]
+          },
+          "lineAId": {
+            "type": "string"
+          },
+          "lineBId": {
+            "type": "string"
+          }
+        }
+      },
+      "PerpendicularConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "lineAId",
+          "lineBId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "perpendicular"
+            ]
+          },
+          "lineAId": {
+            "type": "string"
+          },
+          "lineBId": {
+            "type": "string"
+          }
+        }
+      },
+      "TangentConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityAId",
+          "entityBId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "tangent"
+            ]
+          },
+          "entityAId": {
+            "type": "string"
+          },
+          "entityBId": {
+            "type": "string"
+          },
+          "branch": {
+            "$ref": "#/components/schemas/TangentBranch"
+          }
+        }
+      },
+      "EqualConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityAId",
+          "entityBId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "equal"
+            ]
+          },
+          "entityAId": {
+            "type": "string"
+          },
+          "entityBId": {
+            "type": "string"
+          }
+        }
+      },
+      "FixedConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "fixed"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          }
+        }
+      },
+      "MidpointConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "midpointId",
+          "pointAId",
+          "pointBId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "midpoint"
+            ]
+          },
+          "midpointId": {
+            "type": "string"
+          },
+          "pointAId": {
+            "type": "string"
+          },
+          "pointBId": {
+            "type": "string"
+          }
+        }
+      },
+      "ConcentricConstraintInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "circleAId",
+          "circleBId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "concentric"
+            ]
+          },
+          "circleAId": {
+            "type": "string"
+          },
+          "circleBId": {
+            "type": "string"
+          }
+        }
+      },
+      "SketchDimensionInput": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DistanceDimensionInput"
+          },
+          {
+            "$ref": "#/components/schemas/RadiusDimensionInput"
+          },
+          {
+            "$ref": "#/components/schemas/DiameterDimensionInput"
+          },
+          {
+            "$ref": "#/components/schemas/AngleDimensionInput"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "DistanceDimensionInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "refAId",
+          "refBId",
+          "value"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "distance"
+            ]
+          },
+          "refAId": {
+            "type": "string"
+          },
+          "refBId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "driving": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "RadiusDimensionInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityId",
+          "value"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "radius"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "driving": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "DiameterDimensionInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityId",
+          "value"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "diameter"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "driving": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "AngleDimensionInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "lineAId",
+          "lineBId",
+          "value"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "angle"
+            ]
+          },
+          "lineAId": {
+            "type": "string"
+          },
+          "lineBId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          },
+          "driving": {
+            "type": "boolean",
+            "default": true
+          },
+          "orientation": {
+            "$ref": "#/components/schemas/AngleOrientation"
+          }
+        }
+      },
+      "SketchPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "entities": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SketchEntity"
+            }
+          },
+          "constraints": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SketchConstraint"
+            }
+          },
+          "dimensions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SketchDimension"
+            }
+          },
+          "deletedEntityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deletedConstraintIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deletedDimensionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SolvePreviewRequest": {
+        "type": "object",
+        "required": [
+          "baseVersion",
+          "intent"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "baseVersion": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "intent": {
+            "$ref": "#/components/schemas/SolverIntent"
+          },
+          "options": {
+            "$ref": "#/components/schemas/SolverOptions"
+          }
+        }
+      },
+      "SolverIntent": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MovePointIntent"
+          },
+          {
+            "$ref": "#/components/schemas/MoveEntityIntent"
+          },
+          {
+            "$ref": "#/components/schemas/SetDimensionIntent"
+          },
+          {
+            "$ref": "#/components/schemas/AddConstraintIntent"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "MovePointIntent": {
+        "type": "object",
+        "required": [
+          "type",
+          "pointId",
+          "target"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "move_point"
+            ]
+          },
+          "pointId": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Vec2"
+          },
+          "weight": {
+            "type": "number",
+            "format": "double",
+            "default": 1
+          }
+        }
+      },
+      "MoveEntityIntent": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityId",
+          "delta"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "move_entity"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "delta": {
+            "$ref": "#/components/schemas/Vec2"
+          },
+          "weight": {
+            "type": "number",
+            "format": "double",
+            "default": 1
+          }
+        }
+      },
+      "SetDimensionIntent": {
+        "type": "object",
+        "required": [
+          "type",
+          "dimensionId",
+          "value"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "set_dimension"
+            ]
+          },
+          "dimensionId": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "AddConstraintIntent": {
+        "type": "object",
+        "required": [
+          "type",
+          "constraint"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "add_constraint"
+            ]
+          },
+          "constraint": {
+            "$ref": "#/components/schemas/SketchConstraintInput"
+          }
+        }
+      },
+      "SolverOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tolerance": {
+            "type": "number",
+            "format": "double",
+            "default": 1e-06
+          },
+          "maxIterations": {
+            "type": "integer",
+            "default": 100
+          },
+          "deterministic": {
+            "type": "boolean",
+            "default": true
+          },
+          "returnDiagnostics": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "SolvePreviewResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "patch",
+          "affectedEntityIds",
+          "diagnostics"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/SolveStatusInfo"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/SketchPatch"
+          },
+          "affectedEntityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SolverDiagnostic"
+            }
+          }
+        }
+      },
+      "AnalyzeSketchResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "degreesOfFreedom",
+          "components",
+          "diagnostics"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/SolveStatusInfo"
+          },
+          "degreesOfFreedom": {
+            "type": "integer"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConstraintComponent"
+            }
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SolverDiagnostic"
+            }
+          }
+        }
+      },
+      "SolveStatusInfo": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/SolveStatus"
+          },
+          "degreesOfFreedom": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SolveStatus": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "under_constrained",
+          "fully_constrained",
+          "over_constrained",
+          "inconsistent",
+          "numerical_failure"
+        ]
+      },
+      "SolverDiagnostic": {
+        "type": "object",
+        "required": [
+          "level",
+          "code",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "error"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "entityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "constraintIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dimensionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ConstraintComponent": {
+        "type": "object",
+        "required": [
+          "id",
+          "entityIds",
+          "constraintIds",
+          "degreesOfFreedom"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "constraintIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "degreesOfFreedom": {
+            "type": "integer"
+          }
+        }
+      },
+      "SketchConflict": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "status",
+          "affectedEntityIds",
+          "causedByOpIds"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "over_constrained",
+              "inconsistent_constraints",
+              "dangling_reference",
+              "dimension_conflict",
+              "solver_branch_conflict",
+              "lock_conflict"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "resolved",
+              "ignored"
+            ]
+          },
+          "affectedEntityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "causedByOpIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "OperationRejection": {
+        "type": "object",
+        "required": [
+          "reason",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "stale_base_version",
+              "lock_conflict",
+              "invalid_reference",
+              "invalid_operation",
+              "solver_inconsistent",
+              "solver_over_constrained",
+              "solver_numerical_failure",
+              "permission_denied"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SolverDiagnostic"
+            }
+          }
+        }
+      },
+      "AcquireLockRequest": {
+        "type": "object",
+        "required": [
+          "scope",
+          "mode"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/LockScope"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "edit",
+              "preview"
+            ]
+          },
+          "ttlMs": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000,
+            "default": 15000
+          }
+        }
+      },
+      "AcquireLockResponse": {
+        "type": "object",
+        "required": [
+          "granted"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "granted": {
+            "type": "boolean"
+          },
+          "lock": {
+            "$ref": "#/components/schemas/SketchLock"
+          },
+          "conflict": {
+            "$ref": "#/components/schemas/LockConflict"
+          }
+        }
+      },
+      "RefreshLockRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ttlMs": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000,
+            "default": 15000
+          }
+        }
+      },
+      "SketchLock": {
+        "type": "object",
+        "required": [
+          "id",
+          "sketchId",
+          "ownerUserId",
+          "scope",
+          "mode",
+          "expiresAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sketchId": {
+            "type": "string"
+          },
+          "ownerUserId": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/LockScope"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "edit",
+              "preview"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LockScope": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/EntityLockScope"
+          },
+          {
+            "$ref": "#/components/schemas/ConstraintComponentLockScope"
+          },
+          {
+            "$ref": "#/components/schemas/WholeSketchLockScope"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "EntityLockScope": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "entity"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          }
+        }
+      },
+      "ConstraintComponentLockScope": {
+        "type": "object",
+        "required": [
+          "type",
+          "componentId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "constraint_component"
+            ]
+          },
+          "componentId": {
+            "type": "string"
+          },
+          "entityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WholeSketchLockScope": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "sketch"
+            ]
+          }
+        }
+      },
+      "LockConflict": {
+        "type": "object",
+        "required": [
+          "holderUserId",
+          "lockId",
+          "scope"
+        ],
+        "properties": {
+          "holderUserId": {
+            "type": "string"
+          },
+          "lockId": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/LockScope"
+          }
+        }
+      },
+      "RealtimeClientMessage": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/WsJoinMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsCursorMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsSelectionMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsDragPreviewMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsSubmitOpMessage"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "RealtimeServerMessage": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/WsJoinedMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsPresenceMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsOpCommittedMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsOpRejectedMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsLockAcquiredMessage"
+          },
+          {
+            "$ref": "#/components/schemas/WsLockReleasedMessage"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "WsJoinMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "lastSeenVersion"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "join"
+            ]
+          },
+          "lastSeenVersion": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "WsCursorMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "presence.cursor"
+            ]
+          },
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "WsSelectionMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityIds"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "presence.selection"
+            ]
+          },
+          "entityIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WsDragPreviewMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "entityId",
+          "target"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "presence.drag_preview"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Vec2"
+          }
+        }
+      },
+      "WsSubmitOpMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "request"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "op.submit"
+            ]
+          },
+          "request": {
+            "$ref": "#/components/schemas/SubmitOperationRequest"
+          }
+        }
+      },
+      "WsJoinedMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "sketchId",
+          "version",
+          "users"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "joined"
+            ]
+          },
+          "sketchId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollaboratorInfo"
+            }
+          }
+        }
+      },
+      "CollaboratorInfo": {
+        "type": "object",
+        "required": [
+          "userId",
+          "displayName"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        }
+      },
+      "WsPresenceMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "userId",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "presence"
+            ]
+          },
+          "userId": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "WsOpCommittedMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "event"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "op.committed"
+            ]
+          },
+          "event": {
+            "$ref": "#/components/schemas/SubmitOperationResponse"
+          }
+        }
+      },
+      "WsOpRejectedMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "clientOpId",
+          "rejection"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "op.rejected"
+            ]
+          },
+          "clientOpId": {
+            "type": "string"
+          },
+          "currentVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rejection": {
+            "$ref": "#/components/schemas/OperationRejection"
+          }
+        }
+      },
+      "WsLockAcquiredMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "lock"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "lock.acquired"
+            ]
+          },
+          "lock": {
+            "$ref": "#/components/schemas/SketchLock"
+          }
+        }
+      },
+      "WsLockReleasedMessage": {
+        "type": "object",
+        "required": [
+          "type",
+          "lockId"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "lock.released"
+            ]
+          },
+          "lockId": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorObject"
+          }
+        }
+      },
+      "ErrorObject": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "AUTH_REQUIRED",
+              "PERMISSION_DENIED",
+              "SKETCH_NOT_FOUND",
+              "WORKSPACE_NOT_FOUND",
+              "STALE_VERSION",
+              "LOCK_CONFLICT",
+              "INVALID_REFERENCE",
+              "INVALID_OPERATION",
+              "SOLVER_INCONSISTENT",
+              "SOLVER_OVER_CONSTRAINED",
+              "SOLVER_NUMERICAL_FAILURE",
+              "CONSTRAINT_NOT_SUPPORTED",
+              "ENTITY_NOT_SUPPORTED",
+              "PERMISSION_GRANT_FORBIDDEN",
+              "PERMISSION_REVOKE_FORBIDDEN",
+              "CANNOT_REVOKE_CREATOR_ADMIN",
+              "USER_NOT_FOUND",
+              "INTERNAL_ERROR"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "SketchAccessRole": {
+        "type": "string",
+        "enum": [
+          "reader",
+          "editor",
+          "admin"
+        ]
+      },
+      "SketchPermissionSource": {
+        "type": "string",
+        "enum": [
+          "creator",
+          "explicit"
+        ]
+      },
+      "SketchPermission": {
+        "type": "object",
+        "required": [
+          "sketchId",
+          "userId",
+          "role",
+          "source",
+          "grantedByUserId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "sketchId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/SketchAccessRole"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SketchPermissionSource"
+          },
+          "grantedByUserId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null for the implicit creator admin grant."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SketchPermissionList": {
+        "type": "object",
+        "required": [
+          "sketchId",
+          "permissions"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "sketchId": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SketchPermission"
+            }
+          }
+        }
+      },
+      "SetSketchPermissionRequest": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/SketchAccessRole"
+          }
+        }
+      }
+    }
+  }
+}
