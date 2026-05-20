@@ -60,6 +60,8 @@ func (c *Client) Authenticate(ctx context.Context, accessToken, refreshToken str
 	defer cancel()
 	if traceID, ok := TraceIDFromContext(ctx); ok {
 		ctx = metadata.AppendToOutgoingContext(ctx, TraceIDHeader, traceID)
+	} else {
+		ctx = metadata.AppendToOutgoingContext(ctx, TraceIDHeader, "00000000-0000-0000-0000-000000000000")
 	}
 
 	tokenData, err := c.client.AuthUserIDCtx(ctx, &authv1.UserTokens{
