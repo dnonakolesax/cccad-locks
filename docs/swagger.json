@@ -86,6 +86,31 @@
         }
       }
     },
+    "/api/v1/sketches": {
+      "get": {
+        "tags": [
+          "Sketches"
+        ],
+        "operationId": "listAvailableSketches",
+        "summary": "List sketches available to the current user",
+        "description": "Returns non-deleted sketches for which the authenticated user has at least reader access.",
+        "responses": {
+          "200": {
+            "description": "Available sketches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailableSketchList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/api/v1/sketches/{sketchId}": {
       "get": {
         "tags": [
@@ -708,6 +733,70 @@
           "createdByUserId": {
             "type": "string",
             "description": "User ID of the sketch creator. Only this user can grant or revoke the admin role."
+          }
+        }
+      },
+      "AvailableSketch": {
+        "type": "object",
+        "required": [
+          "id",
+          "workspaceId",
+          "name",
+          "createdByUserId",
+          "unit",
+          "version",
+          "role",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/LengthUnit"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "role": {
+            "$ref": "#/components/schemas/SketchAccessRole"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "description": "User ID of the sketch creator. Only this user can grant or revoke the admin role."
+          }
+        }
+      },
+      "AvailableSketchList": {
+        "type": "object",
+        "required": [
+          "sketches"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "sketches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AvailableSketch"
+            }
           }
         }
       },

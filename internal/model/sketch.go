@@ -28,6 +28,24 @@ type SketchMetadata struct {
 }
 
 //easyjson:json
+type AvailableSketch struct {
+	ID              string `json:"id"`
+	WorkspaceID     string `json:"workspaceId"`
+	Name            string `json:"name"`
+	CreatedByUserID string `json:"createdByUserId"`
+	Unit            string `json:"unit"`
+	Version         int64  `json:"version"`
+	Role            string `json:"role"`
+	CreatedAt       string `json:"createdAt"`
+	UpdatedAt       string `json:"updatedAt"`
+}
+
+//easyjson:json
+type AvailableSketchList struct {
+	Sketches []AvailableSketch `json:"sketches"`
+}
+
+//easyjson:json
 type SketchDocument struct {
 	ID              string                         `json:"id"`
 	WorkspaceID     string                         `json:"workspaceId"`

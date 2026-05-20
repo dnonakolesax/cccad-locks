@@ -14,6 +14,7 @@ import (
 
 type SketchesService interface {
 	Create(ctx context.Context, workspaceID string, request *model.CreateSketchRequest) (*model.SketchMetadata, error)
+	ListAvailable(ctx context.Context) ([]model.AvailableSketch, error)
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
 	UpdateMetadata(ctx context.Context, sketchID string, request *model.UpdateSketchMetadataRequest) (*model.SketchMetadata, error)
 	Delete(ctx context.Context, sketchID string) error
@@ -31,6 +32,7 @@ func NewSketchesHandler(service SketchesService) *SketchesHandler {
 
 func (h *SketchesHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/workspaces/{workspaceId}/sketches", h.Create)
+	mux.HandleFunc("GET /api/v1/sketches", h.ListAvailable)
 	mux.HandleFunc("GET /api/v1/sketches/{sketchId}", h.Get)
 	mux.HandleFunc("PATCH /api/v1/sketches/{sketchId}", h.UpdateMetadata)
 	mux.HandleFunc("DELETE /api/v1/sketches/{sketchId}", h.Delete)
@@ -68,6 +70,16 @@ func (h *SketchesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, metadata)
+}
+
+func (h *SketchesHandler) ListAvailable(w http.ResponseWriter, r *http.Request) {
+	sketches, err := h.service.ListAvailable(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, &model.AvailableSketchList{Sketches: sketches})
 }
 
 func (h *SketchesHandler) Get(w http.ResponseWriter, r *http.Request) {

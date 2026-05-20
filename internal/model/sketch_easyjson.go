@@ -669,3 +669,253 @@ func (v *CreateSketchRequest) UnmarshalJSON(data []byte) error {
 func (v *CreateSketchRequest) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel3(l, v)
 }
+func easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel4(in *jlexer.Lexer, out *AvailableSketchList) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		switch key {
+		case "sketches":
+			if in.IsNull() {
+				in.Skip()
+				out.Sketches = nil
+			} else {
+				in.Delim('[')
+				if out.Sketches == nil {
+					if !in.IsDelim(']') {
+						out.Sketches = make([]AvailableSketch, 0, 0)
+					} else {
+						out.Sketches = []AvailableSketch{}
+					}
+				} else {
+					out.Sketches = (out.Sketches)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v12 AvailableSketch
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						(v12).UnmarshalEasyJSON(in)
+					}
+					out.Sketches = append(out.Sketches, v12)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jwriter.Writer, in AvailableSketchList) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"sketches\":"
+		out.RawString(prefix[1:])
+		if in.Sketches == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+			out.RawString("null")
+		} else {
+			out.RawByte('[')
+			for v13, v14 := range in.Sketches {
+				if v13 > 0 {
+					out.RawByte(',')
+				}
+				(v14).MarshalEasyJSON(out)
+			}
+			out.RawByte(']')
+		}
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v AvailableSketchList) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel4(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v AvailableSketchList) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel4(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *AvailableSketchList) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel4(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *AvailableSketchList) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel4(l, v)
+}
+func easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel5(in *jlexer.Lexer, out *AvailableSketch) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		switch key {
+		case "id":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ID = string(in.String())
+			}
+		case "workspaceId":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.WorkspaceID = string(in.String())
+			}
+		case "name":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.Name = string(in.String())
+			}
+		case "createdByUserId":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.CreatedByUserID = string(in.String())
+			}
+		case "unit":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.Unit = string(in.String())
+			}
+		case "version":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.Version = int64(in.Int64())
+			}
+		case "role":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.Role = string(in.String())
+			}
+		case "createdAt":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.CreatedAt = string(in.String())
+			}
+		case "updatedAt":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.UpdatedAt = string(in.String())
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel5(out *jwriter.Writer, in AvailableSketch) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"id\":"
+		out.RawString(prefix[1:])
+		out.String(string(in.ID))
+	}
+	{
+		const prefix string = ",\"workspaceId\":"
+		out.RawString(prefix)
+		out.String(string(in.WorkspaceID))
+	}
+	{
+		const prefix string = ",\"name\":"
+		out.RawString(prefix)
+		out.String(string(in.Name))
+	}
+	{
+		const prefix string = ",\"createdByUserId\":"
+		out.RawString(prefix)
+		out.String(string(in.CreatedByUserID))
+	}
+	{
+		const prefix string = ",\"unit\":"
+		out.RawString(prefix)
+		out.String(string(in.Unit))
+	}
+	{
+		const prefix string = ",\"version\":"
+		out.RawString(prefix)
+		out.Int64(int64(in.Version))
+	}
+	{
+		const prefix string = ",\"role\":"
+		out.RawString(prefix)
+		out.String(string(in.Role))
+	}
+	{
+		const prefix string = ",\"createdAt\":"
+		out.RawString(prefix)
+		out.String(string(in.CreatedAt))
+	}
+	{
+		const prefix string = ",\"updatedAt\":"
+		out.RawString(prefix)
+		out.String(string(in.UpdatedAt))
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v AvailableSketch) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel5(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v AvailableSketch) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel5(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *AvailableSketch) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel5(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *AvailableSketch) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel5(l, v)
+}

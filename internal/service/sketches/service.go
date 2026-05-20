@@ -18,6 +18,7 @@ type Repository interface {
 		request *model.CreateSketchRequest,
 		createdByUserID string,
 	) (*model.SketchMetadata, error)
+	ListAvailable(ctx context.Context, userID string) ([]model.AvailableSketch, error)
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
 	UpdateMetadata(
 		ctx context.Context,
@@ -66,6 +67,15 @@ func (s *Service) Create(
 	}
 
 	return s.repo.Create(ctx, workspaceID, request, userID)
+}
+
+func (s *Service) ListAvailable(ctx context.Context) ([]model.AvailableSketch, error) {
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authenticated user id is required")
+	}
+
+	return s.repo.ListAvailable(ctx, userID)
 }
 
 func (s *Service) Get(ctx context.Context, sketchID string) (*model.SketchDocument, error) {

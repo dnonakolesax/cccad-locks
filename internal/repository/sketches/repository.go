@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	createSketchRequest         = "sketch_create"
-	getSketchRequest            = "sketch_get"
-	updateSketchMetadataRequest = "sketch_update_metadata"
-	deleteSketchRequest         = "sketch_delete"
+	createSketchRequest          = "sketch_create"
+	listAvailableSketchesRequest = "sketch_list_available"
+	getSketchRequest             = "sketch_get"
+	updateSketchMetadataRequest  = "sketch_update_metadata"
+	deleteSketchRequest          = "sketch_delete"
 )
 
 type Repository struct {
@@ -57,6 +58,32 @@ func (r *Repository) Create(
 	}
 
 	return metadata, nil
+}
+
+func (r *Repository) ListAvailable(ctx context.Context, userID string) ([]model.AvailableSketch, error) {
+	sqlRequest, err := r.db.Request(listAvailableSketchesRequest)
+	if err != nil {
+		return nil, fmt.Errorf("list available sketches request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list available sketches: %w", err)
+	}
+
+	sketches := make([]model.AvailableSketch, 0)
+	for rows.Next() {
+		sketch, scanErr := scanAvailableSketch(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		sketches = append(sketches, *sketch)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("list available sketches rows: %w", err)
+	}
+
+	return sketches, nil
 }
 
 func (r *Repository) Get(ctx context.Context, sketchID string) (*model.SketchDocument, error) {
@@ -190,6 +217,31 @@ func scanDocument(rows *dbsql.PGXResponse) (*model.SketchDocument, error) {
 	}
 
 	return &document, nil
+}
+
+func scanAvailableSketch(rows *dbsql.PGXResponse) (*model.AvailableSketch, error) {
+	var sketch model.AvailableSketch
+	var createdAt time.Time
+	var updatedAt time.Time
+
+	if err := rows.Scan(
+		&sketch.ID,
+		&sketch.WorkspaceID,
+		&sketch.Name,
+		&sketch.CreatedByUserID,
+		&sketch.Unit,
+		&sketch.Version,
+		&sketch.Role,
+		&createdAt,
+		&updatedAt,
+	); err != nil {
+		return nil, fmt.Errorf("scan available sketch: %w", err)
+	}
+
+	sketch.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
+	sketch.UpdatedAt = updatedAt.UTC().Format(time.RFC3339Nano)
+
+	return &sketch, nil
 }
 
 func scanMetadata(rows *dbsql.PGXResponse) (*model.SketchMetadata, error) {
