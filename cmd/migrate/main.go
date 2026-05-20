@@ -27,22 +27,22 @@ func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
-	os.Setenv("DB_ROOT_LOGIN", "")
-	os.Setenv("DB_ROOT_PASSWORD", "")
+	os.Setenv("POSTGRES_LOGIN", "root")
+	os.Setenv("POSTGRES_PASSWORD", "root")
 }
 
 func run() error {
 	configDir := flag.String("configs", defaultConfigDir, "Path to configs")
 	migrationsDir := flag.String("dir", defaultMigrationsDir, "Path to goose migrations")
-	dsn := flag.String("dsn", "", "Postgres DSN. Defaults to DATABASE_URL, then postgres config")
-	flag.Parse()
+	// dsn := flag.String("dsn", "", "Postgres DSN. Defaults to DATABASE_URL, then postgres config")
+	// flag.Parse()
 
 	command := "up"
 	if flag.NArg() > 0 {
 		command = flag.Arg(0)
 	}
 
-	db, err := openDB(*dsn, *configDir)
+	db, err := openDB(*configDir)
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}
@@ -57,8 +57,8 @@ func run() error {
 		return fmt.Errorf("set goose dialect: %w", err)
 	}
 
-	args := flag.Args()[1:]
-	err = goose.RunContext(context.Background(), command, db, *migrationsDir, args...)
+	//args := flag.Args()[1:]
+	err = goose.RunContext(context.Background(), command, db, *migrationsDir)
 	if err != nil {
 		return fmt.Errorf("goose %s: %w", command, err)
 	}
@@ -66,18 +66,18 @@ func run() error {
 	return nil
 }
 
-func openDB(flagDSN, configDir string) (*sql.DB, error) {
-	dsn := strings.TrimSpace(flagDSN)
-	if dsn == "" {
-		dsn = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if dsn == "" {
+func openDB(configDir string) (*sql.DB, error) {
+	//dsn := strings.TrimSpace(flagDSN)
+	// if dsn == "" {
+	// 	dsn = strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	// }
+	// if dsn == "" {
 		cfg, err := loadPostgresConfig(configDir)
 		if err != nil {
 			return nil, err
 		}
-		dsn = postgresDSN(cfg)
-	}
+		dsn := postgresDSN(cfg)
+	//}
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -103,9 +103,11 @@ func loadPostgresConfig(configDir string) (*configs.RDBConfig, error) {
 	}
 	cfg.SetDefaults(v)
 
-	cfg.Login = os.Getenv("DB_ROOT_LOGIN")
-	cfg.Password = os.Getenv("DB_ROOT_PASSWORD")
+	cfg.Login = os.Getenv("POSTGRES_USER")
+	cfg.Password = os.Getenv("POSTGRES_PASSWORD")
 	cfg.DBName = "cccad"
+	cfg.Address = "sk-psql"
+	cfg.Port = 5432
 	// logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 	// address := os.Getenv("VAULT_ADDRESS")
