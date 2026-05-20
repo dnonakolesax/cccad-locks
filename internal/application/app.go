@@ -73,13 +73,13 @@ func (a *App) Run() {
 	a.registerRoutes(router)
 
 	mux := http.NewServeMux()
-	basePath := normalizeBasePath(a.configs.Service.BasePath)
-	if basePath == "/" {
+	//basePath := normalizeBasePath(a.configs.Service.BasePath)
+	//if basePath == "/" {
 		mux.Handle("/", router)
-	} else {
-		mountPath := strings.TrimSuffix(basePath, "/")
-		mux.Handle(mountPath+"/", http.StripPrefix(mountPath, router))
-	}
+	//} else {
+	//	mountPath := strings.TrimSuffix(basePath, "/")
+	//	mux.Handle(mountPath+"/", http.StripPrefix(mountPath, router))
+	//}
 
 	handler := http.Handler(mux)
 	if a.configs.HTTPServer.MaxReqBodySize > 0 {
@@ -118,7 +118,7 @@ func (a *App) Run() {
 	wg.Go(func() {
 		a.initLogger.Info("Starting HTTP server",
 			slog.Int("port", a.configs.Service.Port),
-			slog.String("base_path", basePath))
+			slog.String("base_path", ""))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.initLogger.Error("HTTP server error", slog.String(consts.ErrorLoggerKey, err.Error()))
 		}
