@@ -31,17 +31,21 @@ func NewSketchesHandler(service SketchesService) *SketchesHandler {
 }
 
 func (h *SketchesHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/v1/workspaces/{workspaceId}/sketches", h.Create)
-	mux.HandleFunc("GET /api/v1/sketches", h.ListAvailable)
-	mux.HandleFunc("GET /api/v1/sketches/{sketchId}", h.Get)
-	mux.HandleFunc("PATCH /api/v1/sketches/{sketchId}", h.UpdateMetadata)
-	mux.HandleFunc("DELETE /api/v1/sketches/{sketchId}", h.Delete)
+	mux.HandleFunc("POST /workspaces/{workspaceId}/sketches", h.Create)
+	mux.HandleFunc("GET /", h.ListAvailable)
+	mux.HandleFunc("GET /{sketchId}", h.Get)
+	mux.HandleFunc("PATCH /{sketchId}", h.UpdateMetadata)
+	mux.HandleFunc("DELETE /{sketchId}", h.Delete)
 }
 
 func (h *SketchesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	workspaceID := r.PathValue("workspaceId")
 	if strings.TrimSpace(workspaceID) == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "workspaceId is required")
+		return
+	}
+	if !isValidUUID(workspaceID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "workspaceId must be a valid uuid")
 		return
 	}
 
@@ -88,6 +92,10 @@ func (h *SketchesHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId is required")
 		return
 	}
+	if !isValidUUID(sketchID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
+		return
+	}
 
 	document, err := h.service.Get(r.Context(), sketchID)
 	if err != nil {
@@ -106,6 +114,10 @@ func (h *SketchesHandler) UpdateMetadata(w http.ResponseWriter, r *http.Request)
 	sketchID := r.PathValue("sketchId")
 	if strings.TrimSpace(sketchID) == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId is required")
+		return
+	}
+	if !isValidUUID(sketchID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
 		return
 	}
 
@@ -140,6 +152,10 @@ func (h *SketchesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	sketchID := r.PathValue("sketchId")
 	if strings.TrimSpace(sketchID) == "" {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId is required")
+		return
+	}
+	if !isValidUUID(sketchID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
 		return
 	}
 
@@ -207,4 +223,32 @@ func isValidLengthUnit(unit string) bool {
 	default:
 		return false
 	}
+}
+
+func isValidUUID(value string) bool {
+	value = strings.TrimSpace(value)
+	if len(value) != 36 {
+		return false
+	}
+
+	for i, r := range value {
+		switch i {
+		case 8, 13, 18, 23:
+			if r != '-' {
+				return false
+			}
+		default:
+			if !isHex(r) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func isHex(r rune) bool {
+	return (r >= '0' && r <= '9') ||
+		(r >= 'a' && r <= 'f') ||
+		(r >= 'A' && r <= 'F')
 }

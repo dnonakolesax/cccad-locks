@@ -27,8 +27,8 @@ func NewSolverHandler(service SolverService) *SolverHandler {
 }
 
 func (h *SolverHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/v1/sketches/{sketchId}/solve-preview", h.Preview)
-	mux.HandleFunc("POST /api/v1/sketches/{sketchId}/analyze", h.Analyze)
+	mux.HandleFunc("POST /{sketchId}/solve-preview", h.Preview)
+	mux.HandleFunc("POST /{sketchId}/analyze", h.Analyze)
 }
 
 func (h *SolverHandler) Preview(w http.ResponseWriter, r *http.Request) {

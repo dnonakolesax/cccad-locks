@@ -30,9 +30,9 @@ func NewPermissionsHandler(service PermissionsService) *PermissionsHandler {
 }
 
 func (h *PermissionsHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/v1/sketches/{sketchId}/permissions", h.Get)
-	mux.HandleFunc("PUT /api/v1/sketches/{sketchId}/permissions/{userId}", h.Put)
-	mux.HandleFunc("DELETE /api/v1/sketches/{sketchId}/permissions/{userId}", h.Delete)
+	mux.HandleFunc("GET /{sketchId}/permissions", h.Get)
+	mux.HandleFunc("PUT /{sketchId}/permissions/{userId}", h.Put)
+	mux.HandleFunc("DELETE /{sketchId}/permissions/{userId}", h.Delete)
 }
 
 func (h *PermissionsHandler) Get(w http.ResponseWriter, r *http.Request) {

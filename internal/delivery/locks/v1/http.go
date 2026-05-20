@@ -28,9 +28,9 @@ func NewLocksHandler(service LocksService) *LocksHandler {
 }
 
 func (h *LocksHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/v1/sketches/{sketchId}/locks", h.Acquire)
-	mux.HandleFunc("POST /api/v1/sketches/{sketchId}/locks/{lockId}/refresh", h.Refresh)
-	mux.HandleFunc("DELETE /api/v1/sketches/{sketchId}/locks/{lockId}", h.Release)
+	mux.HandleFunc("POST /{sketchId}/locks", h.Acquire)
+	mux.HandleFunc("POST /{sketchId}/locks/{lockId}/refresh", h.Refresh)
+	mux.HandleFunc("DELETE /{sketchId}/locks/{lockId}", h.Release)
 }
 
 func (h *LocksHandler) Acquire(w http.ResponseWriter, r *http.Request) {

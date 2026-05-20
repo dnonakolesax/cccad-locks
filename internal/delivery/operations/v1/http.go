@@ -35,8 +35,8 @@ func NewOperationsHandler(service OperationsService) *OperationsHandler {
 }
 
 func (h *OperationsHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/v1/sketches/{sketchId}/ops", h.List)
-	mux.HandleFunc("POST /api/v1/sketches/{sketchId}/ops", h.Submit)
+	mux.HandleFunc("GET /{sketchId}/ops", h.List)
+	mux.HandleFunc("POST /{sketchId}/ops", h.Submit)
 }
 
 func (h *OperationsHandler) List(w http.ResponseWriter, r *http.Request) {

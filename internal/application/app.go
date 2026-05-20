@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -73,13 +74,13 @@ func (a *App) Run() {
 	a.registerRoutes(router)
 
 	mux := http.NewServeMux()
-	//basePath := normalizeBasePath(a.configs.Service.BasePath)
-	//if basePath == "/" {
+	mountPath := apiMountPath(a.configs.Service.BasePath)
+	if mountPath == "/" {
 		mux.Handle("/", router)
-	//} else {
-	//	mountPath := strings.TrimSuffix(basePath, "/")
-	//	mux.Handle(mountPath+"/", http.StripPrefix(mountPath, router))
-	//}
+	} else {
+		mux.Handle(mountPath, stripPrefixWithRoot(mountPath, router))
+		mux.Handle(mountPath+"/", http.StripPrefix(mountPath, router))
+	}
 
 	handler := http.Handler(mux)
 	if a.configs.HTTPServer.MaxReqBodySize > 0 {
@@ -118,7 +119,7 @@ func (a *App) Run() {
 	wg.Go(func() {
 		a.initLogger.Info("Starting HTTP server",
 			slog.Int("port", a.configs.Service.Port),
-			slog.String("base_path", ""))
+			slog.String("base_path", mountPath))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.initLogger.Error("HTTP server error", slog.String(consts.ErrorLoggerKey, err.Error()))
 		}
@@ -217,4 +218,36 @@ func normalizeBasePath(basePath string) string {
 	}
 
 	return path.Clean("/" + strings.Trim(basePath, "/"))
+}
+
+func apiMountPath(basePath string) string {
+	basePath = normalizeBasePath(basePath)
+	if basePath == "/" {
+		return "/api/v1"
+	}
+
+	return path.Clean("/api/v1" + basePath)
+}
+
+func stripPrefixWithRoot(prefix string, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r2 := new(http.Request)
+		*r2 = *r
+		r2.URL = cloneURL(r.URL)
+		r2.URL.Path = strings.TrimPrefix(r.URL.Path, prefix)
+		r2.URL.RawPath = strings.TrimPrefix(r.URL.RawPath, prefix)
+		if r2.URL.Path == "" {
+			r2.URL.Path = "/"
+		}
+		if r2.URL.RawPath == "" {
+			r2.URL.RawPath = "/"
+		}
+		h.ServeHTTP(w, r2)
+	})
+}
+
+func cloneURL(u *url.URL) *url.URL {
+	u2 := new(url.URL)
+	*u2 = *u
+	return u2
 }
