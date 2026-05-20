@@ -31,9 +31,8 @@ func (m *Middleware) Handle(next http.Handler) http.Handler {
 		}
 
 		accessToken, ok := cookieValue(r, AccessTokenCookie)
-		if !ok {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
+		if !ok && m.logger != nil {
+			m.logger.DebugContext(r.Context(), "Access token cookie is missing, trying refresh token")
 		}
 		refreshToken, ok := cookieValue(r, RefreshTokenCookie)
 		if !ok {
