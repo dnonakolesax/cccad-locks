@@ -18,7 +18,8 @@ const (
 	postgresPasswordKey         = "postgres_password"
 	postgresRequestsPathKey     = "postgres.requests-path"
 	postgresDefaultRequestsPath = "./sql_requests"
-	postgresRolePath            = "database/kc-selector"
+	postgresRolePathKey         = "postgres.role-path"
+	postgresDefaultRolePath     = "database/kc-selector"
 )
 
 const (
@@ -43,7 +44,8 @@ const (
 	RedisDefaultAddress        = "redis"
 	RedisPortKey               = "redis.port"
 	RedisDefaultPort           = 6379
-	RedisPasswordKey           = "secret/redis:password"
+	RedisPasswordPathKey       = "redis.password-path"
+	RedisDefaultPasswordPath   = "secret/redis:password"
 	RedisRequestTimeoutKey     = "redis.request-timeout"
 	RedisDefaultRequestTimeout = 10 * time.Second
 )
@@ -57,6 +59,7 @@ type RDBConfig struct {
 	Login        string
 	Password     string
 	RequestsPath string
+	RolePath     string
 
 	ConnTimeout       time.Duration
 	MinConns          int32
@@ -71,6 +74,7 @@ type RedisConfig struct {
 	Address        string
 	Port           int
 	Password       string
+	PasswordPath   string
 	RequestTimeout time.Duration
 }
 
@@ -81,6 +85,7 @@ func (rc *RDBConfig) SetDefaults(v *viper.Viper) {
 	v.SetDefault(postgresLoginKey, nil)
 	v.SetDefault(postgresPasswordKey, nil)
 	v.SetDefault(postgresRequestsPathKey, postgresDefaultRequestsPath)
+	v.SetDefault(postgresRolePathKey, postgresDefaultRolePath)
 
 	v.SetDefault(postgresConnTimeoutKey, postgresDefaultConnTimeout)
 	v.SetDefault(postgresMinConnsKey, postgresDefaultMinConns)
@@ -95,7 +100,8 @@ func (rc *RDBConfig) Load(v *viper.Viper) {
 	rc.Address = v.GetString(postgresAddressKey)
 	rc.Port = v.GetUint(postgresPortKey)
 	rc.DBName = v.GetString(postgresDBNameKey)
-	roleString := v.GetString(postgresRolePath)
+	rc.RolePath = v.GetString(postgresRolePathKey)
+	roleString := v.GetString(rc.RolePath)
 	roleStringSplitted := strings.Split(roleString, ":")
 	if len(roleStringSplitted) == rolePartsCount {
 		rc.Login = roleStringSplitted[0]
@@ -118,13 +124,14 @@ func (rc *RDBConfig) Load(v *viper.Viper) {
 func (rc *RedisConfig) SetDefaults(v *viper.Viper) {
 	v.SetDefault(RedisAddressKey, RedisDefaultAddress)
 	v.SetDefault(RedisPortKey, RedisDefaultPort)
-	v.SetDefault(RedisPasswordKey, "")
+	v.SetDefault(RedisPasswordPathKey, RedisDefaultPasswordPath)
 	v.SetDefault(RedisRequestTimeoutKey, RedisDefaultRequestTimeout)
 }
 
 func (rc *RedisConfig) Load(v *viper.Viper) {
 	rc.Address = v.GetString(RedisAddressKey)
 	rc.Port = v.GetInt(RedisPortKey)
-	rc.Password = v.GetString(RedisPasswordKey)
+	rc.PasswordPath = v.GetString(RedisPasswordPathKey)
+	rc.Password = v.GetString(rc.PasswordPath)
 	rc.RequestTimeout = v.GetDuration(RedisRequestTimeoutKey)
 }

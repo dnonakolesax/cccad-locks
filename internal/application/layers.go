@@ -21,7 +21,7 @@ func (a *App) SetupLayers() error {
 		PermissionsHTTP: permissionsDelivery.NewPermissionsHandler(a.components.permissions),
 		// LocksHTTP:       locksDelivery.NewLocksHandler(a.components.locks),
 		// OperationsHTTP:  operationsDelivery.NewOperationsHandler(a.components.operations),
-		// SketchesHTTP:    sketchesDelivery.NewSketchesHandler(a.components.sketches),
+		SketchesHTTP: sketchesDelivery.NewSketchesHandler(a.components.sketches),
 		// SolverHTTP:      solverDelivery.NewSolverHandler(a.components.solver),
 	}
 

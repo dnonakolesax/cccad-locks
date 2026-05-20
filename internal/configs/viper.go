@@ -61,7 +61,8 @@ func Load(path string, v *viper.Viper, logger *slog.Logger, _ *vault.Client, _ c
 	// 	VersionPeriod: time.Second * 0,
 	// 	AlertChannel:  eventChan,
 	// }
-	// err = v.AddVault(vaultClient, &vaultWatchConf, postgresRolePath, RedisPasswordKey, realmClientSecretKey)
+	// err = v.AddVault(vaultClient, &vaultWatchConf,
+	// 	v.GetString(postgresRolePathKey), v.GetString(RedisPasswordPathKey), realmClientSecretKey)
 
 	// if err != nil {
 	// 	logger.Error("Failed to add vault", slog.String(consts.ErrorLoggerKey, err.Error()))

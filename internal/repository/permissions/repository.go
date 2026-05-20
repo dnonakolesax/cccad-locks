@@ -9,7 +9,12 @@ import (
 	"github.com/dnonakolesax/cccad-locks/internal/model"
 )
 
-const explicitSource = "explicit"
+const (
+	explicitSource          = "explicit"
+	listPermissionsRequest  = "permissions_list"
+	putPermissionRequest    = "permissions_put"
+	deletePermissionRequest = "permissions_delete"
+)
 
 type Repository struct {
 	db *dbsql.PGXWorker
@@ -20,18 +25,12 @@ func NewRepository(db *dbsql.PGXWorker) *Repository {
 }
 
 func (r *Repository) List(ctx context.Context, sketchID string) ([]model.Permission, error) {
-	rows, err := r.db.Query(ctx, `
-SELECT
-    sketch_id::text,
-    user_id,
-    role::text,
-    granted_by_user_id,
-    granted_at,
-    updated_at
-FROM sketch_permissions
-WHERE sketch_id = $1::uuid
-ORDER BY role DESC, user_id ASC
-`, sketchID)
+	sqlRequest, err := r.db.Request(listPermissionsRequest)
+	if err != nil {
+		return nil, fmt.Errorf("list permissions request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, sketchID)
 	if err != nil {
 		return nil, fmt.Errorf("list permissions: %w", err)
 	}
@@ -57,51 +56,12 @@ func (r *Repository) Put(ctx context.Context, permission *model.Permission) (*mo
 		grantedBy = *permission.GrantedByUserID
 	}
 
-	rows, err := r.db.Query(ctx, `
-WITH previous_permission AS (
-    SELECT role
-    FROM sketch_permissions
-    WHERE sketch_id = $1::uuid AND user_id = $2
-),
-upserted_permission AS (
-    INSERT INTO sketch_permissions (sketch_id, user_id, role, granted_by_user_id)
-    VALUES ($1::uuid, $2, $3::sketch_role, $4)
-    ON CONFLICT (sketch_id, user_id)
-    DO UPDATE SET
-        role = EXCLUDED.role,
-        granted_by_user_id = EXCLUDED.granted_by_user_id
-    RETURNING sketch_id, user_id, role, granted_by_user_id, granted_at, updated_at
-),
-audit AS (
-    INSERT INTO sketch_permission_audit (
-        sketch_id,
-        target_user_id,
-        actor_user_id,
-        old_role,
-        new_role,
-        action
-    )
-    SELECT
-        $1::uuid,
-        $2,
-        $4,
-        (SELECT role FROM previous_permission),
-        $3::sketch_role,
-        CASE
-            WHEN EXISTS (SELECT 1 FROM previous_permission) THEN 'update'
-            ELSE 'grant'
-        END
-    RETURNING id
-)
-SELECT
-    sketch_id::text,
-    user_id,
-    role::text,
-    granted_by_user_id,
-    granted_at,
-    updated_at
-FROM upserted_permission
-`, permission.SketchID, permission.UserID, permission.Role, grantedBy)
+	sqlRequest, err := r.db.Request(putPermissionRequest)
+	if err != nil {
+		return nil, fmt.Errorf("put permission request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, permission.SketchID, permission.UserID, permission.Role, grantedBy)
 	if err != nil {
 		return nil, fmt.Errorf("put permission: %w", err)
 	}
@@ -125,33 +85,12 @@ FROM upserted_permission
 }
 
 func (r *Repository) Delete(ctx context.Context, userID, sketchID string) error {
-	rows, err := r.db.Query(ctx, `
-WITH deleted_permission AS (
-    DELETE FROM sketch_permissions
-    WHERE sketch_id = $1::uuid AND user_id = $2
-    RETURNING sketch_id, user_id, role, granted_by_user_id
-),
-audit AS (
-    INSERT INTO sketch_permission_audit (
-        sketch_id,
-        target_user_id,
-        actor_user_id,
-        old_role,
-        new_role,
-        action
-    )
-    SELECT
-        sketch_id,
-        user_id,
-        granted_by_user_id,
-        role,
-        NULL,
-        'revoke'
-    FROM deleted_permission
-    RETURNING id
-)
-SELECT 1 FROM deleted_permission
-`, sketchID, userID)
+	sqlRequest, err := r.db.Request(deletePermissionRequest)
+	if err != nil {
+		return fmt.Errorf("delete permission request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, sketchID, userID)
 	if err != nil {
 		return fmt.Errorf("delete permission: %w", err)
 	}

@@ -24,10 +24,12 @@ postgres:
   healthcheck-period: 1m # Период проверки состояния соединения
   request-timeout: 30s # Таймаут на выполнение запроса
   requests-path: "./db/requests/"
+  role-path: database/kc-selector
 
 redis:
   address: sk-redis
   port: 6379
+  password-path: secret/redis:password
   request-timeout: 10s
 
 s3:

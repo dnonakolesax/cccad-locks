@@ -20,6 +20,7 @@ services:
       CI_COMMIT_HASH: ${CI_COMMIT_HASH}
     networks:
       - sknet
+      - noted-infra_infra-kc-postgres
 
   sk-redis:
     image: redis:7-alpine
@@ -45,7 +46,10 @@ services:
       retries: 5
     networks:
       - sknet
+      - noted-infra_infra-kc-postgres
 
 networks:
   sknet:
     driver: bridge
+  noted-infra_infra-kc-postgres:
+    external: true  

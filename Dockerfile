@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN mkdir -p /cccad-sketches
 COPY . /cccad-sketches
 WORKDIR /cccad-sketches
-RUN mkdir -p ./db/requests
+COPY db/requests ./db/requests
 
 # Сборка
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \

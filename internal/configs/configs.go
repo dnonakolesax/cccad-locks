@@ -37,7 +37,7 @@ type UpdateChans struct {
 	KCClientSecret  chan string
 }
 
-func ListenUpdates(updateChan chan viper.KVEntry, hc *atomic.Bool) *UpdateChans {
+func ListenUpdates(updateChan chan viper.KVEntry, hc *atomic.Bool, psqlRolePath, redisPasswordPath string) *UpdateChans {
 	psqlChan := make(chan string)
 	redisChan := make(chan string)
 	kcChan := make(chan string)
@@ -45,9 +45,9 @@ func ListenUpdates(updateChan chan viper.KVEntry, hc *atomic.Bool) *UpdateChans 
 	go func() {
 		for value := range updateChan {
 			switch value.Key {
-			case postgresRolePath:
+			case psqlRolePath:
 				psqlChan <- value.Value
-			case RedisPasswordKey:
+			case redisPasswordPath:
 				redisChan <- value.Value
 			}
 		}
@@ -102,7 +102,7 @@ func SetupConfigs(initLogger *slog.Logger, configsDir string, hc *atomic.Bool) (
 		return nil, err
 	}
 
-	updates := ListenUpdates(vaultClient.UpdateChan, hc)
+	updates := ListenUpdates(vaultClient.UpdateChan, hc, psqlConfig.RolePath, redisConfig.PasswordPath)
 
 	return &Config{
 		PSQL:        psqlConfig,

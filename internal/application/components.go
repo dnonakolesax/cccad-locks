@@ -9,8 +9,10 @@ import (
 	dbredis "github.com/dnonakolesax/cccad-locks/internal/db/redis"
 	dbsql "github.com/dnonakolesax/cccad-locks/internal/db/sql"
 	permissionsRepo "github.com/dnonakolesax/cccad-locks/internal/repository/permissions"
+	sketchesRepo "github.com/dnonakolesax/cccad-locks/internal/repository/sketches"
 	"github.com/dnonakolesax/cccad-locks/internal/s3"
 	permissionsService "github.com/dnonakolesax/cccad-locks/internal/service/permissions"
+	sketchesService "github.com/dnonakolesax/cccad-locks/internal/service/sketches"
 	"github.com/dnonakolesax/cccad-locks/internal/solver"
 )
 
@@ -20,6 +22,7 @@ type Components struct {
 	s3          *s3.Worker
 	solver      *solver.Client
 	permissions *permissionsService.Service
+	sketches    *sketchesService.Service
 	auth        *auth.Client
 }
 
@@ -103,6 +106,7 @@ func (a *App) SetupComponents() error {
 		s3:          s3Worker,
 		solver:      solverClient,
 		permissions: permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
+		sketches:    sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
 		auth:        authClient,
 	}
 	return nil

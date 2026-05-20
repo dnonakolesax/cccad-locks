@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,10 +13,10 @@ import (
 )
 
 type SketchesService interface {
-	Create(workspaceID string, request *model.CreateSketchRequest) (*model.SketchMetadata, error)
-	Get(sketchID string) (*model.SketchDocument, error)
-	UpdateMetadata(sketchID string, request *model.UpdateSketchMetadataRequest) (*model.SketchMetadata, error)
-	Delete(sketchID string) error
+	Create(ctx context.Context, workspaceID string, request *model.CreateSketchRequest) (*model.SketchMetadata, error)
+	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
+	UpdateMetadata(ctx context.Context, sketchID string, request *model.UpdateSketchMetadataRequest) (*model.SketchMetadata, error)
+	Delete(ctx context.Context, sketchID string) error
 }
 
 type SketchesHandler struct {
@@ -56,7 +57,7 @@ func (h *SketchesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadata, err := h.service.Create(workspaceID, &request)
+	metadata, err := h.service.Create(r.Context(), workspaceID, &request)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
@@ -76,7 +77,7 @@ func (h *SketchesHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	document, err := h.service.Get(sketchID)
+	document, err := h.service.Get(r.Context(), sketchID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
@@ -110,7 +111,7 @@ func (h *SketchesHandler) UpdateMetadata(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	metadata, err := h.service.UpdateMetadata(sketchID, &request)
+	metadata, err := h.service.UpdateMetadata(r.Context(), sketchID, &request)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
@@ -130,7 +131,7 @@ func (h *SketchesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.Delete(sketchID); err != nil {
+	if err := h.service.Delete(r.Context(), sketchID); err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}

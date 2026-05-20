@@ -108,6 +108,15 @@ type PGXWorker struct {
 	Alive        *atomic.Bool
 }
 
+func (pw *PGXWorker) Request(name string) (string, error) {
+	request, ok := pw.Requests[name]
+	if !ok {
+		return "", fmt.Errorf("sql request %q not found", name)
+	}
+
+	return request, nil
+}
+
 func LoadSQLRequests(dirPath string) (map[string]string, error) {
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
@@ -140,7 +149,11 @@ func LoadSQLRequests(dirPath string) (map[string]string, error) {
 }
 
 func NewPGXWorker(conn *PGXConn, alive *atomic.Bool, vaultChan chan string) (*PGXWorker, error) {
-	requests := make(map[string]string)
+	requests, err := LoadSQLRequests(conn.conf.RequestsPath)
+	if err != nil {
+		return nil, err
+	}
+
 	alive.Store(true)
 
 	worker := &PGXWorker{
