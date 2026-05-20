@@ -22,6 +22,10 @@
   ],
   "tags": [
     {
+      "name": "Workspaces",
+      "description": "Workspace lifecycle and discovery"
+    },
+    {
       "name": "Sketches",
       "description": "Sketch document lifecycle and current state"
     },
@@ -47,6 +51,124 @@
     }
   ],
   "paths": {
+    "/api/v1/workspaces": {
+      "post": {
+        "tags": [
+          "Workspaces"
+        ],
+        "operationId": "createWorkspace",
+        "summary": "Create a workspace",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkspaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Workspace created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Workspaces"
+        ],
+        "operationId": "listAvailableWorkspaces",
+        "summary": "List workspaces available to the current user",
+        "description": "Returns non-deleted workspaces created by the authenticated user or containing a sketch the user can access.",
+        "responses": {
+          "200": {
+            "description": "Available workspaces",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/workspaces/{workspaceId}": {
+      "patch": {
+        "tags": [
+          "Workspaces"
+        ],
+        "operationId": "updateWorkspace",
+        "summary": "Update workspace metadata",
+        "description": "Only the workspace creator can update workspace metadata.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkspaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workspace updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Workspaces"
+        ],
+        "operationId": "deleteWorkspace",
+        "summary": "Delete a workspace",
+        "description": "Soft deletes a workspace. Only the workspace creator can delete it.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Workspace deleted"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/api/v1/workspaces/{workspaceId}/sketches": {
       "post": {
         "tags": [
@@ -616,7 +738,7 @@
         "schema": {
           "type": "string"
         },
-        "example": "ws_01HX7E7Y3M6X9E7XKJ1J4Z2R9Q"
+        "example": "018f1d23-7c5a-7a30-bd74-001122334455"
       },
       "SketchId": {
         "name": "sketchId",
@@ -625,7 +747,7 @@
         "schema": {
           "type": "string"
         },
-        "example": "sk_01HX7E7Y3M6X9E7XKJ1J4Z2R9Q"
+        "example": "018f1d24-7c5a-7a30-bd74-001122334455"
       },
       "LockId": {
         "name": "lockId",
@@ -659,6 +781,85 @@
       }
     },
     "schemas": {
+      "CreateWorkspaceRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateWorkspaceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "Workspace": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "createdByUserId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkspaceList": {
+        "type": "object",
+        "required": [
+          "workspaces"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Workspace"
+            }
+          }
+        }
+      },
       "CreateSketchRequest": {
         "type": "object",
         "required": [

@@ -10,9 +10,11 @@ import (
 	dbsql "github.com/dnonakolesax/cccad-locks/internal/db/sql"
 	permissionsRepo "github.com/dnonakolesax/cccad-locks/internal/repository/permissions"
 	sketchesRepo "github.com/dnonakolesax/cccad-locks/internal/repository/sketches"
+	workspacesRepo "github.com/dnonakolesax/cccad-locks/internal/repository/workspaces"
 	"github.com/dnonakolesax/cccad-locks/internal/s3"
 	permissionsService "github.com/dnonakolesax/cccad-locks/internal/service/permissions"
 	sketchesService "github.com/dnonakolesax/cccad-locks/internal/service/sketches"
+	workspacesService "github.com/dnonakolesax/cccad-locks/internal/service/workspaces"
 	"github.com/dnonakolesax/cccad-locks/internal/solver"
 )
 
@@ -23,6 +25,7 @@ type Components struct {
 	solver      *solver.Client
 	permissions *permissionsService.Service
 	sketches    *sketchesService.Service
+	workspaces  *workspacesService.Service
 	auth        *auth.Client
 }
 
@@ -107,6 +110,7 @@ func (a *App) SetupComponents() error {
 		solver:      solverClient,
 		permissions: permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
 		sketches:    sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
+		workspaces:  workspacesService.NewService(workspacesRepo.NewRepository(psqlWorker)),
 		auth:        authClient,
 	}
 	return nil
