@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/dnonakolesax/viper"
 	"github.com/hashicorp/vault-client-go"
@@ -17,7 +18,7 @@ type configurable interface {
 	Load(v *viper.Viper)
 }
 
-func Load(path string, v *viper.Viper, logger *slog.Logger, _ *vault.Client, _ chan viper.KVEntry,
+func Load(path string, v *viper.Viper, logger *slog.Logger, vaultClient  *vault.Client, eventChan chan viper.KVEntry,
 	configs ...configurable) error {
 	for _, cfg := range configs {
 		cfg.SetDefaults(v)
@@ -57,17 +58,17 @@ func Load(path string, v *viper.Viper, logger *slog.Logger, _ *vault.Client, _ c
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	// vaultWatchConf := viper.VaultWatchConfig{
-	// 	VersionPeriod: time.Second * 0,
-	// 	AlertChannel:  eventChan,
-	// }
-	// err = v.AddVault(vaultClient, &vaultWatchConf,
-	// 	v.GetString(postgresRolePathKey), v.GetString(RedisPasswordPathKey), realmClientSecretKey)
+	vaultWatchConf := viper.VaultWatchConfig{
+		VersionPeriod: time.Second * 0,
+		AlertChannel:  eventChan,
+	}
+	err = v.AddVault(vaultClient, &vaultWatchConf,
+		v.GetString(postgresRolePathKey), v.GetString(RedisPasswordPathKey))
 
-	// if err != nil {
-	// 	logger.Error("Failed to add vault", slog.String(consts.ErrorLoggerKey, err.Error()))
-	// 	return fmt.Errorf("failed to add vault: %w", err)
-	// }
+	if err != nil {
+		logger.Error("Failed to add vault", slog.String(consts.ErrorLoggerKey, err.Error()))
+		return fmt.Errorf("failed to add vault: %w", err)
+	}
 
 	for _, cfg := range configs {
 		cfg.Load(v)

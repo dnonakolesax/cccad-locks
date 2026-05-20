@@ -115,27 +115,23 @@ func (a *App) Run() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(quit)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		a.initLogger.Info("Starting HTTP server",
 			slog.Int("port", a.configs.Service.Port),
 			slog.String("base_path", basePath))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.initLogger.Error("HTTP server error", slog.String(consts.ErrorLoggerKey, err.Error()))
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		a.initLogger.Info("Starting metrics server",
 			slog.Int("port", a.configs.Service.MetricsPort),
 			slog.String("endpoint", metricsEndpoint))
 		if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.initLogger.Error("Metrics server error", slog.String(consts.ErrorLoggerKey, err.Error()))
 		}
-	}()
+	})
 
 	sig := <-quit
 	a.initLogger.InfoContext(context.Background(), "Received signal", slog.String("signal", sig.String()))

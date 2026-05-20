@@ -29,7 +29,7 @@ postgres:
 redis:
   address: sk-redis
   port: 6379
-  password-path: secret/redis:password
+  password-path: secret/redis:cad-sketcher-password
   request-timeout: 10s
 
 s3:
