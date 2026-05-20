@@ -3,12 +3,14 @@ package auth
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 )
 
 const (
 	AccessTokenCookie  = "NTD-DNAnAT"
 	RefreshTokenCookie = "NTD-DNART"
 	IDTokenCookie      = "NTD-DNALT"
+	TraceIDHeader      = "trace_id"
 )
 
 type Middleware struct {
@@ -40,7 +42,12 @@ func (m *Middleware) Handle(next http.Handler) http.Handler {
 			return
 		}
 
-		tokenData, err := m.client.Authenticate(r.Context(), accessToken, refreshToken)
+		ctx := r.Context()
+		if traceID := strings.TrimSpace(r.Header.Get(TraceIDHeader)); traceID != "" {
+			ctx = ContextWithTraceID(ctx, traceID)
+		}
+
+		tokenData, err := m.client.Authenticate(ctx, accessToken, refreshToken)
 		if err != nil {
 			if m.logger != nil {
 				m.logger.WarnContext(r.Context(), "Authentication failed", slog.String("error", err.Error()))
@@ -53,7 +60,7 @@ func (m *Middleware) Handle(next http.Handler) http.Handler {
 		setRenewedTokenCookie(w, RefreshTokenCookie, tokenData.RT)
 		setRenewedTokenCookie(w, IDTokenCookie, tokenData.IT)
 
-		next.ServeHTTP(w, r.WithContext(ContextWithUserID(r.Context(), tokenData.UserID)))
+		next.ServeHTTP(w, r.WithContext(ContextWithUserID(ctx, tokenData.UserID)))
 	})
 }
 

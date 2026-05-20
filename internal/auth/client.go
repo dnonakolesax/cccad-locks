@@ -10,6 +10,7 @@ import (
 	authv1 "github.com/dnonakolesax/cccad-locks/internal/proto/auth/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type TokenData struct {
@@ -57,6 +58,9 @@ func NewClient(cfg *configs.AuthConfig, logger *slog.Logger) (*Client, error) {
 func (c *Client) Authenticate(ctx context.Context, accessToken, refreshToken string) (*TokenData, error) {
 	ctx, cancel := c.contextWithTimeout(ctx)
 	defer cancel()
+	if traceID, ok := TraceIDFromContext(ctx); ok {
+		ctx = metadata.AppendToOutgoingContext(ctx, TraceIDHeader, traceID)
+	}
 
 	tokenData, err := c.client.AuthUserIDCtx(ctx, &authv1.UserTokens{
 		Auth:    accessToken,
