@@ -1,10 +1,10 @@
 SELECT DISTINCT
-    w.id::text,
-    w.name,
-    COALESCE(w.description, ''),
-    w.created_by_user_id,
-    w.created_at,
-    w.updated_at
+    w.id::text AS id,
+    w.name AS name,
+    COALESCE(w.description, '') AS description,
+    w.created_by_user_id AS created_by_user_id,
+    w.created_at AS created_at,
+    w.updated_at AS updated_at
 FROM workspaces w
 LEFT JOIN sketches s
     ON s.workspace_id = w.id
@@ -18,4 +18,4 @@ WHERE w.deleted_at IS NULL
         w.created_by_user_id = $1
         OR sp.user_id IS NOT NULL
     )
-ORDER BY w.updated_at DESC, w.created_at DESC, w.id ASC
+ORDER BY updated_at DESC, created_at DESC, id ASC
