@@ -22,19 +22,22 @@ COPY db/requests ./db/requests
 # Сборка
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
     go build -o ./bin/cccad-sketches ./cmd/api
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+    go build -o ./bin/cccad-migrate ./cmd/migrate
 
-# Запуск в пустом контейнере
-FROM scratch
+# Запуск приложения
+FROM alpine:3.22
 
-# Копируем пользователя без прав с прошлого этапа
-COPY --from=builder /etc/passwd /etc/passwd
-COPY --from=builder /etc/group /etc/group
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder --chown=sketch-runner:sketch-runner /sketch-runner /sketch-runner
+RUN apk add --no-cache ca-certificates && \
+    addgroup -S sketch-runner && \
+    adduser -S -D -h /sketch-runner -G sketch-runner -u 10001 sketch-runner
+
 # Запускаем от имени этого пользователя
 USER sketch-runner
 
 COPY --from=builder /cccad-sketches/bin/cccad-sketches /cccad-sketches
+COPY --from=builder /cccad-sketches/bin/cccad-migrate /cccad-migrate
 COPY --from=builder /cccad-sketches/db/requests /db/requests
+COPY --from=builder /cccad-sketches/migrations /migrations
 
-CMD ["/cccad-sketches"]
+CMD ["/bin/sh", "-c", "/cccad-migrate -configs /configs -dir /migrations up && exec /cccad-sketches -configs /configs"]
