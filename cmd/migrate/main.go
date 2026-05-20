@@ -7,13 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"log/slog"
 	"net/url"
 	"os"
 	"strings"
 
 	"github.com/dnonakolesax/cccad-locks/internal/configs"
-	"github.com/dnonakolesax/cccad-locks/internal/vault"
 	"github.com/dnonakolesax/viper"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
@@ -29,6 +27,8 @@ func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
+	os.Setenv("DB_ROOT_LOGIN", "")
+	os.Setenv("DB_ROOT_PASSWORD", "")
 }
 
 func run() error {
@@ -99,23 +99,27 @@ func loadPostgresConfig(configDir string) (*configs.RDBConfig, error) {
 
 	v := viper.New()
 	v.PanicOnNil = true
-	cfg := &configs.RDBConfig{}
+	cfg := &configs.RDBConfig{
+	}
 	cfg.SetDefaults(v)
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cfg.Login = os.Getenv("DB_ROOT_LOGIN")
+	cfg.Password = os.Getenv("DB_ROOT_PASSWORD")
+	cfg.DBName = "cccad"
+	// logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
-	address := os.Getenv("VAULT_ADDRESS")
-	login := os.Getenv("VAULT_LOGIN")
-	password := os.Getenv("VAULT_PASSWORD")
-	client, err := vault.SetupVault(address, &vault.Credentials{Login: login, Password: password}, slog.Default())
+	// address := os.Getenv("VAULT_ADDRESS")
+	// login := os.Getenv("VAULT_LOGIN")
+	// password := os.Getenv("VAULT_PASSWORD")
+	// client, err := vault.SetupVault(address, &vault.Credentials{Login: login, Password: password}, slog.Default())
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if err := configs.Load(configDir, v, logger, client.Client, nil, cfg); err != nil {
-		return nil, err
-	}
+	// if err := configs.Load(configDir, v, logger, client.Client, nil, cfg); err != nil {
+	// 	return nil, err
+	// }
 
 	if strings.TrimSpace(cfg.Login) == "" || strings.TrimSpace(cfg.DBName) == "" {
 		return nil, errors.New("postgres config is incomplete; provide -dsn or DATABASE_URL")
