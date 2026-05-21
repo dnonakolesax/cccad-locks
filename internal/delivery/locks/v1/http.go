@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,13 +9,14 @@ import (
 	"strings"
 
 	"github.com/dnonakolesax/cccad-locks/internal/model"
+	locksService "github.com/dnonakolesax/cccad-locks/internal/service/locks"
 	"github.com/mailru/easyjson"
 )
 
 type LocksService interface {
-	Acquire(sketchID string, request *model.AcquireLockRequest) (*model.AcquireLockResponse, error)
-	Refresh(sketchID, lockID string, request *model.RefreshLockRequest) (*model.SketchLock, error)
-	Release(sketchID, lockID string) error
+	Acquire(ctx context.Context, sketchID string, request *model.AcquireLockRequest) (*model.AcquireLockResponse, error)
+	Refresh(ctx context.Context, sketchID, lockID string, request *model.RefreshLockRequest) (*model.SketchLock, error)
+	Release(ctx context.Context, sketchID, lockID string) error
 }
 
 type LocksHandler struct {
@@ -54,9 +56,9 @@ func (h *LocksHandler) Acquire(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.Acquire(sketchID, &request)
+	response, err := h.service.Acquire(r.Context(), sketchID, &request)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	if response == nil {
@@ -81,9 +83,9 @@ func (h *LocksHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lock, err := h.service.Refresh(sketchID, lockID, &request)
+	lock, err := h.service.Refresh(r.Context(), sketchID, lockID, &request)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		writeServiceError(w, err)
 		return
 	}
 	if lock == nil {
@@ -102,8 +104,8 @@ func (h *LocksHandler) Release(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.Release(sketchID, lockID); err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+	if err := h.service.Release(r.Context(), sketchID, lockID); err != nil {
+		writeServiceError(w, err)
 		return
 	}
 
@@ -178,6 +180,17 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
+}
+
+func writeServiceError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, locksService.ErrLockNotFound):
+		writeError(w, http.StatusNotFound, "LOCK_NOT_FOUND", err.Error())
+	case errors.Is(err, locksService.ErrLockNotOwned):
+		writeError(w, http.StatusForbidden, "PERMISSION_DENIED", err.Error())
+	default:
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+	}
 }
 
 func isValidLockMode(mode string) bool {

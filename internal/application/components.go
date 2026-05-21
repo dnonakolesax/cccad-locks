@@ -8,10 +8,14 @@ import (
 	"github.com/dnonakolesax/cccad-locks/internal/consts"
 	dbredis "github.com/dnonakolesax/cccad-locks/internal/db/redis"
 	dbsql "github.com/dnonakolesax/cccad-locks/internal/db/sql"
+	operationsRepo "github.com/dnonakolesax/cccad-locks/internal/repository/operations"
 	permissionsRepo "github.com/dnonakolesax/cccad-locks/internal/repository/permissions"
+	locksRepo "github.com/dnonakolesax/cccad-locks/internal/repository/redis/locks"
 	sketchesRepo "github.com/dnonakolesax/cccad-locks/internal/repository/sketches"
 	workspacesRepo "github.com/dnonakolesax/cccad-locks/internal/repository/workspaces"
 	"github.com/dnonakolesax/cccad-locks/internal/s3"
+	locksService "github.com/dnonakolesax/cccad-locks/internal/service/locks"
+	operationsService "github.com/dnonakolesax/cccad-locks/internal/service/operations"
 	permissionsService "github.com/dnonakolesax/cccad-locks/internal/service/permissions"
 	sketchesService "github.com/dnonakolesax/cccad-locks/internal/service/sketches"
 	workspacesService "github.com/dnonakolesax/cccad-locks/internal/service/workspaces"
@@ -23,6 +27,8 @@ type Components struct {
 	pgsql       *dbsql.PGXWorker
 	s3          *s3.Worker
 	solver      *solver.Client
+	locks       *locksService.Service
+	operations  *operationsService.Service
 	permissions *permissionsService.Service
 	sketches    *sketchesService.Service
 	workspaces  *workspacesService.Service
@@ -108,6 +114,8 @@ func (a *App) SetupComponents() error {
 		redis:       redisClient,
 		s3:          s3Worker,
 		solver:      solverClient,
+		locks:       locksService.NewService(locksRepo.NewRepository(redisClient)),
+		operations:  operationsService.NewService(operationsRepo.NewRepository(psqlWorker)),
 		permissions: permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
 		sketches:    sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
 		workspaces:  workspacesService.NewService(workspacesRepo.NewRepository(psqlWorker)),

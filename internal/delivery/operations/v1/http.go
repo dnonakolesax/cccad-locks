@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,8 +14,8 @@ import (
 )
 
 type OperationsService interface {
-	List(sketchID string, afterVersion int64, limit int) (*model.SketchOperationPage, error)
-	Submit(sketchID string, request *model.SubmitOperationRequest) (*model.SubmitOperationResponse, error)
+	List(ctx context.Context, sketchID string, afterVersion int64, limit int) (*model.SketchOperationPage, error)
+	Submit(ctx context.Context, sketchID string, request *model.SubmitOperationRequest) (*model.SubmitOperationResponse, error)
 }
 
 type OperationsHandler struct {
@@ -36,7 +37,6 @@ func NewOperationsHandler(service OperationsService) *OperationsHandler {
 
 func (h *OperationsHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{sketchId}/ops", h.List)
-	mux.HandleFunc("POST /{sketchId}/ops", h.Submit)
 }
 
 func (h *OperationsHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +57,7 @@ func (h *OperationsHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, err := h.service.List(sketchID, afterVersion, limit)
+	page, err := h.service.List(r.Context(), sketchID, afterVersion, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
@@ -95,7 +95,7 @@ func (h *OperationsHandler) Submit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.Submit(sketchID, &request)
+	response, err := h.service.Submit(r.Context(), sketchID, &request)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
