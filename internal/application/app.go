@@ -161,6 +161,9 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	if a.layers.SketchesHTTP != nil {
 		a.layers.SketchesHTTP.RegisterRoutes(mux)
 	}
+	if a.layers.RealtimeWS != nil {
+		a.layers.RealtimeWS.RegisterRoutes(mux)
+	}
 	if a.layers.WorkspacesHTTP != nil {
 		a.layers.WorkspacesHTTP.RegisterRoutes(mux)
 	}

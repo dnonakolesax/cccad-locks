@@ -17,7 +17,9 @@ import (
 	locksService "github.com/dnonakolesax/cccad-locks/internal/service/locks"
 	operationsService "github.com/dnonakolesax/cccad-locks/internal/service/operations"
 	permissionsService "github.com/dnonakolesax/cccad-locks/internal/service/permissions"
+	realtimeService "github.com/dnonakolesax/cccad-locks/internal/service/realtime"
 	sketchesService "github.com/dnonakolesax/cccad-locks/internal/service/sketches"
+	solverService "github.com/dnonakolesax/cccad-locks/internal/service/solver"
 	workspacesService "github.com/dnonakolesax/cccad-locks/internal/service/workspaces"
 	"github.com/dnonakolesax/cccad-locks/internal/solver"
 )
@@ -30,7 +32,9 @@ type Components struct {
 	locks       *locksService.Service
 	operations  *operationsService.Service
 	permissions *permissionsService.Service
+	realtime    *realtimeService.Service
 	sketches    *sketchesService.Service
+	solverSvc   *solverService.Service
 	workspaces  *workspacesService.Service
 	auth        *auth.Client
 }
@@ -117,9 +121,14 @@ func (a *App) SetupComponents() error {
 		locks:       locksService.NewService(locksRepo.NewRepository(redisClient)),
 		operations:  operationsService.NewService(operationsRepo.NewRepository(psqlWorker)),
 		permissions: permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
-		sketches:    sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
-		workspaces:  workspacesService.NewService(workspacesRepo.NewRepository(psqlWorker)),
-		auth:        authClient,
+		realtime: realtimeService.NewService(
+			permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
+			sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
+		),
+		sketches:   sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
+		solverSvc:  solverService.NewService(sketchesRepo.NewRepository(psqlWorker), solverClient),
+		workspaces: workspacesService.NewService(workspacesRepo.NewRepository(psqlWorker)),
+		auth:       authClient,
 	}
 	return nil
 }

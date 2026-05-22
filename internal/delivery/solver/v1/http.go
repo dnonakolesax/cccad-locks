@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,8 +13,8 @@ import (
 )
 
 type SolverService interface {
-	Preview(sketchID string, request *model.SolvePreviewRequest) (*model.SolvePreviewResponse, error)
-	Analyze(sketchID string) (*model.AnalyzeSketchResponse, error)
+	Preview(ctx context.Context, sketchID string, request *model.SolvePreviewRequest) (*model.SolvePreviewResponse, error)
+	Analyze(ctx context.Context, sketchID string) (*model.AnalyzeSketchResponse, error)
 }
 
 type SolverHandler struct {
@@ -52,7 +53,7 @@ func (h *SolverHandler) Preview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.Preview(sketchID, &request)
+	response, err := h.service.Preview(r.Context(), sketchID, &request)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
@@ -72,7 +73,7 @@ func (h *SolverHandler) Analyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.Analyze(sketchID)
+	response, err := h.service.Analyze(r.Context(), sketchID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return

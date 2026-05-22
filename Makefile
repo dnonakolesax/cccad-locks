@@ -10,6 +10,7 @@ MIGRATIONS_DIR := ./migrations
 PROTOC := protoc
 GO_PACKAGES := ./...
 PROTO_FILES := internal/proto/auth/v1/auth.proto proto/solver/v1/sketch_solver.proto
+EASYJSON_PACKAGES := ./internal/model
 
 .DEFAULT_GOAL := help
 
@@ -46,6 +47,10 @@ lint: ## Run golangci-lint
 proto: ## Regenerate protobuf Go files
 	$(PROTOC) -I . --go_out=. --go_opt=module=github.com/dnonakolesax/cccad-locks --go-grpc_out=. --go-grpc_opt=module=github.com/dnonakolesax/cccad-locks $(PROTO_FILES)
 
+.PHONY: easyjson
+easyjson: ## Regenerate easyjson Go files
+	go generate $(EASYJSON_PACKAGES)
+
 .PHONY: compose-config
 compose-config: ## Validate docker-compose.yml
 	docker compose config
@@ -71,4 +76,4 @@ migrate-down: ## Roll back one database migration
 	go run ./cmd/migrate -configs $(CONFIGS_DIR) -dir $(MIGRATIONS_DIR) down
 
 .PHONY: check
-check: fmt tidy proto test compose-config ## Run local validation
+check: fmt tidy proto easyjson test compose-config ## Run local validation
