@@ -37,7 +37,12 @@ type UpdateChans struct {
 	KCClientSecret  chan string
 }
 
-func ListenUpdates(updateChan chan viper.KVEntry, hc *atomic.Bool, psqlRolePath, redisPasswordPath string) *UpdateChans {
+func ListenUpdates(
+	updateChan chan viper.KVEntry,
+	hc *atomic.Bool,
+	psqlRolePath string,
+	redisPasswordPath string,
+) *UpdateChans {
 	psqlChan := make(chan string)
 	redisChan := make(chan string)
 	kcChan := make(chan string)

@@ -227,12 +227,14 @@ func normalizeBasePath(basePath string) string {
 }
 
 func apiMountPath(basePath string) string {
+	const apiPrefix = "/api/v1"
+
 	basePath = normalizeBasePath(basePath)
 	if basePath == "/" {
-		return "/api/v1"
+		return apiPrefix
 	}
 
-	return path.Clean("/api/v1" + basePath)
+	return path.Clean(apiPrefix + basePath)
 }
 
 func stripPrefixWithRoot(prefix string, h http.Handler) http.Handler {

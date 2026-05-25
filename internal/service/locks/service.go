@@ -13,9 +13,11 @@ import (
 )
 
 const (
-	defaultLockTTL = 30 * time.Second
-	minLockTTL     = time.Second
-	maxLockTTL     = 5 * time.Minute
+	defaultLockTTL  = 30 * time.Second
+	minLockTTL      = time.Second
+	maxLockTTL      = 5 * time.Minute
+	lockModeEdit    = "edit"
+	lockModePreview = "preview"
 )
 
 var (
@@ -84,9 +86,9 @@ func (s *Service) Acquire(
 		return nil, ErrLockNotFound
 	}
 	if existing.OwnerUserID == userID && existing.Mode == request.Mode {
-		refreshed, err := s.repo.Refresh(ctx, sketchID, existing.ID, userID, ttl)
-		if err != nil {
-			return nil, err
+		refreshed, refreshErr := s.repo.Refresh(ctx, sketchID, existing.ID, userID, ttl)
+		if refreshErr != nil {
+			return nil, refreshErr
 		}
 		return &model.AcquireLockResponse{Granted: true, Lock: refreshed}, nil
 	}
@@ -159,7 +161,7 @@ func normalizeTTL(ttlMS int) time.Duration {
 
 func isValidMode(mode string) bool {
 	switch mode {
-	case "edit", "preview":
+	case lockModeEdit, lockModePreview:
 		return true
 	default:
 		return false

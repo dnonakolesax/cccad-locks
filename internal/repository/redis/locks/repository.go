@@ -18,7 +18,7 @@ import (
 
 const lockKeyPrefix = "cccad:locks"
 
-var refreshScript = redis.NewScript(`
+const refreshScript = `
 if redis.call("get", KEYS[2]) ~= ARGV[3] then
 	return 0
 end
@@ -28,9 +28,9 @@ end
 redis.call("set", KEYS[1], ARGV[2], "PX", ARGV[4])
 redis.call("set", KEYS[2], ARGV[3], "PX", ARGV[4])
 return 1
-`)
+`
 
-var releaseScript = redis.NewScript(`
+const releaseScript = `
 if redis.call("get", KEYS[2]) ~= ARGV[2] then
 	return 0
 end
@@ -40,7 +40,7 @@ if redis.call("get", KEYS[1]) ~= ARGV[1] then
 end
 redis.call("del", KEYS[1], KEYS[2])
 return 1
-`)
+`
 
 type Repository struct {
 	redis *dbredis.Client
@@ -74,10 +74,10 @@ func (r *Repository) Acquire(
 	rctx, cancel := r.context(ctx)
 	defer cancel()
 
-	for attempt := 0; attempt < 2; attempt++ {
-		acquired, err := client.SetNX(rctx, scopeKey, string(body), ttl).Result()
-		if err != nil {
-			return false, nil, fmt.Errorf("acquire lock: %w", err)
+	for range 2 {
+		acquired, setErr := client.SetNX(rctx, scopeKey, string(body), ttl).Result()
+		if setErr != nil {
+			return false, nil, fmt.Errorf("acquire lock: %w", setErr)
 		}
 		if !acquired {
 			_, existing, getErr := r.getByScopeKey(ctx, scopeKey)
@@ -90,9 +90,9 @@ func (r *Repository) Acquire(
 			return false, existing, nil
 		}
 
-		if err := client.Set(rctx, idKey, scopeKey, ttl).Err(); err != nil {
+		if indexErr := client.Set(rctx, idKey, scopeKey, ttl).Err(); indexErr != nil {
 			_ = client.Del(rctx, scopeKey).Err()
-			return false, nil, fmt.Errorf("index lock: %w", err)
+			return false, nil, fmt.Errorf("index lock: %w", indexErr)
 		}
 
 		return true, lock, nil
@@ -138,7 +138,7 @@ func (r *Repository) Refresh(
 		return nil, fmt.Errorf("marshal lock: %w", err)
 	}
 
-	updated, err := refreshScript.Run(
+	updated, err := redis.NewScript(refreshScript).Run(
 		rctx,
 		client,
 		[]string{scopeKey, idKey},
@@ -187,14 +187,14 @@ func (r *Repository) Release(ctx context.Context, sketchID string, lockID string
 		return model.ErrLockNotOwned
 	}
 
-	if _, err := releaseScript.Run(
+	if _, releaseErr := redis.NewScript(releaseScript).Run(
 		rctx,
 		client,
 		[]string{scopeKey, idKey},
 		string(currentBody),
 		scopeKey,
-	).Result(); err != nil {
-		return fmt.Errorf("release lock: %w", err)
+	).Result(); releaseErr != nil {
+		return fmt.Errorf("release lock: %w", releaseErr)
 	}
 
 	return nil
@@ -214,8 +214,8 @@ func (r *Repository) getByScopeKey(ctx context.Context, scopeKey string) ([]byte
 	}
 
 	var lock model.SketchLock
-	if err := easyjson.Unmarshal(body, &lock); err != nil {
-		return nil, nil, fmt.Errorf("unmarshal lock: %w", err)
+	if unmarshalErr := easyjson.Unmarshal(body, &lock); unmarshalErr != nil {
+		return nil, nil, fmt.Errorf("unmarshal lock: %w", unmarshalErr)
 	}
 
 	return body, &lock, nil

@@ -108,6 +108,26 @@ type PGXWorker struct {
 	Alive        *atomic.Bool
 }
 
+func NewPGXWorker(conn *PGXConn, alive *atomic.Bool, vaultChan chan string) (*PGXWorker, error) {
+	requests, err := LoadSQLRequests(conn.conf.RequestsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	alive.Store(true)
+
+	worker := &PGXWorker{
+		Conn:         conn,
+		Requests:     requests,
+		Alive:        alive,
+		ConnUpdating: &atomic.Bool{},
+	}
+
+	go worker.MonitorVault(vaultChan)
+
+	return worker, nil
+}
+
 func (pw *PGXWorker) Request(name string) (string, error) {
 	request, ok := pw.Requests[name]
 	if !ok {
@@ -146,26 +166,6 @@ func LoadSQLRequests(dirPath string) (map[string]string, error) {
 	}
 
 	return sqlRequests, nil
-}
-
-func NewPGXWorker(conn *PGXConn, alive *atomic.Bool, vaultChan chan string) (*PGXWorker, error) {
-	requests, err := LoadSQLRequests(conn.conf.RequestsPath)
-	if err != nil {
-		return nil, err
-	}
-
-	alive.Store(true)
-
-	worker := &PGXWorker{
-		Conn:         conn,
-		Requests:     requests,
-		Alive:        alive,
-		ConnUpdating: &atomic.Bool{},
-	}
-
-	go worker.MonitorVault(vaultChan)
-
-	return worker, nil
 }
 
 func (pw *PGXWorker) MonitorVault(vaultChan chan string) {

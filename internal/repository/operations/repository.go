@@ -51,8 +51,8 @@ func (r *Repository) List(
 		page.Ops = append(page.Ops, *operation)
 		page.ToVersion = operation.Version
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("list operations rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("list operations rows: %w", closeErr)
 	}
 
 	return page, nil

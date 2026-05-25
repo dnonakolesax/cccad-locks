@@ -13,6 +13,13 @@ import (
 	"github.com/mailru/easyjson"
 )
 
+const (
+	defaultSolverTolerance     = 1e-6
+	defaultSolverMaxIterations = 100
+)
+
+var errSkippedModelItem = errors.New("skipped model item")
+
 type SketchRepository interface {
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
 }
@@ -58,7 +65,11 @@ func (s *Service) Preview(
 		return nil, err
 	}
 	if document.Version != request.BaseVersion {
-		return nil, fmt.Errorf("baseVersion %d does not match current sketch version %d", request.BaseVersion, document.Version)
+		return nil, fmt.Errorf(
+			"baseVersion %d does not match current sketch version %d",
+			request.BaseVersion,
+			document.Version,
+		)
 	}
 
 	solverRequest, err := buildApplyIntentRequest(document, request)
@@ -170,7 +181,7 @@ func entities(raw map[string]easyjson.RawMessage) []*solverv1.Entity {
 	result := make([]*solverv1.Entity, 0, len(keys))
 	for _, key := range keys {
 		entity, err := entity(raw[key])
-		if err == nil && entity != nil {
+		if err == nil {
 			result = append(result, entity)
 		}
 	}
@@ -196,7 +207,7 @@ func entity(raw easyjson.RawMessage) (*solverv1.Entity, error) {
 		return nil, fmt.Errorf("decode entity: %w", err)
 	}
 	if data.DeletedAtOpID != nil {
-		return nil, nil
+		return nil, errSkippedModelItem
 	}
 
 	result := &solverv1.Entity{Id: data.ID}
@@ -204,9 +215,15 @@ func entity(raw easyjson.RawMessage) (*solverv1.Entity, error) {
 	case "point":
 		result.Kind = &solverv1.Entity_Point{Point: &solverv1.Point{X: data.X, Y: data.Y, Fixed: data.Fixed}}
 	case "line":
-		result.Kind = &solverv1.Entity_Line{Line: &solverv1.Line{StartPointId: data.StartPointID, EndPointId: data.EndPointID}}
+		result.Kind = &solverv1.Entity_Line{Line: &solverv1.Line{
+			StartPointId: data.StartPointID,
+			EndPointId:   data.EndPointID,
+		}}
 	case "circle":
-		result.Kind = &solverv1.Entity_Circle{Circle: &solverv1.Circle{CenterPointId: data.CenterPointID, Radius: data.Radius}}
+		result.Kind = &solverv1.Entity_Circle{Circle: &solverv1.Circle{
+			CenterPointId: data.CenterPointID,
+			Radius:        data.Radius,
+		}}
 	case "arc":
 		result.Kind = &solverv1.Entity_Arc{Arc: &solverv1.Arc{
 			CenterPointId: data.CenterPointID,
@@ -227,7 +244,7 @@ func constraints(raw map[string]easyjson.RawMessage) []*solverv1.Constraint {
 	result := make([]*solverv1.Constraint, 0, len(keys))
 	for _, key := range keys {
 		constraint, err := constraint(raw[key])
-		if err == nil && constraint != nil {
+		if err == nil {
 			result = append(result, constraint)
 		}
 	}
@@ -256,36 +273,60 @@ func constraint(raw easyjson.RawMessage) (*solverv1.Constraint, error) {
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return nil, fmt.Errorf("decode constraint: %w", err)
 	}
-	if data.Status == "deleted" {
-		return nil, nil
+	if data.Status == statusDeleted {
+		return nil, errSkippedModelItem
 	}
 
 	result := &solverv1.Constraint{Id: data.ID, Status: constraintStatus(data.Status)}
-	if result.Status == solverv1.ConstraintStatus_CONSTRAINT_STATUS_UNSPECIFIED {
+	if result.GetStatus() == solverv1.ConstraintStatus_CONSTRAINT_STATUS_UNSPECIFIED {
 		result.Status = solverv1.ConstraintStatus_CONSTRAINT_STATUS_ACTIVE
 	}
 
 	switch data.Type {
 	case "coincident":
-		result.Kind = &solverv1.Constraint_Coincident{Coincident: &solverv1.CoincidentConstraint{PointAId: data.PointAID, PointBId: data.PointBID}}
+		result.Kind = &solverv1.Constraint_Coincident{Coincident: &solverv1.CoincidentConstraint{
+			PointAId: data.PointAID,
+			PointBId: data.PointBID,
+		}}
 	case "horizontal":
 		result.Kind = &solverv1.Constraint_Horizontal{Horizontal: &solverv1.HorizontalConstraint{LineId: data.LineID}}
 	case "vertical":
 		result.Kind = &solverv1.Constraint_Vertical{Vertical: &solverv1.VerticalConstraint{LineId: data.LineID}}
 	case "parallel":
-		result.Kind = &solverv1.Constraint_Parallel{Parallel: &solverv1.ParallelConstraint{LineAId: data.LineAID, LineBId: data.LineBID}}
+		result.Kind = &solverv1.Constraint_Parallel{Parallel: &solverv1.ParallelConstraint{
+			LineAId: data.LineAID,
+			LineBId: data.LineBID,
+		}}
 	case "perpendicular":
-		result.Kind = &solverv1.Constraint_Perpendicular{Perpendicular: &solverv1.PerpendicularConstraint{LineAId: data.LineAID, LineBId: data.LineBID}}
+		result.Kind = &solverv1.Constraint_Perpendicular{Perpendicular: &solverv1.PerpendicularConstraint{
+			LineAId: data.LineAID,
+			LineBId: data.LineBID,
+		}}
 	case "tangent":
-		result.Kind = &solverv1.Constraint_Tangent{Tangent: &solverv1.TangentConstraint{EntityAId: data.EntityAID, EntityBId: data.EntityBID, Branch: tangentBranch(data.Branch)}}
+		result.Kind = &solverv1.Constraint_Tangent{Tangent: &solverv1.TangentConstraint{
+			EntityAId: data.EntityAID,
+			EntityBId: data.EntityBID,
+			Branch:    tangentBranch(data.Branch),
+		}}
 	case "equal":
-		result.Kind = &solverv1.Constraint_Equal{Equal: &solverv1.EqualConstraint{EntityAId: data.EntityAID, EntityBId: data.EntityBID, Kind: equalKind(data.Kind)}}
+		result.Kind = &solverv1.Constraint_Equal{Equal: &solverv1.EqualConstraint{
+			EntityAId: data.EntityAID,
+			EntityBId: data.EntityBID,
+			Kind:      equalKind(data.Kind),
+		}}
 	case "fixed":
 		result.Kind = &solverv1.Constraint_Fixed{Fixed: &solverv1.FixedConstraint{EntityId: data.EntityID}}
 	case "midpoint":
-		result.Kind = &solverv1.Constraint_Midpoint{Midpoint: &solverv1.MidpointConstraint{MidpointId: data.MidpointID, PointAId: data.PointAID, PointBId: data.PointBID}}
+		result.Kind = &solverv1.Constraint_Midpoint{Midpoint: &solverv1.MidpointConstraint{
+			MidpointId: data.MidpointID,
+			PointAId:   data.PointAID,
+			PointBId:   data.PointBID,
+		}}
 	case "concentric":
-		result.Kind = &solverv1.Constraint_Concentric{Concentric: &solverv1.ConcentricConstraint{CircleAId: data.CircleAID, CircleBId: data.CircleBID}}
+		result.Kind = &solverv1.Constraint_Concentric{Concentric: &solverv1.ConcentricConstraint{
+			CircleAId: data.CircleAID,
+			CircleBId: data.CircleBID,
+		}}
 	default:
 		return nil, fmt.Errorf("unsupported constraint type %q", data.Type)
 	}
@@ -298,7 +339,7 @@ func dimensions(raw map[string]easyjson.RawMessage) []*solverv1.Dimension {
 	result := make([]*solverv1.Dimension, 0, len(keys))
 	for _, key := range keys {
 		dimension, err := dimension(raw[key])
-		if err == nil && dimension != nil {
+		if err == nil {
 			result = append(result, dimension)
 		}
 	}
@@ -323,24 +364,40 @@ func dimension(raw easyjson.RawMessage) (*solverv1.Dimension, error) {
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return nil, fmt.Errorf("decode dimension: %w", err)
 	}
-	if data.Status == "deleted" {
-		return nil, nil
+	if data.Status == statusDeleted {
+		return nil, errSkippedModelItem
 	}
 
 	result := &solverv1.Dimension{Id: data.ID, Driving: data.Driving, Status: constraintStatus(data.Status)}
-	if result.Status == solverv1.ConstraintStatus_CONSTRAINT_STATUS_UNSPECIFIED {
+	if result.GetStatus() == solverv1.ConstraintStatus_CONSTRAINT_STATUS_UNSPECIFIED {
 		result.Status = solverv1.ConstraintStatus_CONSTRAINT_STATUS_ACTIVE
 	}
 
 	switch data.Type {
 	case "distance":
-		result.Kind = &solverv1.Dimension_Distance{Distance: &solverv1.DistanceDimension{RefAId: data.RefAID, RefBId: data.RefBID, Value: data.Value, RefKind: distanceReferenceKind(data.RefKind)}}
+		result.Kind = &solverv1.Dimension_Distance{Distance: &solverv1.DistanceDimension{
+			RefAId:  data.RefAID,
+			RefBId:  data.RefBID,
+			Value:   data.Value,
+			RefKind: distanceReferenceKind(data.RefKind),
+		}}
 	case "radius":
-		result.Kind = &solverv1.Dimension_Radius{Radius: &solverv1.RadiusDimension{EntityId: data.EntityID, Value: data.Value}}
+		result.Kind = &solverv1.Dimension_Radius{Radius: &solverv1.RadiusDimension{
+			EntityId: data.EntityID,
+			Value:    data.Value,
+		}}
 	case "diameter":
-		result.Kind = &solverv1.Dimension_Diameter{Diameter: &solverv1.DiameterDimension{EntityId: data.EntityID, Value: data.Value}}
+		result.Kind = &solverv1.Dimension_Diameter{Diameter: &solverv1.DiameterDimension{
+			EntityId: data.EntityID,
+			Value:    data.Value,
+		}}
 	case "angle":
-		result.Kind = &solverv1.Dimension_Angle{Angle: &solverv1.AngleDimension{LineAId: data.LineAID, LineBId: data.LineBID, ValueRad: data.Value, Orientation: angleOrientation(data.Orientation)}}
+		result.Kind = &solverv1.Dimension_Angle{Angle: &solverv1.AngleDimension{
+			LineAId:     data.LineAID,
+			LineBId:     data.LineBID,
+			ValueRad:    data.Value,
+			Orientation: angleOrientation(data.Orientation),
+		}}
 	default:
 		return nil, fmt.Errorf("unsupported dimension type %q", data.Type)
 	}
@@ -370,20 +427,33 @@ func userIntent(raw easyjson.RawMessage) (*solverv1.UserIntent, error) {
 	result := &solverv1.UserIntent{}
 	switch data.Type {
 	case "move_point":
-		result.Kind = &solverv1.UserIntent_MovePoint{MovePoint: &solverv1.MovePointIntent{PointId: data.PointID, Target: data.Target.proto(), Weight: data.Weight}}
+		result.Kind = &solverv1.UserIntent_MovePoint{MovePoint: &solverv1.MovePointIntent{
+			PointId: data.PointID,
+			Target:  data.Target.proto(),
+			Weight:  data.Weight,
+		}}
 	case "move_entity":
-		result.Kind = &solverv1.UserIntent_MoveEntity{MoveEntity: &solverv1.MoveEntityIntent{EntityId: data.EntityID, Delta: data.Delta.proto(), Weight: data.Weight}}
+		result.Kind = &solverv1.UserIntent_MoveEntity{MoveEntity: &solverv1.MoveEntityIntent{
+			EntityId: data.EntityID,
+			Delta:    data.Delta.proto(),
+			Weight:   data.Weight,
+		}}
 	case "set_dimension":
-		result.Kind = &solverv1.UserIntent_SetDimension{SetDimension: &solverv1.SetDimensionIntent{DimensionId: data.DimensionID, Value: data.Value}}
+		result.Kind = &solverv1.UserIntent_SetDimension{SetDimension: &solverv1.SetDimensionIntent{
+			DimensionId: data.DimensionID,
+			Value:       data.Value,
+		}}
 	case "add_constraint":
 		constraint, err := constraint(easyjson.RawMessage(data.Constraint))
 		if err != nil {
 			return nil, err
 		}
-		if constraint.Status == solverv1.ConstraintStatus_CONSTRAINT_STATUS_UNSPECIFIED {
+		if constraint.GetStatus() == solverv1.ConstraintStatus_CONSTRAINT_STATUS_UNSPECIFIED {
 			constraint.Status = solverv1.ConstraintStatus_CONSTRAINT_STATUS_ACTIVE
 		}
-		result.Kind = &solverv1.UserIntent_AddConstraint{AddConstraint: &solverv1.AddConstraintIntent{Constraint: constraint}}
+		result.Kind = &solverv1.UserIntent_AddConstraint{AddConstraint: &solverv1.AddConstraintIntent{
+			Constraint: constraint,
+		}}
 	default:
 		return nil, fmt.Errorf("unsupported solver intent type %q", data.Type)
 	}
@@ -441,8 +511,8 @@ func solverOptions(raw easyjson.RawMessage) (*solverv1.SolverOptions, error) {
 
 func defaultSolverOptions() *solverv1.SolverOptions {
 	return &solverv1.SolverOptions{
-		Tolerance:         1e-6,
-		MaxIterations:     100,
+		Tolerance:         defaultSolverTolerance,
+		MaxIterations:     defaultSolverMaxIterations,
 		Deterministic:     true,
 		ReturnDiagnostics: true,
 	}
@@ -470,9 +540,19 @@ func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, erro
 	for _, entity := range solution.GetEntities() {
 		switch kind := entity.GetKind().(type) {
 		case *solverv1.SolvedEntity_Point:
-			patch.Entities[entity.GetId()] = patchEntity{ID: entity.GetId(), Type: "point", X: kind.Point.GetX(), Y: kind.Point.GetY()}
+			patch.Entities[entity.GetId()] = patchEntity{
+				ID:   entity.GetId(),
+				Type: "point",
+				X:    kind.Point.GetX(),
+				Y:    kind.Point.GetY(),
+			}
 		case *solverv1.SolvedEntity_Circle:
-			patch.Entities[entity.GetId()] = patchEntity{ID: entity.GetId(), Type: "circle", CenterPointID: kind.Circle.GetCenterPointId(), Radius: kind.Circle.GetRadius()}
+			patch.Entities[entity.GetId()] = patchEntity{
+				ID:            entity.GetId(),
+				Type:          "circle",
+				CenterPointID: kind.Circle.GetCenterPointId(),
+				Radius:        kind.Circle.GetRadius(),
+			}
 		case *solverv1.SolvedEntity_Arc:
 			patch.Entities[entity.GetId()] = patchEntity{
 				ID:            entity.GetId(),

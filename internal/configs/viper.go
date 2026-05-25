@@ -18,8 +18,14 @@ type configurable interface {
 	Load(v *viper.Viper)
 }
 
-func Load(path string, v *viper.Viper, logger *slog.Logger, vaultClient  *vault.Client, eventChan chan viper.KVEntry,
-	configs ...configurable) error {
+func Load(
+	path string,
+	v *viper.Viper,
+	logger *slog.Logger,
+	vaultClient *vault.Client,
+	eventChan chan viper.KVEntry,
+	configs ...configurable,
+) error {
 	for _, cfg := range configs {
 		cfg.SetDefaults(v)
 	}

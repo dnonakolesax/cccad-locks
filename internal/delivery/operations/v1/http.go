@@ -15,7 +15,11 @@ import (
 
 type OperationsService interface {
 	List(ctx context.Context, sketchID string, afterVersion int64, limit int) (*model.SketchOperationPage, error)
-	Submit(ctx context.Context, sketchID string, request *model.SubmitOperationRequest) (*model.SubmitOperationResponse, error)
+	Submit(
+		ctx context.Context,
+		sketchID string,
+		request *model.SubmitOperationRequest,
+	) (*model.SubmitOperationResponse, error)
 }
 
 type OperationsHandler struct {

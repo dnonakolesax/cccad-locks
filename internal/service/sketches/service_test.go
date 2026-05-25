@@ -19,7 +19,7 @@ func (r *repositoryStub) Create(
 	*model.CreateSketchRequest,
 	string,
 ) (*model.SketchMetadata, error) {
-	return nil, nil
+	return &model.SketchMetadata{}, nil
 }
 
 func (r *repositoryStub) ListAvailable(
@@ -31,7 +31,7 @@ func (r *repositoryStub) ListAvailable(
 }
 
 func (r *repositoryStub) Get(context.Context, string) (*model.SketchDocument, error) {
-	return nil, nil
+	return &model.SketchDocument{}, nil
 }
 
 func (r *repositoryStub) UpdateMetadata(
@@ -39,7 +39,7 @@ func (r *repositoryStub) UpdateMetadata(
 	string,
 	*model.UpdateSketchMetadataRequest,
 ) (*model.SketchMetadata, error) {
-	return nil, nil
+	return &model.SketchMetadata{}, nil
 }
 
 func (r *repositoryStub) Delete(context.Context, string) error {

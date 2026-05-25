@@ -12,7 +12,12 @@ import (
 type Repository interface {
 	Create(ctx context.Context, request *model.CreateWorkspaceRequest, createdByUserID string) (*model.Workspace, error)
 	ListAvailable(ctx context.Context, userID string) ([]model.Workspace, error)
-	Update(ctx context.Context, workspaceID string, request *model.UpdateWorkspaceRequest, actorUserID string) (*model.Workspace, error)
+	Update(
+		ctx context.Context,
+		workspaceID string,
+		request *model.UpdateWorkspaceRequest,
+		actorUserID string,
+	) (*model.Workspace, error)
 	Delete(ctx context.Context, workspaceID string, actorUserID string) error
 }
 

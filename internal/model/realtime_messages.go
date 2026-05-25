@@ -138,6 +138,7 @@ type DragBeginAcceptedPayload struct {
 type DragBeginRejectedPayload struct {
 	Reason         string `json:"reason"`
 	LockedByUserID string `json:"lockedByUserId,omitempty"`
+	LockID         string `json:"lockId,omitempty"`
 }
 
 //easyjson:json
@@ -191,9 +192,11 @@ type OpRejectedPayload struct {
 
 //easyjson:json
 type LockScopePayload struct {
-	Type        string `json:"type"`
-	EntityID    string `json:"entityId,omitempty"`
-	ComponentID string `json:"componentId,omitempty"`
+	Type         string `json:"type"`
+	EntityID     string `json:"entityId,omitempty"`
+	ConstraintID string `json:"constraintId,omitempty"`
+	DimensionID  string `json:"dimensionId,omitempty"`
+	ComponentID  string `json:"componentId,omitempty"`
 }
 
 //easyjson:json
@@ -226,8 +229,21 @@ type LockRefreshPayload struct {
 }
 
 //easyjson:json
+type LockRefreshedPayload struct {
+	LockID    string `json:"lockId"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+//easyjson:json
 type LockReleasePayload struct {
 	LockID string `json:"lockId"`
+}
+
+//easyjson:json
+type LockReleasedPayload struct {
+	LockID string `json:"lockId"`
+	Reason string `json:"reason"`
+	UserID string `json:"userId,omitempty"`
 }
 
 //easyjson:json
@@ -241,6 +257,43 @@ type PermissionUpdatedPayload struct {
 type PermissionRevokedPayload struct {
 	TargetUserID    string `json:"targetUserId"`
 	ChangedByUserID string `json:"changedByUserId"`
+}
+
+//easyjson:json
+type ConflictCreatedPayload struct {
+	ConflictID          string            `json:"conflictId"`
+	ConflictType        string            `json:"conflictType"`
+	Status              string            `json:"status"`
+	AffectedEntityIDs   []string          `json:"affectedEntityIds"`
+	CausedByOps         []string          `json:"causedByOps"`
+	Message             string            `json:"message"`
+	PossibleResolutions []json.RawMessage `json:"possibleResolutions,omitempty"`
+}
+
+//easyjson:json
+type ConflictResolvedPayload struct {
+	ConflictID       string `json:"conflictId"`
+	ResolvedByUserID string `json:"resolvedByUserId"`
+	ResolutionOpID   string `json:"resolutionOpId,omitempty"`
+}
+
+//easyjson:json
+type StateResyncRequiredPayload struct {
+	CurrentVersion    int64  `json:"currentVersion"`
+	Reason            string `json:"reason"`
+	RecommendedAction string `json:"recommendedAction"`
+}
+
+//easyjson:json
+type StateSnapshotPayload struct {
+	Version  int64           `json:"version"`
+	Document json.RawMessage `json:"document"`
+}
+
+//easyjson:json
+type StatePatchPayload struct {
+	Version int64           `json:"version"`
+	Patch   json.RawMessage `json:"patch"`
 }
 
 //easyjson:json

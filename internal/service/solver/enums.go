@@ -2,6 +2,11 @@ package solver
 
 import solverv1 "github.com/dnonakolesax/cccad-locks/internal/proto/solver/v1"
 
+const (
+	statusDeleted     = "deleted"
+	statusUnspecified = "unspecified"
+)
+
 func constraintStatus(status string) solverv1.ConstraintStatus {
 	switch status {
 	case "active":
@@ -10,7 +15,7 @@ func constraintStatus(status string) solverv1.ConstraintStatus {
 		return solverv1.ConstraintStatus_CONSTRAINT_STATUS_SUPPRESSED
 	case "invalid":
 		return solverv1.ConstraintStatus_CONSTRAINT_STATUS_INVALID
-	case "deleted":
+	case statusDeleted:
 		return solverv1.ConstraintStatus_CONSTRAINT_STATUS_DELETED
 	default:
 		return solverv1.ConstraintStatus_CONSTRAINT_STATUS_UNSPECIFIED
@@ -45,8 +50,10 @@ func arcBranchString(branch solverv1.ArcBranch) string {
 		return "minor"
 	case solverv1.ArcBranch_ARC_BRANCH_MAJOR:
 		return "major"
+	case solverv1.ArcBranch_ARC_BRANCH_UNSPECIFIED:
+		return statusUnspecified
 	default:
-		return "unspecified"
+		return statusUnspecified
 	}
 }
 
@@ -99,8 +106,10 @@ func solveStatusString(status solverv1.SolveStatus) string {
 		return "inconsistent"
 	case solverv1.SolveStatus_SOLVE_STATUS_NUMERICAL_FAILURE:
 		return "numerical_failure"
+	case solverv1.SolveStatus_SOLVE_STATUS_UNSPECIFIED:
+		return statusUnspecified
 	default:
-		return "unspecified"
+		return statusUnspecified
 	}
 }
 
@@ -112,7 +121,9 @@ func diagnosticLevelString(level solverv1.SolverDiagnosticLevel) string {
 		return "warning"
 	case solverv1.SolverDiagnosticLevel_SOLVER_DIAGNOSTIC_LEVEL_ERROR:
 		return "error"
+	case solverv1.SolverDiagnosticLevel_SOLVER_DIAGNOSTIC_LEVEL_UNSPECIFIED:
+		return statusUnspecified
 	default:
-		return "unspecified"
+		return statusUnspecified
 	}
 }

@@ -3,6 +3,7 @@ package sketches
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -43,18 +44,18 @@ func (r *Repository) Create(
 	}
 
 	if !rows.Next() {
-		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("create sketch rows: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("create sketch rows: %w", closeErr)
 		}
-		return nil, fmt.Errorf("create sketch returned no rows")
+		return nil, errors.New("create sketch returned no rows")
 	}
 
 	metadata, err := scanMetadata(rows)
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("create sketch rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("create sketch rows: %w", closeErr)
 	}
 
 	return metadata, nil
@@ -79,8 +80,8 @@ func (r *Repository) ListAvailable(ctx context.Context, userID string) ([]model.
 		}
 		sketches = append(sketches, *sketch)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("list available sketches rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("list available sketches rows: %w", closeErr)
 	}
 
 	return sketches, nil
@@ -98,18 +99,18 @@ func (r *Repository) Get(ctx context.Context, sketchID string) (*model.SketchDoc
 	}
 
 	if !rows.Next() {
-		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("get sketch rows: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("get sketch rows: %w", closeErr)
 		}
-		return nil, fmt.Errorf("get sketch returned no rows")
+		return nil, errors.New("get sketch returned no rows")
 	}
 
 	document, err := scanDocument(rows)
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("get sketch rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("get sketch rows: %w", closeErr)
 	}
 
 	return document, nil
@@ -131,18 +132,18 @@ func (r *Repository) UpdateMetadata(
 	}
 
 	if !rows.Next() {
-		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("update sketch metadata rows: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("update sketch metadata rows: %w", closeErr)
 		}
-		return nil, fmt.Errorf("update sketch metadata returned no rows")
+		return nil, errors.New("update sketch metadata returned no rows")
 	}
 
 	metadata, err := scanMetadata(rows)
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("update sketch metadata rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("update sketch metadata rows: %w", closeErr)
 	}
 
 	return metadata, nil
@@ -160,14 +161,14 @@ func (r *Repository) Delete(ctx context.Context, sketchID string) error {
 	}
 
 	if !rows.Next() {
-		if err := rows.Close(); err != nil {
-			return fmt.Errorf("delete sketch rows: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return fmt.Errorf("delete sketch rows: %w", closeErr)
 		}
-		return fmt.Errorf("delete sketch returned no rows")
+		return errors.New("delete sketch returned no rows")
 	}
 
-	if err := rows.Close(); err != nil {
-		return fmt.Errorf("delete sketch rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return fmt.Errorf("delete sketch rows: %w", closeErr)
 	}
 
 	return nil

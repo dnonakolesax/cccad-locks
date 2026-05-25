@@ -2,6 +2,7 @@ package workspaces
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -40,18 +41,18 @@ func (r *Repository) Create(
 	}
 
 	if !rows.Next() {
-		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("create workspace rows: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("create workspace rows: %w", closeErr)
 		}
-		return nil, fmt.Errorf("create workspace returned no rows")
+		return nil, errors.New("create workspace returned no rows")
 	}
 
 	workspace, err := scanWorkspace(rows)
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("create workspace rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("create workspace rows: %w", closeErr)
 	}
 
 	return workspace, nil
@@ -76,8 +77,8 @@ func (r *Repository) ListAvailable(ctx context.Context, userID string) ([]model.
 		}
 		workspaces = append(workspaces, *workspace)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("list available workspaces rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("list available workspaces rows: %w", closeErr)
 	}
 
 	return workspaces, nil
@@ -100,18 +101,18 @@ func (r *Repository) Update(
 	}
 
 	if !rows.Next() {
-		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("update workspace rows: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("update workspace rows: %w", closeErr)
 		}
-		return nil, fmt.Errorf("update workspace returned no rows")
+		return nil, errors.New("update workspace returned no rows")
 	}
 
 	workspace, err := scanWorkspace(rows)
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("update workspace rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("update workspace rows: %w", closeErr)
 	}
 
 	return workspace, nil
@@ -129,14 +130,14 @@ func (r *Repository) Delete(ctx context.Context, workspaceID string, actorUserID
 	}
 
 	if !rows.Next() {
-		if err := rows.Close(); err != nil {
-			return fmt.Errorf("delete workspace rows: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return fmt.Errorf("delete workspace rows: %w", closeErr)
 		}
-		return fmt.Errorf("delete workspace returned no rows")
+		return errors.New("delete workspace returned no rows")
 	}
 
-	if err := rows.Close(); err != nil {
-		return fmt.Errorf("delete workspace rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return fmt.Errorf("delete workspace rows: %w", closeErr)
 	}
 
 	return nil

@@ -12,6 +12,14 @@ import (
 	"github.com/mailru/easyjson"
 )
 
+const (
+	uuidLength = 36
+	uuidDash1  = 8
+	uuidDash2  = 13
+	uuidDash3  = 18
+	uuidDash4  = 23
+)
+
 type WorkspacesService interface {
 	Create(ctx context.Context, request *model.CreateWorkspaceRequest) (*model.Workspace, error)
 	ListAvailable(ctx context.Context) ([]model.Workspace, error)
@@ -155,7 +163,7 @@ func writeJSON(w http.ResponseWriter, status int, v easyjson.Marshaler) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_, _ = w.Write(body)
+	_, _ = w.Write(body) //nolint:gosec // Response body is JSON encoded from typed envelopes.
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
@@ -177,13 +185,13 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 
 func isValidUUID(value string) bool {
 	value = strings.TrimSpace(value)
-	if len(value) != 36 {
+	if len(value) != uuidLength {
 		return false
 	}
 
 	for i, r := range value {
 		switch i {
-		case 8, 13, 18, 23:
+		case uuidDash1, uuidDash2, uuidDash3, uuidDash4:
 			if r != '-' {
 				return false
 			}

@@ -124,6 +124,8 @@ func (a *App) SetupComponents() error {
 		realtime: realtimeService.NewService(
 			permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
 			sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
+			locksService.NewService(locksRepo.NewRepository(redisClient)),
+			operationsService.NewService(operationsRepo.NewRepository(psqlWorker)),
 		),
 		sketches:   sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
 		solverSvc:  solverService.NewService(sketchesRepo.NewRepository(psqlWorker), solverClient),

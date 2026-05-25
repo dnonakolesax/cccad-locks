@@ -21,6 +21,8 @@ const (
 	defaultPongWait        = 60 * time.Second
 	defaultPingPeriod      = 25 * time.Second
 	defaultMaxMessageBytes = 1 << 20 // 1 MiB
+	defaultWSBufferSize    = 4096
+	websocketLoopErrors    = 2
 )
 
 type Handler struct {
@@ -68,9 +70,9 @@ func NewHandler(service Service, userResolver UserResolver, opts ...HandlerOptio
 		logger:       slog.Default(),
 		routePrefix:  defaultRoutePrefix,
 		upgrader: websocket.Upgrader{
-			ReadBufferSize:  4096,
-			WriteBufferSize: 4096,
-			CheckOrigin: func(r *http.Request) bool {
+			ReadBufferSize:  defaultWSBufferSize,
+			WriteBufferSize: defaultWSBufferSize,
+			CheckOrigin: func(_ *http.Request) bool {
 				// In production, replace through WithCheckOrigin and check allowed frontend origins.
 				return true
 			},
@@ -89,7 +91,7 @@ func NewHandler(service Service, userResolver UserResolver, opts ...HandlerOptio
 }
 
 // RegisterRoutes registers the realtime websocket endpoint on the provided mux.
-// It expects paths like: /api/v1/sketches/{sketchId}/ws
+// It expects paths like: /api/v1/sketches/{sketchId}/ws.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	if h.routePrefix == "/" {
 		mux.HandleFunc("GET /{sketchId}/ws", h.handleSketchWebSocket)
@@ -113,7 +115,7 @@ func (h *Handler) handleSketchWebSocket(w http.ResponseWriter, r *http.Request) 
 
 	ws, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		h.logger.Warn("websocket upgrade failed", "error", err)
+		h.logger.WarnContext(r.Context(), "websocket upgrade failed", "error", err)
 		return
 	}
 
@@ -135,7 +137,16 @@ func (h *Handler) handleSketchWebSocket(w http.ResponseWriter, r *http.Request) 
 			time.Now().Add(h.writeWait),
 		)
 		_ = ws.Close()
-		h.logger.Warn("realtime connection rejected", "sketchId", sketchID, "userId", identity.UserID, "error", err)
+		h.logger.WarnContext(
+			r.Context(),
+			"realtime connection rejected",
+			"sketchId",
+			sketchID,
+			"userId",
+			identity.UserID,
+			"error",
+			err,
+		)
 		return
 	}
 
@@ -146,12 +157,22 @@ func (h *Handler) handleSketchWebSocket(w http.ResponseWriter, r *http.Request) 
 		_ = ws.Close()
 	}()
 
-	errc := make(chan error, 2)
+	errc := make(chan error, websocketLoopErrors)
 	go h.writeLoop(ctx, ws, conn, errc)
 	go h.readLoop(ctx, ws, conn, errc)
 
-	if err := <-errc; err != nil && !isNormalWSError(err) {
-		h.logger.Warn("realtime websocket closed", "connectionId", conn.ID(), "sketchId", sketchID, "error", err)
+	loopErr := <-errc
+	if loopErr != nil && !isNormalWSError(loopErr) {
+		h.logger.WarnContext(
+			r.Context(),
+			"realtime websocket closed",
+			"connectionId",
+			conn.ID(),
+			"sketchId",
+			sketchID,
+			"error",
+			loopErr,
+		)
 	}
 	cancel()
 }
@@ -172,9 +193,9 @@ func (h *Handler) readLoop(ctx context.Context, ws *websocket.Conn, conn Connect
 		default:
 		}
 
-		messageType, data, err := ws.ReadMessage()
-		if err != nil {
-			errc <- err
+		messageType, data, readErr := ws.ReadMessage()
+		if readErr != nil {
+			errc <- readErr
 			return
 		}
 		if messageType != websocket.TextMessage && messageType != websocket.BinaryMessage {
@@ -182,8 +203,8 @@ func (h *Handler) readLoop(ctx context.Context, ws *websocket.Conn, conn Connect
 		}
 
 		var msg model.ClientRealtimeMessage
-		if err := easyjson.Unmarshal(data, &msg); err != nil {
-			h.logger.Warn("invalid realtime message", "connectionId", conn.ID(), "error", err)
+		if decodeErr := easyjson.Unmarshal(data, &msg); decodeErr != nil {
+			h.logger.WarnContext(ctx, "invalid realtime message", "connectionId", conn.ID(), "error", decodeErr)
 			continue
 		}
 
@@ -191,13 +212,14 @@ func (h *Handler) readLoop(ctx context.Context, ws *websocket.Conn, conn Connect
 			msg.SketchID = conn.SketchID()
 		}
 
-		if err := conn.HandleClientMessage(ctx, msg); err != nil {
-			h.logger.Warn(
+		if handleErr := conn.HandleClientMessage(ctx, msg); handleErr != nil {
+			h.logger.WarnContext(
+				ctx,
 				"realtime message handling failed",
 				"connectionId", conn.ID(),
 				"type", msg.Type,
 				"requestId", msg.RequestID,
-				"error", err,
+				"error", handleErr,
 			)
 		}
 	}
@@ -223,14 +245,23 @@ func (h *Handler) writeLoop(ctx context.Context, ws *websocket.Conn, conn Connec
 				return
 			}
 
-			data, err := easyjson.Marshal(&msg)
-			if err != nil {
-				h.logger.Warn("failed to encode realtime message", "connectionId", conn.ID(), "type", msg.Type, "error", err)
+			data, encodeErr := easyjson.Marshal(&msg)
+			if encodeErr != nil {
+				h.logger.WarnContext(
+					ctx,
+					"failed to encode realtime message",
+					"connectionId",
+					conn.ID(),
+					"type",
+					msg.Type,
+					"error",
+					encodeErr,
+				)
 				continue
 			}
 
-			if err := h.writeMessage(ws, websocket.TextMessage, data); err != nil {
-				errc <- err
+			if writeErr := h.writeMessage(ws, websocket.TextMessage, data); writeErr != nil {
+				errc <- writeErr
 				return
 			}
 
@@ -271,27 +302,7 @@ func (h *Handler) resolveUser(r *http.Request) (UserIdentity, error) {
 		return UserIdentity{UserID: userID}, nil
 	}
 
-	bearer := bearerToken(r.Header.Get("Authorization"))
-	if bearer == "" {
-		// Browser WebSocket clients often cannot set Authorization header. Allow token query
-		// parameter for development; prefer a secure cookie or subprotocol token in production.
-		bearer = r.URL.Query().Get("access_token")
-	}
-	if bearer == "" {
-		return UserIdentity{}, errors.New("missing bearer token")
-	}
-	if h.userResolver == nil {
-		return UserIdentity{}, errors.New("user resolver is required")
-	}
-	return h.userResolver.Resolve(r.Context(), bearer)
-}
-
-func bearerToken(value string) string {
-	const prefix = "Bearer "
-	if !strings.HasPrefix(value, prefix) {
-		return ""
-	}
-	return strings.TrimSpace(strings.TrimPrefix(value, prefix))
+	return UserIdentity{}, errors.New("authenticated user id is missing from request context")
 }
 
 func isNormalWSError(err error) bool {

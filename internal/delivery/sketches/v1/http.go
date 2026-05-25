@@ -12,11 +12,23 @@ import (
 	"github.com/mailru/easyjson"
 )
 
+const (
+	uuidLength = 36
+	uuidDash1  = 8
+	uuidDash2  = 13
+	uuidDash3  = 18
+	uuidDash4  = 23
+)
+
 type SketchesService interface {
 	Create(ctx context.Context, workspaceID string, request *model.CreateSketchRequest) (*model.SketchMetadata, error)
 	ListAvailable(ctx context.Context) ([]model.AvailableSketch, error)
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
-	UpdateMetadata(ctx context.Context, sketchID string, request *model.UpdateSketchMetadataRequest) (*model.SketchMetadata, error)
+	UpdateMetadata(
+		ctx context.Context,
+		sketchID string,
+		request *model.UpdateSketchMetadataRequest,
+	) (*model.SketchMetadata, error)
 	Delete(ctx context.Context, sketchID string) error
 }
 
@@ -227,13 +239,13 @@ func isValidLengthUnit(unit string) bool {
 
 func isValidUUID(value string) bool {
 	value = strings.TrimSpace(value)
-	if len(value) != 36 {
+	if len(value) != uuidLength {
 		return false
 	}
 
 	for i, r := range value {
 		switch i {
-		case 8, 13, 18, 23:
+		case uuidDash1, uuidDash2, uuidDash3, uuidDash4:
 			if r != '-' {
 				return false
 			}

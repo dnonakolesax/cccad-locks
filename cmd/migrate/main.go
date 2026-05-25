@@ -27,15 +27,12 @@ func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
-	os.Setenv("POSTGRES_LOGIN", "root")
-	os.Setenv("POSTGRES_PASSWORD", "root")
 }
 
 func run() error {
 	configDir := flag.String("configs", defaultConfigDir, "Path to configs")
 	migrationsDir := flag.String("dir", defaultMigrationsDir, "Path to goose migrations")
-	// dsn := flag.String("dsn", "", "Postgres DSN. Defaults to DATABASE_URL, then postgres config")
-	// flag.Parse()
+	flag.Parse()
 
 	command := "up"
 	if flag.NArg() > 0 {
@@ -57,7 +54,6 @@ func run() error {
 		return fmt.Errorf("set goose dialect: %w", err)
 	}
 
-	//args := flag.Args()[1:]
 	err = goose.RunContext(context.Background(), command, db, *migrationsDir)
 	if err != nil {
 		return fmt.Errorf("goose %s: %w", command, err)
@@ -67,17 +63,11 @@ func run() error {
 }
 
 func openDB(configDir string) (*sql.DB, error) {
-	//dsn := strings.TrimSpace(flagDSN)
-	// if dsn == "" {
-	// 	dsn = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	// }
-	// if dsn == "" {
-		cfg, err := loadPostgresConfig(configDir)
-		if err != nil {
-			return nil, err
-		}
-		dsn := postgresDSN(cfg)
-	//}
+	cfg, err := loadPostgresConfig(configDir)
+	if err != nil {
+		return nil, err
+	}
+	dsn := postgresDSN(cfg)
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -94,13 +84,12 @@ func openDB(configDir string) (*sql.DB, error) {
 	return db, nil
 }
 
-func loadPostgresConfig(configDir string) (*configs.RDBConfig, error) {
+func loadPostgresConfig(_ string) (*configs.RDBConfig, error) {
 	_ = godotenv.Load()
 
 	v := viper.New()
 	v.PanicOnNil = true
-	cfg := &configs.RDBConfig{
-	}
+	cfg := &configs.RDBConfig{}
 	cfg.SetDefaults(v)
 
 	cfg.Login = os.Getenv("POSTGRES_USER")

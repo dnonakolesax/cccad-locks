@@ -2,6 +2,7 @@ package permissions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -43,8 +44,8 @@ func (r *Repository) List(ctx context.Context, sketchID string) ([]model.Permiss
 		}
 		permissions = append(permissions, *permission)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("list permissions rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("list permissions rows: %w", closeErr)
 	}
 
 	return permissions, nil
@@ -67,18 +68,18 @@ func (r *Repository) Put(ctx context.Context, permission *model.Permission) (*mo
 	}
 
 	if !rows.Next() {
-		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("put permission rows: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("put permission rows: %w", closeErr)
 		}
-		return nil, fmt.Errorf("put permission returned no rows")
+		return nil, errors.New("put permission returned no rows")
 	}
 
 	result, err := scanPermission(rows)
 	if err != nil {
 		return nil, err
 	}
-	if err := rows.Close(); err != nil {
-		return nil, fmt.Errorf("put permission rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("put permission rows: %w", closeErr)
 	}
 
 	return result, nil
@@ -95,8 +96,8 @@ func (r *Repository) Delete(ctx context.Context, userID, sketchID string) error 
 		return fmt.Errorf("delete permission: %w", err)
 	}
 
-	if err := rows.Close(); err != nil {
-		return fmt.Errorf("delete permission rows: %w", err)
+	if closeErr := rows.Close(); closeErr != nil {
+		return fmt.Errorf("delete permission rows: %w", closeErr)
 	}
 
 	return nil

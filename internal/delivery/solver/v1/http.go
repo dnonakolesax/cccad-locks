@@ -13,7 +13,11 @@ import (
 )
 
 type SolverService interface {
-	Preview(ctx context.Context, sketchID string, request *model.SolvePreviewRequest) (*model.SolvePreviewResponse, error)
+	Preview(
+		ctx context.Context,
+		sketchID string,
+		request *model.SolvePreviewRequest,
+	) (*model.SolvePreviewResponse, error)
 	Analyze(ctx context.Context, sketchID string) (*model.AnalyzeSketchResponse, error)
 }
 

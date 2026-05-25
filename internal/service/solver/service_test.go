@@ -112,7 +112,9 @@ func testSketchDocument() *model.SketchDocument {
 			"c1": []byte(`{"id":"c1","type":"coincident","status":"active","pointAId":"p1","pointBId":"p2"}`),
 		},
 		Dimensions: map[string]easyjson.RawMessage{
-			"d1": []byte(`{"id":"d1","type":"distance","status":"active","driving":true,"refAId":"p1","refBId":"p2","value":10}`),
+			"d1": []byte(
+				`{"id":"d1","type":"distance","status":"active","driving":true,"refAId":"p1","refBId":"p2","value":10}`,
+			),
 		},
 	}
 }

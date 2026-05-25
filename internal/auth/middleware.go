@@ -9,10 +9,17 @@ import (
 )
 
 const (
-	AccessTokenCookie  = "NTD-DNAnAT"
-	RefreshTokenCookie = "NTD-DNART"
-	IDTokenCookie      = "NTD-DNALT"
-	TraceIDHeader      = "trace_id"
+	AccessTokenCookie  = "NTD-DNAnAT" //nolint:gosec // Cookie name, not a credential.
+	RefreshTokenCookie = "NTD-DNART"  //nolint:gosec // Cookie name, not a credential.
+	IDTokenCookie      = "NTD-DNALT"  //nolint:gosec // Cookie name, not a credential.
+	TraceIDHeader      = "Trace_id"
+)
+
+const (
+	uuidVersionMask    = 0x40
+	uuidVariantMask    = 0x80
+	uuidVersionBitmask = 0x0f
+	uuidVariantBitmask = 0x3f
 )
 
 type Middleware struct {
@@ -74,8 +81,8 @@ func newTraceID() string {
 		return ""
 	}
 
-	id[6] = (id[6] & 0x0f) | 0x40
-	id[8] = (id[8] & 0x3f) | 0x80
+	id[6] = (id[6] & uuidVersionBitmask) | uuidVersionMask
+	id[8] = (id[8] & uuidVariantBitmask) | uuidVariantMask
 
 	var encoded [36]byte
 	hex.Encode(encoded[0:8], id[0:4])
@@ -109,6 +116,7 @@ func setRenewedTokenCookie(w http.ResponseWriter, name string, value *string) {
 		Name:     name,
 		Value:    *value,
 		Path:     "/",
+		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})

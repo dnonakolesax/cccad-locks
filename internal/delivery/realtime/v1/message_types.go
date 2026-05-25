@@ -1,13 +1,13 @@
 package v1
 
 const (
-	MsgSessionJoin        = "session.join"
-	MsgSessionJoined      = "session.joined"
-	MsgSessionUserJoined  = "session.user_joined"
-	MsgSessionUserLeft    = "session.user_left"
-	MsgSessionPing        = "session.ping"
-	MsgSessionPong        = "session.pong"
-	MsgAccessRevoked      = "session.access_revoked"
+	MsgSessionJoin       = "session.join"
+	MsgSessionJoined     = "session.joined"
+	MsgSessionUserJoined = "session.user_joined"
+	MsgSessionUserLeft   = "session.user_left"
+	MsgSessionPing       = "session.ping"
+	MsgSessionPong       = "session.pong"
+	MsgAccessRevoked     = "session.access_revoked"
 
 	MsgPresenceCursor    = "presence.cursor"
 	MsgPresenceSelection = "presence.selection"
@@ -27,13 +27,13 @@ const (
 	MsgOpRejected  = "op.rejected"
 	MsgOpsBatch    = "ops.batch"
 
-	MsgLockAcquire  = "lock.acquire"
-	MsgLockAcquired = "lock.acquired"
-	MsgLockRejected = "lock.rejected"
-	MsgLockRefresh  = "lock.refresh"
+	MsgLockAcquire   = "lock.acquire"
+	MsgLockAcquired  = "lock.acquired"
+	MsgLockRejected  = "lock.rejected"
+	MsgLockRefresh   = "lock.refresh"
 	MsgLockRefreshed = "lock.refreshed"
-	MsgLockRelease  = "lock.release"
-	MsgLockReleased = "lock.released"
+	MsgLockRelease   = "lock.release"
+	MsgLockReleased  = "lock.released"
 
 	MsgPermissionUpdated = "permission.updated"
 	MsgPermissionRevoked = "permission.revoked"
@@ -43,6 +43,7 @@ const (
 
 	MsgStateResyncRequired = "state.resync_required"
 	MsgStateSnapshot       = "state.snapshot"
+	MsgStatePatch          = "state.patch"
 
 	MsgError = "error"
 )
