@@ -26,7 +26,7 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
     go build -o ./bin/cccad-migrate ./cmd/migrate
 
 # Запуск приложения
-FROM alpine:3.22
+FROM alpine:3.23
 
 RUN apk add --no-cache ca-certificates && \
     addgroup -S sketch-runner && \
