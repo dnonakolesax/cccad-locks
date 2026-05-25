@@ -52,9 +52,9 @@ func arcBranchString(branch solverv1.ArcBranch) string {
 		return "major"
 	case solverv1.ArcBranch_ARC_BRANCH_UNSPECIFIED:
 		return statusUnspecified
-	default:
-		return statusUnspecified
 	}
+
+	return statusUnspecified
 }
 
 func equalKind(kind string) solverv1.EqualKind {
@@ -108,9 +108,9 @@ func solveStatusString(status solverv1.SolveStatus) string {
 		return "numerical_failure"
 	case solverv1.SolveStatus_SOLVE_STATUS_UNSPECIFIED:
 		return statusUnspecified
-	default:
-		return statusUnspecified
 	}
+
+	return statusUnspecified
 }
 
 func diagnosticLevelString(level solverv1.SolverDiagnosticLevel) string {
@@ -123,7 +123,7 @@ func diagnosticLevelString(level solverv1.SolverDiagnosticLevel) string {
 		return "error"
 	case solverv1.SolverDiagnosticLevel_SOLVER_DIAGNOSTIC_LEVEL_UNSPECIFIED:
 		return statusUnspecified
-	default:
-		return statusUnspecified
 	}
+
+	return statusUnspecified
 }

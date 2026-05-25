@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 
 	"github.com/dnonakolesax/cccad-locks/internal/application"
 )
@@ -21,7 +22,7 @@ func main() {
 
 	a, err := application.NewApp(*configsPath)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	a.Run()

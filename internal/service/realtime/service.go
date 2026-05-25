@@ -1059,9 +1059,7 @@ func (c *Connection) sendLockError(requestID string, err error) {
 	switch {
 	case errors.Is(err, model.ErrLockNotFound):
 		c.sendError(requestID, "LOCK_NOT_FOUND", err.Error())
-	case errors.Is(err, model.ErrLockNotOwned):
-		c.sendError(requestID, "PERMISSION_DENIED", err.Error())
-	case errors.Is(err, errPermissionDenied):
+	case errors.Is(err, model.ErrLockNotOwned), errors.Is(err, errPermissionDenied):
 		c.sendError(requestID, "PERMISSION_DENIED", err.Error())
 	default:
 		c.sendError(requestID, "INVALID_MESSAGE", err.Error())

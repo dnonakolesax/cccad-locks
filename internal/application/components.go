@@ -96,7 +96,7 @@ func (a *App) SetupComponents() error {
 	/************************************************/
 	/*              SOLVER GRPC CLIENT              */
 	/************************************************/
-	solverClient, err := solver.NewClient(a.configs.Solver, a.loggers.GRPC)
+	solverClient, err := solver.NewClient(a.configs.Solver, a.loggers.GRPC, a.metrics.GRPCClient)
 	if err != nil {
 		a.initLogger.ErrorContext(context.Background(), "Error creating solver grpc client",
 			slog.String(consts.ErrorLoggerKey, err.Error()))
@@ -106,7 +106,7 @@ func (a *App) SetupComponents() error {
 	/************************************************/
 	/*               AUTH GRPC CLIENT               */
 	/************************************************/
-	authClient, err := auth.NewClient(a.configs.Auth, a.loggers.GRPC)
+	authClient, err := auth.NewClient(a.configs.Auth, a.loggers.GRPC, a.metrics.GRPCClient)
 	if err != nil {
 		a.initLogger.ErrorContext(context.Background(), "Error creating auth grpc client",
 			slog.String(consts.ErrorLoggerKey, err.Error()))

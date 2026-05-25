@@ -40,9 +40,10 @@ func NewLogger(cfg *configs.LoggerConfig, layer string) *slog.Logger {
 	if !ok {
 		hash, err := exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD").Output()
 		if err != nil {
-			panic(err)
+			commitHash = "unknown"
+		} else {
+			commitHash = string(hash)
 		}
-		commitHash = string(hash)
 	}
 
 	podName, ok := os.LookupEnv("POD_NAME")
@@ -63,7 +64,7 @@ func NewLogger(cfg *configs.LoggerConfig, layer string) *slog.Logger {
 	case "error":
 		logLevel = slog.LevelError
 	default:
-		panic(fmt.Sprintf("Unknown log level: %s. Known levels: debug, info, warn, error", logLevel))
+		logLevel = slog.LevelInfo
 	}
 
 	handler := slog.NewJSONHandler(multiWriter, &slog.HandlerOptions{

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dnonakolesax/cccad-locks/internal/configs"
+	"github.com/dnonakolesax/cccad-locks/internal/observability"
 	solverv1 "github.com/dnonakolesax/cccad-locks/internal/proto/solver/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -19,7 +20,11 @@ type Client struct {
 	requestTimeout time.Duration
 }
 
-func NewClient(cfg *configs.SolverConfig, logger *slog.Logger) (*Client, error) {
+func NewClient(
+	cfg *configs.SolverConfig,
+	logger *slog.Logger,
+	metrics *observability.GRPCClientMetrics,
+) (*Client, error) {
 	if cfg == nil {
 		return nil, errors.New("solver config is nil")
 	}
@@ -27,10 +32,12 @@ func NewClient(cfg *configs.SolverConfig, logger *slog.Logger) (*Client, error) 
 		return nil, errors.New("solver address is empty")
 	}
 
-	conn, err := grpc.NewClient(
-		cfg.Address,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	if metrics != nil {
+		opts = append(opts, grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor("solver")))
+	}
+
+	conn, err := grpc.NewClient(cfg.Address, opts...)
 	if err != nil {
 		return nil, err
 	}
