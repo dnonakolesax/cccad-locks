@@ -25,6 +25,33 @@ type SubmitOperationResponse struct {
 	Rejection        *OperationRejection   `json:"rejection,omitempty"`
 }
 
+type SubmitState struct {
+	Version              int64
+	GraphState           easyjson.RawMessage
+	MaterializedGeometry easyjson.RawMessage
+	SolveStatus          easyjson.RawMessage
+}
+
+type SubmitCommitRequest struct {
+	BaseVersion          int64
+	ClientOpID           string
+	OpType               string
+	Payload              easyjson.RawMessage
+	Patch                easyjson.RawMessage
+	GraphState           easyjson.RawMessage
+	MaterializedGeometry easyjson.RawMessage
+	SolveStatus          easyjson.RawMessage
+	ChangedEntityIDs     []string
+}
+
+type SubmitCommitResult struct {
+	Status         string
+	OpID           string
+	Version        int64
+	CurrentVersion int64
+	Duplicate      bool
+}
+
 //easyjson:json
 type SketchOperationPage struct {
 	SketchID             string               `json:"sketchId"`
