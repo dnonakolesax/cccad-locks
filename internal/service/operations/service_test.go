@@ -212,3 +212,58 @@ func TestServiceSubmitRejectsStaleVersion(t *testing.T) {
 		t.Fatalf("Rejection = %#v, want stale_version", response.Rejection)
 	}
 }
+
+func TestServiceSubmitAddConstraintCommitsGraphState(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 1,
+			GraphState: []byte(`{
+				"entities":{
+					"line-1":{"id":"line-1","type":"line","startPointId":"point-1","endPointId":"point-2"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	service := NewService(repo)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 1,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"add_constraint",
+			"constraint":{"id":"constraint-1","type":"horizontal","refs":["line-1"]}
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if repo.submitRequest.OpType != "add_constraint" {
+		t.Fatalf("Submit opType = %q, want add_constraint", repo.submitRequest.OpType)
+	}
+
+	var graph struct {
+		Constraints map[string]map[string]any `json:"constraints"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	constraint := graph.Constraints["constraint-1"]
+	if constraint["type"] != "horizontal" {
+		t.Fatalf("constraint type = %#v, want horizontal", constraint["type"])
+	}
+	if constraint["status"] != "active" {
+		t.Fatalf("constraint status = %#v, want active", constraint["status"])
+	}
+	if len(response.ChangedEntityIDs) != 1 || response.ChangedEntityIDs[0] != "line-1" {
+		t.Fatalf("ChangedEntityIDs = %#v, want [line-1]", response.ChangedEntityIDs)
+	}
+}

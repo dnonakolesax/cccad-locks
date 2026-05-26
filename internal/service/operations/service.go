@@ -257,6 +257,8 @@ func applyOperation(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, [
 		return applyCreateLine(graph, raw)
 	case "delete_entity":
 		return applyDeleteEntity(graph, raw)
+	case "add_constraint":
+		return applyAddConstraint(graph, raw)
 	default:
 		return nil, nil, fmt.Errorf("operation type %q is not supported yet", opType)
 	}
@@ -382,6 +384,151 @@ func applyDeleteEntity(graph *graphState, raw easyjson.RawMessage) (*sketchPatch
 	}
 	delete(graph.Entities, op.EntityID)
 	return &sketchPatch{DeletedEntityIDs: []string{op.EntityID}}, []string{op.EntityID}, nil
+}
+
+type constraintPayload struct {
+	ID         string   `json:"id"`
+	Type       string   `json:"type"`
+	Refs       []string `json:"refs"`
+	Status     string   `json:"status,omitempty"`
+	PointAID   string   `json:"pointAId,omitempty"`
+	PointBID   string   `json:"pointBId,omitempty"`
+	LineID     string   `json:"lineId,omitempty"`
+	LineAID    string   `json:"lineAId,omitempty"`
+	LineBID    string   `json:"lineBId,omitempty"`
+	EntityID   string   `json:"entityId,omitempty"`
+	EntityAID  string   `json:"entityAId,omitempty"`
+	EntityBID  string   `json:"entityBId,omitempty"`
+	MidpointID string   `json:"midpointId,omitempty"`
+	CircleAID  string   `json:"circleAId,omitempty"`
+	CircleBID  string   `json:"circleBId,omitempty"`
+	Branch     string   `json:"branch,omitempty"`
+	Kind       string   `json:"kind,omitempty"`
+}
+
+func applyAddConstraint(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, []string, error) {
+	var op struct {
+		ConstraintID string             `json:"constraintId"`
+		Constraint   *constraintPayload `json:"constraint"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, nil, fmt.Errorf("decode add_constraint: %w", err)
+	}
+
+	constraint := op.Constraint
+	if constraint == nil {
+		var inline constraintPayload
+		if err := json.Unmarshal(raw, &inline); err != nil {
+			return nil, nil, fmt.Errorf("decode inline add_constraint: %w", err)
+		}
+		constraint = &inline
+	}
+	if constraint.ID == "" {
+		constraint.ID = op.ConstraintID
+	}
+	normalizeConstraint(constraint)
+	if err := validateConstraint(graph, constraint); err != nil {
+		return nil, nil, err
+	}
+	if constraint.Status == "" {
+		constraint.Status = "active"
+	}
+
+	body, err := json.Marshal(constraint)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode constraint: %w", err)
+	}
+	graph.Constraints[constraint.ID] = body
+
+	changed := constraintReferencedEntityIDs(constraint)
+	return &sketchPatch{Constraints: map[string]json.RawMessage{constraint.ID: body}}, changed, nil
+}
+
+func normalizeConstraint(constraint *constraintPayload) {
+	constraint.ID = strings.TrimSpace(constraint.ID)
+	constraint.Type = strings.TrimSpace(constraint.Type)
+	constraint.Status = strings.TrimSpace(constraint.Status)
+	constraint.PointAID = strings.TrimSpace(constraint.PointAID)
+	constraint.PointBID = strings.TrimSpace(constraint.PointBID)
+	constraint.LineID = strings.TrimSpace(constraint.LineID)
+	constraint.LineAID = strings.TrimSpace(constraint.LineAID)
+	constraint.LineBID = strings.TrimSpace(constraint.LineBID)
+	constraint.EntityID = strings.TrimSpace(constraint.EntityID)
+	constraint.EntityAID = strings.TrimSpace(constraint.EntityAID)
+	constraint.EntityBID = strings.TrimSpace(constraint.EntityBID)
+	constraint.MidpointID = strings.TrimSpace(constraint.MidpointID)
+	constraint.CircleAID = strings.TrimSpace(constraint.CircleAID)
+	constraint.CircleBID = strings.TrimSpace(constraint.CircleBID)
+	constraint.Branch = strings.TrimSpace(constraint.Branch)
+	constraint.Kind = strings.TrimSpace(constraint.Kind)
+	for i := range constraint.Refs {
+		constraint.Refs[i] = strings.TrimSpace(constraint.Refs[i])
+	}
+}
+
+func validateConstraint(graph *graphState, constraint *constraintPayload) error {
+	if constraint.ID == "" {
+		return errors.New("constraint.id or constraintId is required")
+	}
+	if _, exists := graph.Constraints[constraint.ID]; exists {
+		return fmt.Errorf("constraint %q already exists", constraint.ID)
+	}
+	if constraint.Type == "" {
+		return errors.New("constraint.type is required")
+	}
+
+	refs := constraintReferencedEntityIDs(constraint)
+	if len(refs) == 0 {
+		return errors.New("constraint must reference at least one entity")
+	}
+	for _, ref := range refs {
+		if ref == "" {
+			return errors.New("constraint references must not be empty")
+		}
+		if _, exists := graph.Entities[ref]; !exists {
+			return fmt.Errorf("constraint reference %q does not exist", ref)
+		}
+	}
+
+	switch constraint.Type {
+	case "coincident", "horizontal", "vertical", "parallel", "perpendicular", "tangent", "equal", "fixed", "midpoint", "concentric":
+		return nil
+	default:
+		return fmt.Errorf("unsupported constraint type %q", constraint.Type)
+	}
+}
+
+func constraintReferencedEntityIDs(constraint *constraintPayload) []string {
+	seen := make(map[string]struct{})
+	refs := make([]string, 0, len(constraint.Refs)+8)
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		if _, ok := seen[value]; ok {
+			return
+		}
+		seen[value] = struct{}{}
+		refs = append(refs, value)
+	}
+
+	for _, ref := range constraint.Refs {
+		add(ref)
+	}
+	add(constraint.PointAID)
+	add(constraint.PointBID)
+	add(constraint.LineID)
+	add(constraint.LineAID)
+	add(constraint.LineBID)
+	add(constraint.EntityID)
+	add(constraint.EntityAID)
+	add(constraint.EntityBID)
+	add(constraint.MidpointID)
+	add(constraint.CircleAID)
+	add(constraint.CircleBID)
+
+	return refs
 }
 
 func mustJSON(value any) json.RawMessage {
