@@ -2073,6 +2073,93 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel21(in *jl
 				}
 				in.Delim(']')
 			}
+		case "affectedConstraintIds":
+			if in.IsNull() {
+				in.Skip()
+				out.AffectedConstraintIDs = nil
+			} else {
+				in.Delim('[')
+				if out.AffectedConstraintIDs == nil {
+					if !in.IsDelim(']') {
+						out.AffectedConstraintIDs = make([]string, 0, 4)
+					} else {
+						out.AffectedConstraintIDs = []string{}
+					}
+				} else {
+					out.AffectedConstraintIDs = (out.AffectedConstraintIDs)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v14 string
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						v14 = string(in.String())
+					}
+					out.AffectedConstraintIDs = append(out.AffectedConstraintIDs, v14)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		case "affectedDimensionIds":
+			if in.IsNull() {
+				in.Skip()
+				out.AffectedDimensionIDs = nil
+			} else {
+				in.Delim('[')
+				if out.AffectedDimensionIDs == nil {
+					if !in.IsDelim(']') {
+						out.AffectedDimensionIDs = make([]string, 0, 4)
+					} else {
+						out.AffectedDimensionIDs = []string{}
+					}
+				} else {
+					out.AffectedDimensionIDs = (out.AffectedDimensionIDs)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v15 string
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						v15 = string(in.String())
+					}
+					out.AffectedDimensionIDs = append(out.AffectedDimensionIDs, v15)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		case "affectedComponentIds":
+			if in.IsNull() {
+				in.Skip()
+				out.AffectedComponentIDs = nil
+			} else {
+				in.Delim('[')
+				if out.AffectedComponentIDs == nil {
+					if !in.IsDelim(']') {
+						out.AffectedComponentIDs = make([]string, 0, 4)
+					} else {
+						out.AffectedComponentIDs = []string{}
+					}
+				} else {
+					out.AffectedComponentIDs = (out.AffectedComponentIDs)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v16 string
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						v16 = string(in.String())
+					}
+					out.AffectedComponentIDs = append(out.AffectedComponentIDs, v16)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		case "authoritative":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.Authoritative = bool(in.Bool())
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -2112,29 +2199,78 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel21(out *j
 		out.RawString(prefix)
 		out.Raw((in.Op).MarshalJSON())
 	}
-	if len(in.Patch) != 0 {
+	{
 		const prefix string = ",\"patch\":"
 		out.RawString(prefix)
 		out.Raw((in.Patch).MarshalJSON())
 	}
-	if len(in.SolveStatus) != 0 {
+	{
 		const prefix string = ",\"solveStatus\":"
 		out.RawString(prefix)
 		out.Raw((in.SolveStatus).MarshalJSON())
 	}
-	if len(in.AffectedEntityIDs) != 0 {
+	{
 		const prefix string = ",\"affectedEntityIds\":"
 		out.RawString(prefix)
-		{
+		if in.AffectedEntityIDs == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+			out.RawString("null")
+		} else {
 			out.RawByte('[')
-			for v14, v15 := range in.AffectedEntityIDs {
-				if v14 > 0 {
+			for v17, v18 := range in.AffectedEntityIDs {
+				if v17 > 0 {
 					out.RawByte(',')
 				}
-				out.String(string(v15))
+				out.String(string(v18))
 			}
 			out.RawByte(']')
 		}
+	}
+	if len(in.AffectedConstraintIDs) != 0 {
+		const prefix string = ",\"affectedConstraintIds\":"
+		out.RawString(prefix)
+		{
+			out.RawByte('[')
+			for v19, v20 := range in.AffectedConstraintIDs {
+				if v19 > 0 {
+					out.RawByte(',')
+				}
+				out.String(string(v20))
+			}
+			out.RawByte(']')
+		}
+	}
+	if len(in.AffectedDimensionIDs) != 0 {
+		const prefix string = ",\"affectedDimensionIds\":"
+		out.RawString(prefix)
+		{
+			out.RawByte('[')
+			for v21, v22 := range in.AffectedDimensionIDs {
+				if v21 > 0 {
+					out.RawByte(',')
+				}
+				out.String(string(v22))
+			}
+			out.RawByte(']')
+		}
+	}
+	if len(in.AffectedComponentIDs) != 0 {
+		const prefix string = ",\"affectedComponentIds\":"
+		out.RawString(prefix)
+		{
+			out.RawByte('[')
+			for v23, v24 := range in.AffectedComponentIDs {
+				if v23 > 0 {
+					out.RawByte(',')
+				}
+				out.String(string(v24))
+			}
+			out.RawByte(']')
+		}
+	}
+	{
+		const prefix string = ",\"authoritative\":"
+		out.RawString(prefix)
+		out.Bool(bool(in.Authoritative))
 	}
 	out.RawByte('}')
 }
@@ -2710,13 +2846,13 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel28(in *jl
 					out.EntityIDs = (out.EntityIDs)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v16 string
+					var v25 string
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						v16 = string(in.String())
+						v25 = string(in.String())
 					}
-					out.EntityIDs = append(out.EntityIDs, v16)
+					out.EntityIDs = append(out.EntityIDs, v25)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -2761,11 +2897,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel28(out *j
 		out.RawString(prefix)
 		{
 			out.RawByte('[')
-			for v17, v18 := range in.EntityIDs {
-				if v17 > 0 {
+			for v26, v27 := range in.EntityIDs {
+				if v26 > 0 {
 					out.RawByte(',')
 				}
-				out.String(string(v18))
+				out.String(string(v27))
 			}
 			out.RawByte(']')
 		}
@@ -3455,13 +3591,13 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel36(in *jl
 					out.LockedEntityIDs = (out.LockedEntityIDs)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v19 string
+					var v28 string
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						v19 = string(in.String())
+						v28 = string(in.String())
 					}
-					out.LockedEntityIDs = append(out.LockedEntityIDs, v19)
+					out.LockedEntityIDs = append(out.LockedEntityIDs, v28)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -3496,11 +3632,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel36(out *j
 		out.RawString(prefix)
 		{
 			out.RawByte('[')
-			for v20, v21 := range in.LockedEntityIDs {
-				if v20 > 0 {
+			for v29, v30 := range in.LockedEntityIDs {
+				if v29 > 0 {
 					out.RawByte(',')
 				}
-				out.String(string(v21))
+				out.String(string(v30))
 			}
 			out.RawByte(']')
 		}
@@ -3766,13 +3902,13 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel39(in *jl
 					out.AffectedEntityIDs = (out.AffectedEntityIDs)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v22 string
+					var v31 string
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						v22 = string(in.String())
+						v31 = string(in.String())
 					}
-					out.AffectedEntityIDs = append(out.AffectedEntityIDs, v22)
+					out.AffectedEntityIDs = append(out.AffectedEntityIDs, v31)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -3793,13 +3929,13 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel39(in *jl
 					out.CausedByOps = (out.CausedByOps)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v23 string
+					var v32 string
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						v23 = string(in.String())
+						v32 = string(in.String())
 					}
-					out.CausedByOps = append(out.CausedByOps, v23)
+					out.CausedByOps = append(out.CausedByOps, v32)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -3826,15 +3962,15 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel39(in *jl
 					out.PossibleResolutions = (out.PossibleResolutions)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v24 json.RawMessage
+					var v33 json.RawMessage
 					if in.IsNull() {
 						in.Skip()
 					} else {
 						if data := in.Raw(); in.Ok() {
-							in.AddError((v24).UnmarshalJSON(data))
+							in.AddError((v33).UnmarshalJSON(data))
 						}
 					}
-					out.PossibleResolutions = append(out.PossibleResolutions, v24)
+					out.PossibleResolutions = append(out.PossibleResolutions, v33)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -3875,11 +4011,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel39(out *j
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v25, v26 := range in.AffectedEntityIDs {
-				if v25 > 0 {
+			for v34, v35 := range in.AffectedEntityIDs {
+				if v34 > 0 {
 					out.RawByte(',')
 				}
-				out.String(string(v26))
+				out.String(string(v35))
 			}
 			out.RawByte(']')
 		}
@@ -3891,11 +4027,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel39(out *j
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v27, v28 := range in.CausedByOps {
-				if v27 > 0 {
+			for v36, v37 := range in.CausedByOps {
+				if v36 > 0 {
 					out.RawByte(',')
 				}
-				out.String(string(v28))
+				out.String(string(v37))
 			}
 			out.RawByte(']')
 		}
@@ -3910,11 +4046,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel39(out *j
 		out.RawString(prefix)
 		{
 			out.RawByte('[')
-			for v29, v30 := range in.PossibleResolutions {
-				if v29 > 0 {
+			for v38, v39 := range in.PossibleResolutions {
+				if v38 > 0 {
 					out.RawByte(',')
 				}
-				out.Raw((v30).MarshalJSON())
+				out.Raw((v39).MarshalJSON())
 			}
 			out.RawByte(']')
 		}

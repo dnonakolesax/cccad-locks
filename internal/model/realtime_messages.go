@@ -171,14 +171,18 @@ type OpSubmitPayload struct {
 
 //easyjson:json
 type OpCommittedPayload struct {
-	OpID              string          `json:"opId"`
-	Version           int64           `json:"version"`
-	ActorUserID       string          `json:"actorUserId"`
-	ClientOpID        string          `json:"clientOpId,omitempty"`
-	Op                json.RawMessage `json:"op"`
-	Patch             json.RawMessage `json:"patch,omitempty"`
-	SolveStatus       json.RawMessage `json:"solveStatus,omitempty"`
-	AffectedEntityIDs []string        `json:"affectedEntityIds,omitempty"`
+	OpID                  string          `json:"opId"`
+	Version               int64           `json:"version"`
+	ActorUserID           string          `json:"actorUserId"`
+	ClientOpID            string          `json:"clientOpId,omitempty"`
+	Op                    json.RawMessage `json:"op"`
+	Patch                 json.RawMessage `json:"patch"`
+	SolveStatus           json.RawMessage `json:"solveStatus"`
+	AffectedEntityIDs     []string        `json:"affectedEntityIds"`
+	AffectedConstraintIDs []string        `json:"affectedConstraintIds,omitempty"`
+	AffectedDimensionIDs  []string        `json:"affectedDimensionIds,omitempty"`
+	AffectedComponentIDs  []string        `json:"affectedComponentIds,omitempty"`
+	Authoritative         bool            `json:"authoritative"`
 }
 
 //easyjson:json

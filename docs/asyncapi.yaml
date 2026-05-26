@@ -11,6 +11,10 @@ info:
     Rules:
       - PostgreSQL sketch operation log is the persistent source of truth.
       - op.committed is the only realtime event after which a client mutates real document state.
+      - Frontend-side solving is optimistic preview only; op.committed.patch is the authoritative solver result.
+      - Backend must call the C++ sketch-solver before emitting op.committed for geometry-changing operations.
+      - op.committed.patch may contain only changed/affected entities, constraints, dimensions and materialized geometry.
+      - Clients must reconcile local optimistic state by applying op.committed.patch, not by re-solving the original op.
       - presence.*, drag.preview, session ping/pong and locks are transient.
       - Redis may be used for presence, locks and pub/sub fanout.
       - S3 is used for previews, exports, imports and large snapshots, not live sketch state.
@@ -274,7 +278,53 @@ components:
     DragCancel: { name: drag.cancel, title: Cancel drag, payload: { $ref: '#/components/schemas/DragCancelMessage' } }
     DragCancelled: { name: drag.cancelled, title: Drag cancelled, payload: { $ref: '#/components/schemas/DragCancelledMessage' } }
     OpSubmit: { name: op.submit, title: Submit persistent operation, payload: { $ref: '#/components/schemas/OpSubmitMessage' } }
-    OpCommitted: { name: op.committed, title: Operation committed, payload: { $ref: '#/components/schemas/OpCommittedMessage' } }
+    OpCommitted:
+      name: op.committed
+      title: Operation committed
+      summary: Authoritative committed operation result produced after backend-side C++ solver recalculation.
+      payload:
+        $ref: '#/components/schemas/OpCommittedMessage'
+      examples:
+        - name: Move point committed with authoritative solver patch
+          payload:
+            type: op.committed
+            requestId: req_move_1
+            eventId: evt_1001
+            sketchId: sk_123
+            serverTime: '2026-05-26T12:00:00Z'
+            payload:
+              opId: op_1001
+              version: 43
+              actorUserId: usr_1
+              clientOpId: client_op_77
+              op:
+                type: move_point
+                pointId: p2
+                target: { x: 130.0, y: 40.0 }
+              patch:
+                entities:
+                  p2:
+                    type: point
+                    x: 130.0
+                    y: 0.0
+                  l1:
+                    type: line
+                    startPointId: p1
+                    endPointId: p2
+                materializedGeometry:
+                  l1:
+                    type: line_segment
+                    start: { x: 0.0, y: 0.0 }
+                    end: { x: 130.0, y: 0.0 }
+              solveStatus:
+                status: under_constrained
+                degreesOfFreedom: 3
+                diagnostics: []
+              affectedEntityIds: [p2, l1]
+              affectedConstraintIds: [c_horizontal_1]
+              affectedDimensionIds: []
+              affectedComponentIds: [cmp_1]
+              authoritative: true
     OpRejected: { name: op.rejected, title: Operation rejected, payload: { $ref: '#/components/schemas/OpRejectedMessage' } }
     OpsBatch: { name: ops.batch, title: Operations batch, payload: { $ref: '#/components/schemas/OpsBatchMessage' } }
     LockAcquire: { name: lock.acquire, title: Acquire lock, payload: { $ref: '#/components/schemas/LockAcquireMessage' } }
@@ -597,18 +647,53 @@ components:
         payload: { $ref: '#/components/schemas/OpCommittedPayload' }
     OpCommittedPayload:
       type: object
-      required: [opId, version, actorUserId, op, patch, solveStatus, affectedEntityIds]
+      description: |
+        Authoritative result of a persistent operation after backend validation and C++ solver recalculation.
+
+        A client may optimistically solve the same operation locally for preview, but this payload is the canonical result.
+        The client must apply `patch` to reconcile its local state. The patch is intentionally sparse: it should contain
+        only entities, constraints, dimensions and materialized geometry that changed or were affected by the solver.
+      required: [opId, version, actorUserId, op, patch, solveStatus, affectedEntityIds, authoritative]
       properties:
-        opId: { type: string }
-        version: { type: integer, format: int64 }
-        actorUserId: { type: string }
-        clientOpId: { type: string }
-        op: { $ref: '#/components/schemas/SketchOperation' }
-        patch: { $ref: '#/components/schemas/SketchPatch' }
-        solveStatus: { $ref: '#/components/schemas/SolveStatus' }
+        opId:
+          type: string
+          description: Server-side persistent operation id.
+        version:
+          type: integer
+          format: int64
+          description: Committed sketch version after applying this operation and solver patch.
+        actorUserId:
+          type: string
+          description: User that submitted the operation.
+        clientOpId:
+          type: string
+          description: Client-generated id used to match this commit with a local optimistic operation.
+        op:
+          $ref: '#/components/schemas/SketchOperation'
+        patch:
+          $ref: '#/components/schemas/SketchPatch'
+        solveStatus:
+          $ref: '#/components/schemas/SolveStatus'
         affectedEntityIds:
           type: array
+          description: Entity ids that were changed or touched by the authoritative solver result.
           items: { type: string }
+        affectedConstraintIds:
+          type: array
+          description: Constraint ids that participated in or were affected by the solver recalculation.
+          items: { type: string }
+        affectedDimensionIds:
+          type: array
+          description: Dimension ids that participated in or were affected by the solver recalculation.
+          items: { type: string }
+        affectedComponentIds:
+          type: array
+          description: Constraint component ids recalculated by the solver.
+          items: { type: string }
+        authoritative:
+          type: boolean
+          const: true
+          description: Must be true. Marks this payload as the backend/C++ solver source of truth, not a client preview.
     OpRejectedMessage:
       type: object
       required: [type, sketchId, serverTime, payload]
@@ -722,10 +807,30 @@ components:
         orientation: { type: string, enum: [cw, ccw] }
     SketchPatch:
       type: object
+      description: |
+        Sparse patch applied to the client's local sketch state.
+
+        In op.committed this patch is produced by backend-side C++ solver recalculation and is authoritative.
+        It is not required to contain the full sketch. For normal interactive operations it should contain only
+        changed/affected entities, constraints, dimensions and materialized geometry. If the client cannot apply
+        the patch cleanly, it should request state.resync_required / state.snapshot flow.
       properties:
-        entities: { type: object, additionalProperties: true }
-        constraints: { type: object, additionalProperties: true }
-        dimensions: { type: object, additionalProperties: true }
+        entities:
+          type: object
+          description: Upsert map for changed or affected logical entities, keyed by entity id.
+          additionalProperties: true
+        constraints:
+          type: object
+          description: Upsert map for changed or affected constraints, keyed by constraint id.
+          additionalProperties: true
+        dimensions:
+          type: object
+          description: Upsert map for changed or affected dimensions, keyed by dimension id.
+          additionalProperties: true
+        materializedGeometry:
+          type: object
+          description: Optional solver-produced render/geometry cache for affected entities, keyed by entity id.
+          additionalProperties: true
         deletedEntityIds:
           type: array
           items: { type: string }
@@ -907,6 +1012,7 @@ components:
             document: { $ref: '#/components/schemas/SketchDocument' }
     StatePatchMessage:
       type: object
+      description: Generic sparse state patch. For committed user operations prefer op.committed because it carries op metadata and solver status.
       required: [type, sketchId, serverTime, payload]
       properties:
         type: { type: string, enum: [state.patch] }

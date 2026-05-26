@@ -165,7 +165,7 @@ func TestServiceListRejectsInvalidArguments(t *testing.T) {
 
 func TestServiceSubmitCreateLineCommitsGraphState(t *testing.T) {
 	repo := &repositoryStub{}
-	service := NewService(repo)
+	service := NewServiceWithSolver(repo, &solverStub{})
 	ctx := auth.ContextWithUserID(context.Background(), "user-id")
 
 	response, err := service.Submit(ctx, " sketch-id ", &model.SubmitOperationRequest{

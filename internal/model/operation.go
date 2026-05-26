@@ -13,16 +13,19 @@ type SubmitOperationRequest struct {
 
 //easyjson:json
 type SubmitOperationResponse struct {
-	Accepted         bool                  `json:"accepted"`
-	Duplicate        bool                  `json:"duplicate,omitempty"`
-	OpID             *string               `json:"opId,omitempty"`
-	Version          *int64                `json:"version,omitempty"`
-	CurrentVersion   int64                 `json:"currentVersion"`
-	Patch            easyjson.RawMessage   `json:"patch,omitempty"`
-	SolveStatus      easyjson.RawMessage   `json:"solveStatus,omitempty"`
-	ChangedEntityIDs []string              `json:"changedEntityIds,omitempty"`
-	Conflicts        []easyjson.RawMessage `json:"conflicts,omitempty"`
-	Rejection        *OperationRejection   `json:"rejection,omitempty"`
+	Accepted             bool                  `json:"accepted"`
+	Duplicate            bool                  `json:"duplicate,omitempty"`
+	OpID                 *string               `json:"opId,omitempty"`
+	Version              *int64                `json:"version,omitempty"`
+	CurrentVersion       int64                 `json:"currentVersion"`
+	Patch                easyjson.RawMessage   `json:"patch,omitempty"`
+	SolveStatus          easyjson.RawMessage   `json:"solveStatus,omitempty"`
+	ChangedEntityIDs     []string              `json:"changedEntityIds,omitempty"`
+	ChangedConstraintIDs []string              `json:"changedConstraintIds,omitempty"`
+	ChangedDimensionIDs  []string              `json:"changedDimensionIds,omitempty"`
+	ChangedComponentIDs  []string              `json:"changedComponentIds,omitempty"`
+	Conflicts            []easyjson.RawMessage `json:"conflicts,omitempty"`
+	Rejection            *OperationRejection   `json:"rejection,omitempty"`
 }
 
 type SubmitState struct {

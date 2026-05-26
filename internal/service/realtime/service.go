@@ -1308,14 +1308,18 @@ func opCommittedPayload(
 	}
 
 	return model.OpCommittedPayload{
-		OpID:              *response.OpID,
-		Version:           *response.Version,
-		ActorUserID:       userID,
-		ClientOpID:        request.ClientOpID,
-		Op:                request.Op,
-		Patch:             json.RawMessage(response.Patch),
-		SolveStatus:       json.RawMessage(response.SolveStatus),
-		AffectedEntityIDs: append([]string(nil), response.ChangedEntityIDs...),
+		OpID:                  *response.OpID,
+		Version:               *response.Version,
+		ActorUserID:           userID,
+		ClientOpID:            request.ClientOpID,
+		Op:                    request.Op,
+		Patch:                 json.RawMessage(response.Patch),
+		SolveStatus:           json.RawMessage(response.SolveStatus),
+		AffectedEntityIDs:     append([]string(nil), response.ChangedEntityIDs...),
+		AffectedConstraintIDs: append([]string(nil), response.ChangedConstraintIDs...),
+		AffectedDimensionIDs:  append([]string(nil), response.ChangedDimensionIDs...),
+		AffectedComponentIDs:  append([]string(nil), response.ChangedComponentIDs...),
+		Authoritative:         true,
 	}, nil
 }
 
