@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/dnonakolesax/cccad-locks/internal/auth"
@@ -102,6 +103,16 @@ func (a *App) SetupComponents() error {
 			slog.String(consts.ErrorLoggerKey, err.Error()))
 		return err
 	}
+	if err := solverClient.Ping(context.Background()); err != nil {
+		_ = solverClient.Close()
+		err = fmt.Errorf("ping solver grpc service: %w", err)
+		a.initLogger.ErrorContext(context.Background(), "Error pinging solver grpc service",
+			slog.String("address", a.configs.Solver.Address),
+			slog.String(consts.ErrorLoggerKey, err.Error()))
+		return err
+	}
+	a.initLogger.InfoContext(context.Background(), "Solver grpc service is ready",
+		slog.String("address", a.configs.Solver.Address))
 
 	/************************************************/
 	/*               AUTH GRPC CLIENT               */
@@ -112,6 +123,17 @@ func (a *App) SetupComponents() error {
 			slog.String(consts.ErrorLoggerKey, err.Error()))
 		return err
 	}
+	if err := authClient.Ping(context.Background()); err != nil {
+		_ = authClient.Close()
+		_ = solverClient.Close()
+		err = fmt.Errorf("ping auth grpc service: %w", err)
+		a.initLogger.ErrorContext(context.Background(), "Error pinging auth grpc service",
+			slog.String("address", a.configs.Auth.Address),
+			slog.String(consts.ErrorLoggerKey, err.Error()))
+		return err
+	}
+	a.initLogger.InfoContext(context.Background(), "Auth grpc service is ready",
+		slog.String("address", a.configs.Auth.Address))
 
 	a.components = &Components{
 		pgsql:       psqlWorker,

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dnonakolesax/cccad-locks/internal/configs"
+	"github.com/dnonakolesax/cccad-locks/internal/grpcutil"
 	"github.com/dnonakolesax/cccad-locks/internal/observability"
 	solverv1 "github.com/dnonakolesax/cccad-locks/internal/proto/solver/v1"
 	"google.golang.org/grpc"
@@ -52,6 +53,13 @@ func NewClient(
 		logger:         logger,
 		requestTimeout: cfg.RequestTimeout,
 	}, nil
+}
+
+func (c *Client) Ping(ctx context.Context) error {
+	ctx, cancel := c.contextWithTimeout(ctx)
+	defer cancel()
+
+	return grpcutil.Ping(ctx, c.conn)
 }
 
 func (c *Client) Solve(ctx context.Context, req *solverv1.SolveRequest) (*solverv1.SolveResponse, error) {

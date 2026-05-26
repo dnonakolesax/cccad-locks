@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dnonakolesax/cccad-locks/internal/configs"
+	"github.com/dnonakolesax/cccad-locks/internal/grpcutil"
 	"github.com/dnonakolesax/cccad-locks/internal/observability"
 	authv1 "github.com/dnonakolesax/cccad-locks/internal/proto/auth/v1"
 	"google.golang.org/grpc"
@@ -60,6 +61,13 @@ func NewClient(
 		logger:         logger,
 		requestTimeout: cfg.RequestTimeout,
 	}, nil
+}
+
+func (c *Client) Ping(ctx context.Context) error {
+	ctx, cancel := c.contextWithTimeout(ctx)
+	defer cancel()
+
+	return grpcutil.Ping(ctx, c.conn)
 }
 
 func (c *Client) Authenticate(ctx context.Context, accessToken, refreshToken string) (*TokenData, error) {
