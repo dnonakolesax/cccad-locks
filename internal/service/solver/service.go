@@ -176,6 +176,10 @@ func sketchModel(document *model.SketchDocument) *solverv1.SketchModel {
 	}
 }
 
+func BuildSketchModel(document *model.SketchDocument) *solverv1.SketchModel {
+	return sketchModel(document)
+}
+
 func entities(raw map[string]easyjson.RawMessage) []*solverv1.Entity {
 	keys := sortedKeys(raw)
 	result := make([]*solverv1.Entity, 0, len(keys))
@@ -574,11 +578,19 @@ func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, erro
 	return easyjson.RawMessage(body), nil
 }
 
+func SolutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, error) {
+	return solutionPatch(solution)
+}
+
 func solveStatusInfo(status solverv1.SolveStatus, degreesOfFreedom int32) model.SolveStatusInfo {
 	return model.SolveStatusInfo{
 		Status:           solveStatusString(status),
 		DegreesOfFreedom: int(degreesOfFreedom),
 	}
+}
+
+func SolveStatusInfo(status solverv1.SolveStatus, degreesOfFreedom int32) model.SolveStatusInfo {
+	return solveStatusInfo(status, degreesOfFreedom)
 }
 
 func solverDiagnostics(diagnostics []*solverv1.SolverDiagnostic) []model.SolverDiagnostic {
@@ -594,6 +606,10 @@ func solverDiagnostics(diagnostics []*solverv1.SolverDiagnostic) []model.SolverD
 		})
 	}
 	return result
+}
+
+func SolverDiagnostics(diagnostics []*solverv1.SolverDiagnostic) []model.SolverDiagnostic {
+	return solverDiagnostics(diagnostics)
 }
 
 func constraintComponents(components []*solverv1.ConstraintComponent) []model.ConstraintComponent {

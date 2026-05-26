@@ -9,6 +9,8 @@ import (
 
 	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/model"
+	solverv1 "github.com/dnonakolesax/cccad-locks/internal/proto/solver/v1"
+	solverService "github.com/dnonakolesax/cccad-locks/internal/service/solver"
 	"github.com/mailru/easyjson"
 )
 
@@ -29,8 +31,13 @@ type Repository interface {
 	) (*model.SubmitCommitResult, error)
 }
 
+type SolverClient interface {
+	Solve(ctx context.Context, req *solverv1.SolveRequest) (*solverv1.SolveResponse, error)
+}
+
 type Service struct {
-	repo Repository
+	repo   Repository
+	solver SolverClient
 }
 
 const (
@@ -43,6 +50,10 @@ const (
 
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+func NewServiceWithSolver(repo Repository, solver SolverClient) *Service {
+	return &Service{repo: repo, solver: solver}
 }
 
 func (s *Service) List(
@@ -135,6 +146,26 @@ func (s *Service) Submit(
 	if err != nil {
 		return rejected(request.ClientOpID, state.Version, "invalid_operation", err.Error()), nil
 	}
+	materializedGeometry := state.MaterializedGeometry
+	solveStatus := state.SolveStatus
+	if operationRequiresSolve(opType) {
+		if s.solver == nil {
+			return nil, fmt.Errorf("solver client is required for operation type %q", opType)
+		}
+		solvePatch, solvedGeometry, solvedStatus, solvedEntityIDs, err := s.solveGraph(
+			ctx,
+			sketchID,
+			request.BaseVersion+1,
+			graph,
+		)
+		if err != nil {
+			return rejected(request.ClientOpID, state.Version, "solver_failure", err.Error()), nil
+		}
+		mergePatch(patch, solvePatch)
+		changedEntityIDs = mergeIDs(changedEntityIDs, solvedEntityIDs)
+		materializedGeometry = solvedGeometry
+		solveStatus = solvedStatus
+	}
 
 	graphState, err := json.Marshal(graph)
 	if err != nil {
@@ -152,8 +183,8 @@ func (s *Service) Submit(
 		Payload:              append(easyjson.RawMessage(nil), request.Op...),
 		Patch:                patchBody,
 		GraphState:           graphState,
-		MaterializedGeometry: state.MaterializedGeometry,
-		SolveStatus:          state.SolveStatus,
+		MaterializedGeometry: materializedGeometry,
+		SolveStatus:          solveStatus,
 		ChangedEntityIDs:     changedEntityIDs,
 	})
 	if err != nil {
@@ -162,7 +193,7 @@ func (s *Service) Submit(
 
 	switch result.Status {
 	case submitStatusCommitted, submitStatusDuplicate:
-		return accepted(result, patchBody, state.SolveStatus, changedEntityIDs), nil
+		return accepted(result, patchBody, solveStatus, changedEntityIDs), nil
 	case submitStatusStaleVersion:
 		return rejected(request.ClientOpID, result.CurrentVersion, submitStatusStaleVersion, "baseVersion does not match current sketch version"), nil
 	case submitStatusPermissionDenied:
@@ -259,9 +290,184 @@ func applyOperation(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, [
 		return applyDeleteEntity(graph, raw)
 	case "add_constraint":
 		return applyAddConstraint(graph, raw)
+	case "remove_constraint":
+		return applyRemoveConstraint(graph, raw)
 	default:
 		return nil, nil, fmt.Errorf("operation type %q is not supported yet", opType)
 	}
+}
+
+func operationRequiresSolve(opType string) bool {
+	switch opType {
+	case "add_constraint", "remove_constraint":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Service) solveGraph(
+	ctx context.Context,
+	sketchID string,
+	version int64,
+	graph *graphState,
+) (*sketchPatch, easyjson.RawMessage, easyjson.RawMessage, []string, error) {
+	result, err := s.solver.Solve(ctx, &solverv1.SolveRequest{
+		SketchId: sketchID,
+		Version:  version,
+		Model: solverService.BuildSketchModel(&model.SketchDocument{
+			ID:          sketchID,
+			Version:     version,
+			Entities:    rawMessageMap(graph.Entities),
+			Constraints: rawMessageMap(graph.Constraints),
+			Dimensions:  rawMessageMap(graph.Dimensions),
+			Groups:      rawMessageMap(graph.Groups),
+		}),
+		Options: defaultSolverOptions(),
+	})
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("solve sketch: %w", err)
+	}
+	if result == nil {
+		return nil, nil, nil, nil, errors.New("solver returned nil solve response")
+	}
+
+	patchBody, err := solverService.SolutionPatch(result.GetSolution())
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	patch, entityIDs, err := applySolverPatch(graph, patchBody)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	solveStatus, err := encodeSolveStatus(result.GetStatus(), result.GetDegreesOfFreedom(), result.GetDiagnostics())
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	return patch, patchBody, solveStatus, entityIDs, nil
+}
+
+func applySolverPatch(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, []string, error) {
+	var patch struct {
+		Entities map[string]json.RawMessage `json:"entities"`
+	}
+	if err := json.Unmarshal(raw, &patch); err != nil {
+		return nil, nil, fmt.Errorf("decode solver patch: %w", err)
+	}
+
+	result := &sketchPatch{Entities: make(map[string]json.RawMessage)}
+	entityIDs := make([]string, 0, len(patch.Entities))
+	for id, entity := range patch.Entities {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		graph.Entities[id] = append(json.RawMessage(nil), entity...)
+		result.Entities[id] = append(json.RawMessage(nil), entity...)
+		entityIDs = append(entityIDs, id)
+	}
+	if len(result.Entities) == 0 {
+		result.Entities = nil
+	}
+
+	return result, entityIDs, nil
+}
+
+func encodeSolveStatus(
+	status solverv1.SolveStatus,
+	degreesOfFreedom int32,
+	diagnostics []*solverv1.SolverDiagnostic,
+) (easyjson.RawMessage, error) {
+	body, err := json.Marshal(struct {
+		model.SolveStatusInfo
+		Diagnostics []model.SolverDiagnostic `json:"diagnostics"`
+	}{
+		SolveStatusInfo: solverService.SolveStatusInfo(status, degreesOfFreedom),
+		Diagnostics:     solverService.SolverDiagnostics(diagnostics),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("encode solve status: %w", err)
+	}
+
+	return easyjson.RawMessage(body), nil
+}
+
+func defaultSolverOptions() *solverv1.SolverOptions {
+	return &solverv1.SolverOptions{
+		Tolerance:         1e-6,
+		MaxIterations:     100,
+		Deterministic:     true,
+		ReturnDiagnostics: true,
+	}
+}
+
+func mergePatch(base *sketchPatch, next *sketchPatch) {
+	if base == nil || next == nil {
+		return
+	}
+	if len(next.Entities) > 0 {
+		if base.Entities == nil {
+			base.Entities = make(map[string]json.RawMessage, len(next.Entities))
+		}
+		for id, entity := range next.Entities {
+			base.Entities[id] = entity
+		}
+	}
+	if len(next.Constraints) > 0 {
+		if base.Constraints == nil {
+			base.Constraints = make(map[string]json.RawMessage, len(next.Constraints))
+		}
+		for id, constraint := range next.Constraints {
+			base.Constraints[id] = constraint
+		}
+	}
+	base.Dimensions = mergeRawMessageMaps(base.Dimensions, next.Dimensions)
+	base.DeletedEntityIDs = mergeIDs(base.DeletedEntityIDs, next.DeletedEntityIDs)
+	base.DeletedConstraintIDs = mergeIDs(base.DeletedConstraintIDs, next.DeletedConstraintIDs)
+	base.DeletedDimensionIDs = mergeIDs(base.DeletedDimensionIDs, next.DeletedDimensionIDs)
+}
+
+func mergeRawMessageMaps(
+	base map[string]json.RawMessage,
+	next map[string]json.RawMessage,
+) map[string]json.RawMessage {
+	if len(next) == 0 {
+		return base
+	}
+	if base == nil {
+		base = make(map[string]json.RawMessage, len(next))
+	}
+	for id, value := range next {
+		base[id] = value
+	}
+	return base
+}
+
+func mergeIDs(base []string, next []string) []string {
+	seen := make(map[string]struct{}, len(base)+len(next))
+	result := make([]string, 0, len(base)+len(next))
+	for _, id := range append(base, next...) {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	return result
+}
+
+func rawMessageMap(values map[string]json.RawMessage) map[string]easyjson.RawMessage {
+	result := make(map[string]easyjson.RawMessage, len(values))
+	for key, value := range values {
+		result[key] = easyjson.RawMessage(value)
+	}
+	return result
 }
 
 func applyCreatePoint(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, []string, error) {
@@ -444,6 +650,34 @@ func applyAddConstraint(graph *graphState, raw easyjson.RawMessage) (*sketchPatc
 	return &sketchPatch{Constraints: map[string]json.RawMessage{constraint.ID: body}}, changed, nil
 }
 
+func applyRemoveConstraint(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, []string, error) {
+	var op struct {
+		ConstraintID string `json:"constraintId"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, nil, fmt.Errorf("decode remove_constraint: %w", err)
+	}
+	op.ConstraintID = strings.TrimSpace(op.ConstraintID)
+	if op.ConstraintID == "" {
+		return nil, nil, errors.New("constraintId is required")
+	}
+
+	body, exists := graph.Constraints[op.ConstraintID]
+	if !exists {
+		return nil, nil, fmt.Errorf("constraint %q does not exist", op.ConstraintID)
+	}
+
+	var constraint constraintPayload
+	if err := json.Unmarshal(body, &constraint); err != nil {
+		return nil, nil, fmt.Errorf("decode existing constraint %q: %w", op.ConstraintID, err)
+	}
+	normalizeConstraint(&constraint)
+	changed := constraintReferencedEntityIDs(&constraint)
+
+	delete(graph.Constraints, op.ConstraintID)
+	return &sketchPatch{DeletedConstraintIDs: []string{op.ConstraintID}}, changed, nil
+}
+
 func normalizeConstraint(constraint *constraintPayload) {
 	constraint.ID = strings.TrimSpace(constraint.ID)
 	constraint.Type = strings.TrimSpace(constraint.Type)
@@ -463,6 +697,65 @@ func normalizeConstraint(constraint *constraintPayload) {
 	constraint.Kind = strings.TrimSpace(constraint.Kind)
 	for i := range constraint.Refs {
 		constraint.Refs[i] = strings.TrimSpace(constraint.Refs[i])
+	}
+	inferConstraintRefs(constraint)
+}
+
+func inferConstraintRefs(constraint *constraintPayload) {
+	ref := func(index int) string {
+		if index < 0 || index >= len(constraint.Refs) {
+			return ""
+		}
+		return constraint.Refs[index]
+	}
+
+	switch constraint.Type {
+	case "coincident":
+		if constraint.PointAID == "" {
+			constraint.PointAID = ref(0)
+		}
+		if constraint.PointBID == "" {
+			constraint.PointBID = ref(1)
+		}
+	case "horizontal", "vertical":
+		if constraint.LineID == "" {
+			constraint.LineID = ref(0)
+		}
+	case "parallel", "perpendicular":
+		if constraint.LineAID == "" {
+			constraint.LineAID = ref(0)
+		}
+		if constraint.LineBID == "" {
+			constraint.LineBID = ref(1)
+		}
+	case "tangent", "equal":
+		if constraint.EntityAID == "" {
+			constraint.EntityAID = ref(0)
+		}
+		if constraint.EntityBID == "" {
+			constraint.EntityBID = ref(1)
+		}
+	case "fixed":
+		if constraint.EntityID == "" {
+			constraint.EntityID = ref(0)
+		}
+	case "midpoint":
+		if constraint.MidpointID == "" {
+			constraint.MidpointID = ref(0)
+		}
+		if constraint.PointAID == "" {
+			constraint.PointAID = ref(1)
+		}
+		if constraint.PointBID == "" {
+			constraint.PointBID = ref(2)
+		}
+	case "concentric":
+		if constraint.CircleAID == "" {
+			constraint.CircleAID = ref(0)
+		}
+		if constraint.CircleBID == "" {
+			constraint.CircleBID = ref(1)
+		}
 	}
 }
 
