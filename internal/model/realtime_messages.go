@@ -121,6 +121,56 @@ type ToolPayload struct {
 }
 
 //easyjson:json
+type IntentDraftPayload struct {
+	DraftID           string          `json:"draftId"`
+	ActorUserID       string          `json:"actorUserId"`
+	ClientID          string          `json:"clientId"`
+	BaseVersion       int64           `json:"baseVersion"`
+	Tool              string          `json:"tool"`
+	OperationType     string          `json:"operationType,omitempty"`
+	Phase             string          `json:"phase"`
+	Sequence          int64           `json:"sequence,omitempty"`
+	SelectedEntityIDs []string        `json:"selectedEntityIds,omitempty"`
+	SelectedPointIDs  []string        `json:"selectedPointIds,omitempty"`
+	HoverEntityID     string          `json:"hoverEntityId,omitempty"`
+	HoverPointID      string          `json:"hoverPointId,omitempty"`
+	CursorWorld       *PointPayload   `json:"cursorWorld,omitempty"`
+	Anchors           []IntentAnchor  `json:"anchors,omitempty"`
+	Preview           json.RawMessage `json:"preview,omitempty"`
+	StyleHint         string          `json:"styleHint,omitempty"`
+	TTLMS             int64           `json:"ttlMs,omitempty"`
+	Metadata          json.RawMessage `json:"metadata,omitempty"`
+}
+
+//easyjson:json
+type IntentAnchor struct {
+	Kind         string        `json:"kind"`
+	PointID      string        `json:"pointId,omitempty"`
+	EntityID     string        `json:"entityId,omitempty"`
+	ConstraintID string        `json:"constraintId,omitempty"`
+	DimensionID  string        `json:"dimensionId,omitempty"`
+	Position     *PointPayload `json:"position,omitempty"`
+}
+
+//easyjson:json
+type IntentDraftCancelPayload struct {
+	DraftID     string `json:"draftId"`
+	ActorUserID string `json:"actorUserId,omitempty"`
+	ClientID    string `json:"clientId,omitempty"`
+	Reason      string `json:"reason,omitempty"`
+}
+
+//easyjson:json
+type IntentDraftEndedPayload struct {
+	DraftID          string `json:"draftId"`
+	ActorUserID      string `json:"actorUserId"`
+	ClientID         string `json:"clientId,omitempty"`
+	Reason           string `json:"reason"`
+	CommittedOpID    string `json:"committedOpId,omitempty"`
+	CommittedVersion int64  `json:"committedVersion,omitempty"`
+}
+
+//easyjson:json
 type DragBeginPayload struct {
 	EntityID    string `json:"entityId"`
 	Kind        string `json:"kind"`
@@ -192,6 +242,70 @@ type OpRejectedPayload struct {
 	Reason         string          `json:"reason"`
 	Message        string          `json:"message,omitempty"`
 	Diagnostics    json.RawMessage `json:"diagnostics,omitempty"`
+}
+
+//easyjson:json
+type SyncResumePayload struct {
+	ClientID           string                    `json:"clientId"`
+	LastSeenVersion    int64                     `json:"lastSeenVersion"`
+	LastAckedClientSeq int64                     `json:"lastAckedClientSeq,omitempty"`
+	PendingOps         []PendingOfflineOperation `json:"pendingOps"`
+}
+
+//easyjson:json
+type PendingOfflineOperation struct {
+	ClientOpID  string          `json:"clientOpId"`
+	ClientSeq   int64           `json:"clientSeq"`
+	BaseVersion int64           `json:"baseVersion"`
+	CreatedAt   string          `json:"createdAt,omitempty"`
+	Op          json.RawMessage `json:"op"`
+}
+
+//easyjson:json
+type SyncResumeResultPayload struct {
+	Status         string                   `json:"status"`
+	ClientID       string                   `json:"clientId"`
+	FromVersion    int64                    `json:"fromVersion,omitempty"`
+	CurrentVersion int64                    `json:"currentVersion"`
+	MissedPatches  []CommittedPatchPayload  `json:"missedPatches,omitempty"`
+	OpResults      []OfflineOperationResult `json:"opResults"`
+	Snapshot       *StateSnapshotPayload    `json:"snapshot,omitempty"`
+	Message        string                   `json:"message,omitempty"`
+}
+
+//easyjson:json
+type CommittedPatchPayload struct {
+	Version               int64           `json:"version"`
+	OpID                  string          `json:"opId,omitempty"`
+	ActorUserID           string          `json:"actorUserId,omitempty"`
+	ClientOpID            string          `json:"clientOpId,omitempty"`
+	Patch                 json.RawMessage `json:"patch"`
+	SolveStatus           json.RawMessage `json:"solveStatus,omitempty"`
+	AffectedEntityIDs     []string        `json:"affectedEntityIds,omitempty"`
+	AffectedConstraintIDs []string        `json:"affectedConstraintIds,omitempty"`
+	AffectedDimensionIDs  []string        `json:"affectedDimensionIds,omitempty"`
+	AffectedComponentIDs  []string        `json:"affectedComponentIds,omitempty"`
+	Authoritative         bool            `json:"authoritative"`
+}
+
+//easyjson:json
+type OfflineOperationResult struct {
+	ClientOpID            string          `json:"clientOpId"`
+	ClientSeq             int64           `json:"clientSeq"`
+	Status                string          `json:"status"`
+	CommittedVersion      int64           `json:"committedVersion,omitempty"`
+	CurrentVersion        int64           `json:"currentVersion,omitempty"`
+	OpID                  string          `json:"opId,omitempty"`
+	Patch                 json.RawMessage `json:"patch,omitempty"`
+	SolveStatus           json.RawMessage `json:"solveStatus,omitempty"`
+	Reason                string          `json:"reason,omitempty"`
+	Message               string          `json:"message,omitempty"`
+	Diagnostics           json.RawMessage `json:"diagnostics,omitempty"`
+	AffectedEntityIDs     []string        `json:"affectedEntityIds,omitempty"`
+	AffectedConstraintIDs []string        `json:"affectedConstraintIds,omitempty"`
+	AffectedDimensionIDs  []string        `json:"affectedDimensionIds,omitempty"`
+	AffectedComponentIDs  []string        `json:"affectedComponentIds,omitempty"`
+	Authoritative         bool            `json:"authoritative"`
 }
 
 //easyjson:json

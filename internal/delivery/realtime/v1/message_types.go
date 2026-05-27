@@ -14,6 +14,11 @@ const (
 	MsgPresenceHover     = "presence.hover"
 	MsgPresenceTool      = "presence.tool"
 
+	MsgIntentDraftBegin  = "intent.draft.begin"
+	MsgIntentDraftUpdate = "intent.draft.update"
+	MsgIntentDraftCancel = "intent.draft.cancel"
+	MsgIntentDraftEnded  = "intent.draft.ended"
+
 	MsgDragBegin         = "drag.begin"
 	MsgDragBeginAccepted = "drag.begin.accepted"
 	MsgDragBeginRejected = "drag.begin.rejected"
@@ -26,6 +31,9 @@ const (
 	MsgOpCommitted = "op.committed"
 	MsgOpRejected  = "op.rejected"
 	MsgOpsBatch    = "ops.batch"
+
+	MsgSyncResume       = "sync.resume"
+	MsgSyncResumeResult = "sync.resume.result"
 
 	MsgLockAcquire   = "lock.acquire"
 	MsgLockAcquired  = "lock.acquired"

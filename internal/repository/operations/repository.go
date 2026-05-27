@@ -146,6 +146,8 @@ func scanCommittedOperation(rows *dbsql.PGXResponse) (*model.CommittedOperation,
 	var clientOpID string
 	var createdAt time.Time
 	var payload []byte
+	var patch []byte
+	var solveStatus []byte
 
 	if err := rows.Scan(
 		&operation.ID,
@@ -155,6 +157,8 @@ func scanCommittedOperation(rows *dbsql.PGXResponse) (*model.CommittedOperation,
 		&clientOpID,
 		&createdAt,
 		&payload,
+		&patch,
+		&solveStatus,
 	); err != nil {
 		return nil, fmt.Errorf("scan committed operation: %w", err)
 	}
@@ -162,6 +166,8 @@ func scanCommittedOperation(rows *dbsql.PGXResponse) (*model.CommittedOperation,
 	operation.ClientOpID = &clientOpID
 	operation.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
 	operation.Payload = append(operation.Payload, payload...)
+	operation.Patch = append(operation.Patch, patch...)
+	operation.SolveStatus = append(operation.SolveStatus, solveStatus...)
 
 	return &operation, nil
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -38,6 +39,11 @@ const (
 	msgPresenceHover     = "presence.hover"
 	msgPresenceTool      = "presence.tool"
 
+	msgIntentDraftBegin  = "intent.draft.begin"
+	msgIntentDraftUpdate = "intent.draft.update"
+	msgIntentDraftCancel = "intent.draft.cancel"
+	msgIntentDraftEnded  = "intent.draft.ended"
+
 	msgDragBegin         = "drag.begin"
 	msgDragBeginAccepted = "drag.begin.accepted"
 	msgDragBeginRejected = "drag.begin.rejected"
@@ -49,6 +55,9 @@ const (
 	msgOpSubmit    = "op.submit"
 	msgOpCommitted = "op.committed"
 	msgOpRejected  = "op.rejected"
+
+	msgSyncResume       = "sync.resume"
+	msgSyncResumeResult = "sync.resume.result"
 
 	msgLockAcquire   = "lock.acquire"
 	msgLockAcquired  = "lock.acquired"
@@ -73,6 +82,7 @@ const (
 
 const (
 	outboundBufferSize = 16
+	syncResumeOpsLimit = 1000
 
 	uuidVersionMask    = 0x40
 	uuidVariantMask    = 0x80
@@ -110,6 +120,12 @@ type Locks interface {
 }
 
 type Operations interface {
+	List(
+		ctx context.Context,
+		sketchID string,
+		afterVersion int64,
+		limit int,
+	) (*model.SketchOperationPage, error)
 	Submit(
 		ctx context.Context,
 		sketchID string,
@@ -254,6 +270,10 @@ func (c *Connection) handleClientMessage(ctx context.Context, msg model.ClientRe
 		return c.handleInvalidMessage(msg.RequestID, c.handleSessionPing(msg))
 	case msgPresenceCursor, msgPresenceSelection, msgPresenceHover, msgPresenceTool:
 		return c.handleInvalidMessage(msg.RequestID, c.handlePresence(msg))
+	case msgIntentDraftBegin, msgIntentDraftUpdate:
+		return c.handleInvalidMessage(msg.RequestID, c.handleIntentDraft(msg))
+	case msgIntentDraftCancel:
+		return c.handleInvalidMessage(msg.RequestID, c.handleIntentDraftCancel(msg))
 	case msgDragBegin:
 		return c.handleInvalidMessage(msg.RequestID, c.handleDragBegin(ctx, msg))
 	case msgDragPreview:
@@ -270,6 +290,8 @@ func (c *Connection) handleClientMessage(ctx context.Context, msg model.ClientRe
 		return c.handleLockMessageError(msg.RequestID, c.handleLockRelease(ctx, msg))
 	case msgOpSubmit:
 		return c.handleInvalidOperation(msg.RequestID, c.handleOpSubmit(ctx, msg))
+	case msgSyncResume:
+		return c.handleInvalidOperation(msg.RequestID, c.handleSyncResume(ctx, msg))
 	case msgPermissionUpdated:
 		return c.handleInvalidOperation(msg.RequestID, c.handlePermissionUpdated(ctx, msg))
 	case msgPermissionRevoked:
@@ -557,6 +579,99 @@ func (c *Connection) handlePresence(msg model.ClientRealtimeMessage) error {
 	return nil
 }
 
+func (c *Connection) handleIntentDraft(msg model.ClientRealtimeMessage) error {
+	if !c.joined {
+		return fmt.Errorf("session.join is required before %s", msg.Type)
+	}
+	if !c.canEdit() {
+		return errPermissionDenied
+	}
+
+	var payload model.IntentDraftPayload
+	if len(msg.Payload) == 0 {
+		return fmt.Errorf("%s payload is required", msg.Type)
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		return fmt.Errorf("decode %s: %w", msg.Type, err)
+	}
+	payload.DraftID = strings.TrimSpace(payload.DraftID)
+	payload.ActorUserID = strings.TrimSpace(payload.ActorUserID)
+	payload.ClientID = strings.TrimSpace(payload.ClientID)
+	payload.Tool = strings.TrimSpace(payload.Tool)
+	payload.OperationType = strings.TrimSpace(payload.OperationType)
+	payload.Phase = strings.TrimSpace(payload.Phase)
+	payload.StyleHint = strings.TrimSpace(payload.StyleHint)
+	if payload.DraftID == "" {
+		return errors.New("draftId is required")
+	}
+	if payload.BaseVersion < 0 {
+		return errors.New("baseVersion must be greater than or equal to 0")
+	}
+	if payload.Tool == "" {
+		return errors.New("tool is required")
+	}
+	if payload.Phase == "" {
+		return errors.New("phase is required")
+	}
+	if payload.ActorUserID == "" {
+		payload.ActorUserID = c.userID
+	}
+	if payload.ActorUserID != c.userID {
+		return errors.New("actorUserId must match authenticated user")
+	}
+	if payload.ClientID == "" {
+		payload.ClientID = c.clientID
+	}
+
+	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msg.Type, msg.RequestID, payload))
+	return nil
+}
+
+func (c *Connection) handleIntentDraftCancel(msg model.ClientRealtimeMessage) error {
+	if !c.joined {
+		return errors.New("session.join is required before intent.draft.cancel")
+	}
+	if !c.canEdit() {
+		return errPermissionDenied
+	}
+
+	var payload model.IntentDraftCancelPayload
+	if len(msg.Payload) == 0 {
+		return errors.New("intent.draft.cancel payload is required")
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		return fmt.Errorf("decode intent.draft.cancel: %w", err)
+	}
+	payload.DraftID = strings.TrimSpace(payload.DraftID)
+	payload.ActorUserID = strings.TrimSpace(payload.ActorUserID)
+	payload.ClientID = strings.TrimSpace(payload.ClientID)
+	payload.Reason = strings.TrimSpace(payload.Reason)
+	if payload.DraftID == "" {
+		return errors.New("draftId is required")
+	}
+	if payload.ActorUserID == "" {
+		payload.ActorUserID = c.userID
+	}
+	if payload.ActorUserID != c.userID {
+		return errors.New("actorUserId must match authenticated user")
+	}
+	if payload.ClientID == "" {
+		payload.ClientID = c.clientID
+	}
+	if payload.Reason == "" {
+		payload.Reason = "user_cancelled"
+	}
+
+	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msgIntentDraftCancel, msg.RequestID, payload))
+	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msgIntentDraftEnded, msg.RequestID, model.IntentDraftEndedPayload{
+		DraftID:     payload.DraftID,
+		ActorUserID: payload.ActorUserID,
+		ClientID:    payload.ClientID,
+		Reason:      "cancelled",
+	}))
+	return nil
+}
+
 func (c *Connection) handleLockAcquire(ctx context.Context, msg model.ClientRealtimeMessage) error {
 	if !c.canEdit() {
 		c.send(msgLockRejected, msg.RequestID, model.LockRejectedPayload{Reason: reasonPermissionDenied})
@@ -702,6 +817,95 @@ func (c *Connection) handleOpSubmit(ctx context.Context, msg model.ClientRealtim
 	return c.submitOperation(ctx, msg.RequestID, payload, "")
 }
 
+func (c *Connection) handleSyncResume(ctx context.Context, msg model.ClientRealtimeMessage) error {
+	if !c.joined {
+		return errors.New("session.join is required before sync.resume")
+	}
+	if !c.canEdit() {
+		c.send(msgSyncResumeResult, msg.RequestID, model.SyncResumeResultPayload{
+			Status:         "rejected",
+			ClientID:       c.clientID,
+			CurrentVersion: c.currentVersion,
+			OpResults:      []model.OfflineOperationResult{},
+			Message:        errPermissionDenied.Error(),
+		})
+		return nil
+	}
+	if c.service.operations == nil {
+		return errors.New("operations service dependency is required")
+	}
+
+	var payload model.SyncResumePayload
+	if len(msg.Payload) == 0 {
+		return errors.New("sync.resume payload is required")
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		return fmt.Errorf("decode sync.resume: %w", err)
+	}
+	payload.ClientID = strings.TrimSpace(payload.ClientID)
+	if payload.ClientID == "" {
+		return errors.New("clientId is required")
+	}
+	if payload.LastSeenVersion < 0 {
+		return errors.New("lastSeenVersion must be greater than or equal to 0")
+	}
+	if payload.LastAckedClientSeq < 0 {
+		return errors.New("lastAckedClientSeq must be greater than or equal to 0")
+	}
+	if payload.ClientID != c.clientID {
+		return errors.New("clientId must match joined session")
+	}
+
+	pendingOps := append([]model.PendingOfflineOperation(nil), payload.PendingOps...)
+	sort.SliceStable(pendingOps, func(i, j int) bool {
+		return pendingOps[i].ClientSeq < pendingOps[j].ClientSeq
+	})
+
+	result := model.SyncResumeResultPayload{
+		Status:         "ok",
+		ClientID:       payload.ClientID,
+		FromVersion:    payload.LastSeenVersion,
+		CurrentVersion: c.currentVersion,
+		MissedPatches:  []model.CommittedPatchPayload{},
+		OpResults:      make([]model.OfflineOperationResult, 0, len(pendingOps)),
+	}
+
+	missed, err := c.service.operations.List(
+		auth.ContextWithUserID(ctx, c.userID),
+		c.sketchID,
+		payload.LastSeenVersion,
+		syncResumeOpsLimit,
+	)
+	if err != nil {
+		return err
+	}
+	if missed == nil {
+		return errors.New("operations service returned nil operation page")
+	}
+	result.MissedPatches = committedPatchPayloads(missed.Ops)
+	if len(missed.Ops) == syncResumeOpsLimit && missed.ToVersion < c.currentVersion {
+		result.Status = "snapshot_required"
+		result.Message = "too many missed operations; fetch a fresh snapshot"
+		c.send(msgSyncResumeResult, msg.RequestID, result)
+		return nil
+	}
+
+	for _, pending := range pendingOps {
+		opResult, err := c.submitOfflineOperation(ctx, msg.RequestID, pending)
+		if err != nil {
+			return err
+		}
+		result.OpResults = append(result.OpResults, opResult)
+		result.CurrentVersion = c.currentVersion
+		if opResult.Status == "rejected" {
+			result.Status = "rejected"
+		}
+	}
+
+	c.send(msgSyncResumeResult, msg.RequestID, result)
+	return nil
+}
+
 func (c *Connection) submitOperation(
 	ctx context.Context,
 	requestID string,
@@ -758,12 +962,92 @@ func (c *Connection) submitOperation(
 	if err != nil {
 		return err
 	}
-	c.currentVersion = committed.Version
+	c.currentVersion = maxInt64(c.currentVersion, maxInt64(committed.Version, response.CurrentVersion))
 
 	msgOut := c.serverMessage(msgOpCommitted, requestID, committed)
 	c.enqueue(msgOut)
 	c.service.broadcastExcept(c.sketchID, c.id, msgOut)
 	return nil
+}
+
+func (c *Connection) submitOfflineOperation(
+	ctx context.Context,
+	requestID string,
+	pending model.PendingOfflineOperation,
+) (model.OfflineOperationResult, error) {
+	pending.ClientOpID = strings.TrimSpace(pending.ClientOpID)
+	if pending.ClientOpID == "" {
+		return model.OfflineOperationResult{}, errors.New("pendingOps.clientOpId is required")
+	}
+	if pending.ClientSeq < 0 {
+		return model.OfflineOperationResult{}, errors.New("pendingOps.clientSeq must be greater than or equal to 0")
+	}
+	if pending.BaseVersion < 0 {
+		return model.OfflineOperationResult{}, errors.New("pendingOps.baseVersion must be greater than or equal to 0")
+	}
+	if len(pending.Op) == 0 {
+		return model.OfflineOperationResult{}, errors.New("pendingOps.op is required")
+	}
+
+	result := model.OfflineOperationResult{
+		ClientOpID:     pending.ClientOpID,
+		ClientSeq:      pending.ClientSeq,
+		CurrentVersion: c.currentVersion,
+		Authoritative:  true,
+	}
+
+	response, err := c.service.operations.Submit(
+		auth.ContextWithUserID(ctx, c.userID),
+		c.sketchID,
+		&model.SubmitOperationRequest{
+			BaseVersion: c.currentVersion,
+			ClientOpID:  pending.ClientOpID,
+			Op:          easyjson.RawMessage(pending.Op),
+		},
+	)
+	if err != nil {
+		return model.OfflineOperationResult{}, err
+	}
+	if response == nil {
+		return model.OfflineOperationResult{}, errors.New("operations service returned nil submit response")
+	}
+	if !response.Accepted {
+		rejected := opRejectedPayload(pending.ClientOpID, response)
+		result.Status = "rejected"
+		result.CurrentVersion = rejected.CurrentVersion
+		result.Reason = rejected.Reason
+		result.Message = rejected.Message
+		result.Diagnostics = rejected.Diagnostics
+		c.currentVersion = maxInt64(c.currentVersion, response.CurrentVersion)
+		return result, nil
+	}
+
+	committed, err := opCommittedPayload(c.userID, model.OpSubmitPayload{
+		BaseVersion: c.currentVersion,
+		ClientOpID:  pending.ClientOpID,
+		Op:          pending.Op,
+	}, response)
+	if err != nil {
+		return model.OfflineOperationResult{}, err
+	}
+	if response.Duplicate {
+		result.Status = "duplicate_committed"
+	} else {
+		result.Status = "committed"
+	}
+	result.CommittedVersion = committed.Version
+	result.CurrentVersion = maxInt64(committed.Version, response.CurrentVersion)
+	result.OpID = committed.OpID
+	result.Patch = committed.Patch
+	result.SolveStatus = committed.SolveStatus
+	result.AffectedEntityIDs = committed.AffectedEntityIDs
+	result.AffectedConstraintIDs = committed.AffectedConstraintIDs
+	result.AffectedDimensionIDs = committed.AffectedDimensionIDs
+	result.AffectedComponentIDs = committed.AffectedComponentIDs
+
+	c.currentVersion = maxInt64(c.currentVersion, result.CurrentVersion)
+	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msgOpCommitted, requestID, committed))
+	return result, nil
 }
 
 func (c *Connection) handlePermissionUpdated(ctx context.Context, msg model.ClientRealtimeMessage) error {
@@ -1321,6 +1605,26 @@ func opCommittedPayload(
 		AffectedComponentIDs:  append([]string(nil), response.ChangedComponentIDs...),
 		Authoritative:         true,
 	}, nil
+}
+
+func committedPatchPayloads(ops []model.CommittedOperation) []model.CommittedPatchPayload {
+	patches := make([]model.CommittedPatchPayload, 0, len(ops))
+	for _, op := range ops {
+		clientOpID := ""
+		if op.ClientOpID != nil {
+			clientOpID = *op.ClientOpID
+		}
+		patches = append(patches, model.CommittedPatchPayload{
+			Version:       op.Version,
+			OpID:          op.ID,
+			ActorUserID:   op.ActorUserID,
+			ClientOpID:    clientOpID,
+			Patch:         json.RawMessage(op.Patch),
+			SolveStatus:   json.RawMessage(op.SolveStatus),
+			Authoritative: true,
+		})
+	}
+	return patches
 }
 
 func joinRawMessages(messages []easyjson.RawMessage) json.RawMessage {

@@ -5,7 +5,9 @@ SELECT
     so.actor_user_id,
     so.client_op_id,
     so.created_at,
-    so.payload
+    so.payload,
+    COALESCE(so.materialized_patch, '{}'::jsonb),
+    COALESCE(so.solve_status, '{}'::jsonb)
 FROM sketch_ops so
 JOIN sketches s ON s.id = so.sketch_id
 JOIN sketch_permissions sp ON sp.sketch_id = so.sketch_id

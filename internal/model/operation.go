@@ -72,6 +72,8 @@ type CommittedOperation struct {
 	ClientOpID  *string             `json:"clientOpId,omitempty"`
 	CreatedAt   string              `json:"createdAt"`
 	Payload     easyjson.RawMessage `json:"payload"`
+	Patch       easyjson.RawMessage `json:"patch,omitempty"`
+	SolveStatus easyjson.RawMessage `json:"solveStatus,omitempty"`
 }
 
 //easyjson:json

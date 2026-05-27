@@ -2,25 +2,25 @@ asyncapi: 3.1.0
 info:
   title: cccAD Realtime Collaboration API
   version: 1.0.0
-  description: |
-    WebSocket protocol for cccAD collaborative 2D sketch editing.
-
-    REST OpenAPI is used for initial document loading and regular HTTP commands.
-    This AsyncAPI document describes realtime WebSocket messages.
-
-    Rules:
-      - PostgreSQL sketch operation log is the persistent source of truth.
-      - op.committed is the only realtime event after which a client mutates real document state.
-      - Frontend-side solving is optimistic preview only; op.committed.patch is the authoritative solver result.
-      - Backend must call the C++ sketch-solver before emitting op.committed for geometry-changing operations.
-      - op.committed.patch may contain only changed/affected entities, constraints, dimensions and materialized geometry.
-      - Clients must reconcile local optimistic state by applying op.committed.patch, not by re-solving the original op.
-      - presence.*, drag.preview, session ping/pong and locks are transient.
-      - Redis may be used for presence, locks and pub/sub fanout.
-      - S3 is used for previews, exports, imports and large snapshots, not live sketch state.
-
+  description: "WebSocket protocol for cccAD collaborative 2D sketch editing.\n\nREST OpenAPI is used for initial document\
+    \ loading and regular HTTP commands.\nThis AsyncAPI document describes realtime WebSocket messages.\n\nRules:\n  - PostgreSQL\
+    \ sketch operation log is the persistent source of truth.\n  - op.committed is the only realtime event after which a client\
+    \ mutates real document state.\n  - Frontend-side solving is optimistic preview only; op.committed.patch is the authoritative\
+    \ solver result.\n  - Backend must call the C++ sketch-solver before emitting op.committed for geometry-changing operations.\n\
+    \  - op.committed.patch may contain only changed/affected entities, constraints, dimensions and materialized geometry.\n\
+    \  - Clients must reconcile local optimistic state by applying op.committed.patch, not by re-solving the original op.\n\
+    \  - presence.*, intent.draft.*, drag.preview, session ping/pong and locks are transient.\n  - intent.draft.* messages\
+    \ expose another user's unfinished tool state, such as selecting the first point of a line and previewing the second point.\n\
+    \  - intent.draft.* messages never mutate canonical sketch state; only op.committed may do that.\n  - Redis may be used\
+    \ for presence, locks and pub/sub fanout.\n  - S3 is used for previews, exports, imports and large snapshots, not live\
+    \ sketch state.\n\nOffline/reconnect rules:\n  - Offline user edits are stored on the client as durable semantic operations,\
+    \ not as solved geometry patches.\n  - The client stores pending operations locally, typically in IndexedDB, using stable\
+    \ clientOpId/clientSeq values.\n  - After reconnect the client sends sync.resume with lastSeenVersion and ordered pendingOps.\n\
+    \  - Backend replays pending operations over the current canonical sketch state, calls the C++ sketch-solver for every\
+    \ accepted operation, and returns authoritative patches or rejected diagnostics.\n  - intent.draft.* and presence.* are\
+    \ ephemeral and must not be replayed after reconnect.\n  - Idempotency is required: if a clientOpId was already committed\
+    \ or rejected, backend must return the previously stored result instead of applying it again.\n"
 defaultContentType: application/json
-
 servers:
   local:
     host: localhost:8080
@@ -40,17 +40,11 @@ servers:
       sketchId:
         default: sk_example
         description: Sketch identifier.
-
 channels:
   sketchRealtime:
     address: /api/v1/sketches/{sketchId}/ws
-    description: |
-      Bidirectional WebSocket channel for one sketch document.
-
-      Client should first load initial state through REST:
-        GET /api/v1/sketches/{sketchId}
-
-      Then it should connect to this WebSocket and send session.join.
+    description: "Bidirectional WebSocket channel for one sketch document.\n\nClient should first load initial state through\
+      \ REST:\n  GET /api/v1/sketches/{sketchId}\n\nThen it should connect to this WebSocket and send session.join.\n"
     parameters:
       sketchId:
         description: Sketch identifier from the URL path.
@@ -77,6 +71,14 @@ channels:
         $ref: '#/components/messages/PresenceHover'
       PresenceTool:
         $ref: '#/components/messages/PresenceTool'
+      IntentDraftBegin:
+        $ref: '#/components/messages/IntentDraftBegin'
+      IntentDraftUpdate:
+        $ref: '#/components/messages/IntentDraftUpdate'
+      IntentDraftCancel:
+        $ref: '#/components/messages/IntentDraftCancel'
+      IntentDraftEnded:
+        $ref: '#/components/messages/IntentDraftEnded'
       DragBegin:
         $ref: '#/components/messages/DragBegin'
       DragBeginAccepted:
@@ -129,7 +131,10 @@ channels:
         $ref: '#/components/messages/ConflictResolved'
       Error:
         $ref: '#/components/messages/Error'
-
+      SyncResume:
+        $ref: '#/components/messages/SyncResume'
+      SyncResumeResult:
+        $ref: '#/components/messages/SyncResumeResult'
 operations:
   joinSession:
     action: send
@@ -137,147 +142,368 @@ operations:
       $ref: '#/channels/sketchRealtime'
     title: Join realtime sketch session
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/SessionJoin'
+    - $ref: '#/channels/sketchRealtime/messages/SessionJoin'
     reply:
       channel:
         $ref: '#/channels/sketchRealtime'
       messages:
-        - $ref: '#/channels/sketchRealtime/messages/SessionJoined'
-        - $ref: '#/channels/sketchRealtime/messages/Error'
+      - $ref: '#/channels/sketchRealtime/messages/SessionJoined'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
   heartbeat:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Heartbeat ping
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/SessionPing'
+    - $ref: '#/channels/sketchRealtime/messages/SessionPing'
     reply:
       channel:
         $ref: '#/channels/sketchRealtime'
       messages:
-        - $ref: '#/channels/sketchRealtime/messages/SessionPong'
-        - $ref: '#/channels/sketchRealtime/messages/Error'
+      - $ref: '#/channels/sketchRealtime/messages/SessionPong'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
   sendPresence:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Send transient presence events
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/PresenceCursor'
-      - $ref: '#/channels/sketchRealtime/messages/PresenceSelection'
-      - $ref: '#/channels/sketchRealtime/messages/PresenceHover'
-      - $ref: '#/channels/sketchRealtime/messages/PresenceTool'
+    - $ref: '#/channels/sketchRealtime/messages/PresenceCursor'
+    - $ref: '#/channels/sketchRealtime/messages/PresenceSelection'
+    - $ref: '#/channels/sketchRealtime/messages/PresenceHover'
+    - $ref: '#/channels/sketchRealtime/messages/PresenceTool'
+  sendIntentDraft:
+    action: send
+    channel:
+      $ref: '#/channels/sketchRealtime'
+    title: Send transient construction/edit intent draft events
+    summary: Used to show another user's unfinished tool state without changing canonical sketch state.
+    messages:
+    - $ref: '#/channels/sketchRealtime/messages/IntentDraftBegin'
+    - $ref: '#/channels/sketchRealtime/messages/IntentDraftUpdate'
+    - $ref: '#/channels/sketchRealtime/messages/IntentDraftCancel'
+    - $ref: '#/channels/sketchRealtime/messages/IntentDraftEnded'
   beginDrag:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Begin drag lifecycle
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/DragBegin'
+    - $ref: '#/channels/sketchRealtime/messages/DragBegin'
     reply:
       channel:
         $ref: '#/channels/sketchRealtime'
       messages:
-        - $ref: '#/channels/sketchRealtime/messages/DragBeginAccepted'
-        - $ref: '#/channels/sketchRealtime/messages/DragBeginRejected'
-        - $ref: '#/channels/sketchRealtime/messages/Error'
+      - $ref: '#/channels/sketchRealtime/messages/DragBeginAccepted'
+      - $ref: '#/channels/sketchRealtime/messages/DragBeginRejected'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
   sendDragPreview:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Send transient drag preview
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/DragPreview'
+    - $ref: '#/channels/sketchRealtime/messages/DragPreview'
   commitDrag:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Commit drag as persistent operation
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/DragCommit'
+    - $ref: '#/channels/sketchRealtime/messages/DragCommit'
     reply:
       channel:
         $ref: '#/channels/sketchRealtime'
       messages:
-        - $ref: '#/channels/sketchRealtime/messages/OpCommitted'
-        - $ref: '#/channels/sketchRealtime/messages/OpRejected'
-        - $ref: '#/channels/sketchRealtime/messages/Error'
+      - $ref: '#/channels/sketchRealtime/messages/OpCommitted'
+      - $ref: '#/channels/sketchRealtime/messages/OpRejected'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
   submitOperation:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Submit persistent sketch operation
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/OpSubmit'
+    - $ref: '#/channels/sketchRealtime/messages/OpSubmit'
     reply:
       channel:
         $ref: '#/channels/sketchRealtime'
       messages:
-        - $ref: '#/channels/sketchRealtime/messages/OpCommitted'
-        - $ref: '#/channels/sketchRealtime/messages/OpRejected'
-        - $ref: '#/channels/sketchRealtime/messages/Error'
+      - $ref: '#/channels/sketchRealtime/messages/OpCommitted'
+      - $ref: '#/channels/sketchRealtime/messages/OpRejected'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
   acquireLock:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Acquire soft edit lock
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/LockAcquire'
+    - $ref: '#/channels/sketchRealtime/messages/LockAcquire'
     reply:
       channel:
         $ref: '#/channels/sketchRealtime'
       messages:
-        - $ref: '#/channels/sketchRealtime/messages/LockAcquired'
-        - $ref: '#/channels/sketchRealtime/messages/LockRejected'
-        - $ref: '#/channels/sketchRealtime/messages/Error'
+      - $ref: '#/channels/sketchRealtime/messages/LockAcquired'
+      - $ref: '#/channels/sketchRealtime/messages/LockRejected'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
   refreshLock:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Refresh soft edit lock
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/LockRefresh'
+    - $ref: '#/channels/sketchRealtime/messages/LockRefresh'
     reply:
       channel:
         $ref: '#/channels/sketchRealtime'
       messages:
-        - $ref: '#/channels/sketchRealtime/messages/LockRefreshed'
-        - $ref: '#/channels/sketchRealtime/messages/Error'
+      - $ref: '#/channels/sketchRealtime/messages/LockRefreshed'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
   releaseLock:
     action: send
     channel:
       $ref: '#/channels/sketchRealtime'
     title: Release soft edit lock
     messages:
-      - $ref: '#/channels/sketchRealtime/messages/LockRelease'
+    - $ref: '#/channels/sketchRealtime/messages/LockRelease'
     reply:
       channel:
         $ref: '#/channels/sketchRealtime'
       messages:
-        - $ref: '#/channels/sketchRealtime/messages/LockReleased'
-        - $ref: '#/channels/sketchRealtime/messages/Error'
-
+      - $ref: '#/channels/sketchRealtime/messages/LockReleased'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
+  resumeSync:
+    action: send
+    channel:
+      $ref: '#/channels/sketchRealtime'
+    title: Resume realtime session after offline period
+    summary: Client submits its last seen version and ordered durable offline operations. Backend returns missed authoritative
+      patches and per-operation committed/rejected results.
+    messages:
+    - $ref: '#/channels/sketchRealtime/messages/SyncResume'
+    reply:
+      channel:
+        $ref: '#/channels/sketchRealtime'
+      messages:
+      - $ref: '#/channels/sketchRealtime/messages/SyncResumeResult'
+      - $ref: '#/channels/sketchRealtime/messages/StateSnapshot'
+      - $ref: '#/channels/sketchRealtime/messages/StateResyncRequired'
+      - $ref: '#/channels/sketchRealtime/messages/Error'
 components:
   messages:
-    SessionJoin: { name: session.join, title: Join session, payload: { $ref: '#/components/schemas/SessionJoinMessage' }, examples: [ { name: Join with last seen version, payload: { type: session.join, requestId: req_join_1, sketchId: sk_123, clientTime: '2026-05-21T10:00:00Z', payload: { lastSeenVersion: 42, clientId: browser_tab_01, supportedProtocolVersion: 1 } } } ] }
-    SessionJoined: { name: session.joined, title: Session joined, payload: { $ref: '#/components/schemas/SessionJoinedMessage' }, examples: [ { name: Joined, payload: { type: session.joined, requestId: req_join_1, eventId: evt_001, sketchId: sk_123, serverTime: '2026-05-21T10:00:01Z', payload: { protocolVersion: 1, currentVersion: 42, missingOpsAvailable: false, user: { userId: usr_1, displayName: David, role: editor, clientId: browser_tab_01 }, activeUsers: [ { userId: usr_2, displayName: Alex, role: editor, clientId: browser_tab_02 } ] } } } ] }
-    SessionUserJoined: { name: session.user_joined, title: User joined, payload: { $ref: '#/components/schemas/UserEventMessage' } }
-    SessionUserLeft: { name: session.user_left, title: User left, payload: { $ref: '#/components/schemas/UserLeftMessage' } }
-    SessionPing: { name: session.ping, title: Ping, payload: { $ref: '#/components/schemas/SessionPingMessage' } }
-    SessionPong: { name: session.pong, title: Pong, payload: { $ref: '#/components/schemas/SessionPongMessage' } }
-    SessionAccessRevoked: { name: session.access_revoked, title: Access revoked, payload: { $ref: '#/components/schemas/AccessRevokedMessage' } }
-    PresenceCursor: { name: presence.cursor, title: Cursor presence, payload: { $ref: '#/components/schemas/PresenceCursorMessage' } }
-    PresenceSelection: { name: presence.selection, title: Selection presence, payload: { $ref: '#/components/schemas/PresenceSelectionMessage' } }
-    PresenceHover: { name: presence.hover, title: Hover presence, payload: { $ref: '#/components/schemas/PresenceHoverMessage' } }
-    PresenceTool: { name: presence.tool, title: Tool presence, payload: { $ref: '#/components/schemas/PresenceToolMessage' } }
-    DragBegin: { name: drag.begin, title: Begin drag, payload: { $ref: '#/components/schemas/DragBeginMessage' } }
-    DragBeginAccepted: { name: drag.begin.accepted, title: Drag begin accepted, payload: { $ref: '#/components/schemas/DragBeginAcceptedMessage' } }
-    DragBeginRejected: { name: drag.begin.rejected, title: Drag begin rejected, payload: { $ref: '#/components/schemas/DragBeginRejectedMessage' } }
-    DragPreview: { name: drag.preview, title: Drag preview, payload: { $ref: '#/components/schemas/DragPreviewMessage' } }
-    DragCommit: { name: drag.commit, title: Commit drag, payload: { $ref: '#/components/schemas/DragCommitMessage' } }
-    DragCancel: { name: drag.cancel, title: Cancel drag, payload: { $ref: '#/components/schemas/DragCancelMessage' } }
-    DragCancelled: { name: drag.cancelled, title: Drag cancelled, payload: { $ref: '#/components/schemas/DragCancelledMessage' } }
-    OpSubmit: { name: op.submit, title: Submit persistent operation, payload: { $ref: '#/components/schemas/OpSubmitMessage' } }
+    SessionJoin:
+      name: session.join
+      title: Join session
+      payload:
+        $ref: '#/components/schemas/SessionJoinMessage'
+      examples:
+      - name: Join with last seen version
+        payload:
+          type: session.join
+          requestId: req_join_1
+          sketchId: sk_123
+          clientTime: '2026-05-21T10:00:00Z'
+          payload:
+            lastSeenVersion: 42
+            clientId: browser_tab_01
+            supportedProtocolVersion: 1
+    SessionJoined:
+      name: session.joined
+      title: Session joined
+      payload:
+        $ref: '#/components/schemas/SessionJoinedMessage'
+      examples:
+      - name: Joined
+        payload:
+          type: session.joined
+          requestId: req_join_1
+          eventId: evt_001
+          sketchId: sk_123
+          serverTime: '2026-05-21T10:00:01Z'
+          payload:
+            protocolVersion: 1
+            currentVersion: 42
+            missingOpsAvailable: false
+            user:
+              userId: usr_1
+              displayName: David
+              role: editor
+              clientId: browser_tab_01
+            activeUsers:
+            - userId: usr_2
+              displayName: Alex
+              role: editor
+              clientId: browser_tab_02
+    SessionUserJoined:
+      name: session.user_joined
+      title: User joined
+      payload:
+        $ref: '#/components/schemas/UserEventMessage'
+    SessionUserLeft:
+      name: session.user_left
+      title: User left
+      payload:
+        $ref: '#/components/schemas/UserLeftMessage'
+    SessionPing:
+      name: session.ping
+      title: Ping
+      payload:
+        $ref: '#/components/schemas/SessionPingMessage'
+    SessionPong:
+      name: session.pong
+      title: Pong
+      payload:
+        $ref: '#/components/schemas/SessionPongMessage'
+    SessionAccessRevoked:
+      name: session.access_revoked
+      title: Access revoked
+      payload:
+        $ref: '#/components/schemas/AccessRevokedMessage'
+    PresenceCursor:
+      name: presence.cursor
+      title: Cursor presence
+      payload:
+        $ref: '#/components/schemas/PresenceCursorMessage'
+    PresenceSelection:
+      name: presence.selection
+      title: Selection presence
+      payload:
+        $ref: '#/components/schemas/PresenceSelectionMessage'
+    PresenceHover:
+      name: presence.hover
+      title: Hover presence
+      payload:
+        $ref: '#/components/schemas/PresenceHoverMessage'
+    PresenceTool:
+      name: presence.tool
+      title: Tool presence
+      payload:
+        $ref: '#/components/schemas/PresenceToolMessage'
+    IntentDraftBegin:
+      name: intent.draft.begin
+      title: Begin transient intent draft
+      summary: Broadcasts that a user started an unfinished construction/edit intent. Does not mutate canonical sketch state.
+      payload:
+        $ref: '#/components/schemas/IntentDraftBeginMessage'
+      examples:
+      - name: User selected first point for a line
+        payload:
+          type: intent.draft.begin
+          requestId: req_draft_1
+          eventId: evt_draft_1
+          sketchId: sk_123
+          serverTime: '2026-05-26T12:05:00Z'
+          payload:
+            draftId: draft_line_usr1_001
+            actorUserId: usr_1
+            clientId: browser_tab_01
+            baseVersion: 43
+            tool: line
+            operationType: create_line
+            phase: select_second_point
+            selectedPointIds:
+            - p1
+            anchors:
+            - kind: point
+              pointId: p1
+              position:
+                x: 10.0
+                y: 20.0
+            styleHint: ghost
+            ttlMs: 3000
+    IntentDraftUpdate:
+      name: intent.draft.update
+      title: Update transient intent draft
+      summary: Broadcasts intermediate cursor/preview geometry for an unfinished operation. Does not mutate canonical sketch
+        state.
+      payload:
+        $ref: '#/components/schemas/IntentDraftUpdateMessage'
+      examples:
+      - name: User previews second point for a line
+        payload:
+          type: intent.draft.update
+          requestId: req_draft_2
+          eventId: evt_draft_2
+          sketchId: sk_123
+          serverTime: '2026-05-26T12:05:01Z'
+          payload:
+            draftId: draft_line_usr1_001
+            actorUserId: usr_1
+            clientId: browser_tab_01
+            baseVersion: 43
+            tool: line
+            operationType: create_line
+            phase: preview
+            selectedPointIds:
+            - p1
+            cursorWorld:
+              x: 100.0
+              y: 45.0
+            preview:
+              entities:
+                ghost_line_1:
+                  type: line
+                  start:
+                    x: 10.0
+                    y: 20.0
+                  end:
+                    x: 100.0
+                    y: 45.0
+            styleHint: ghost
+            sequence: 2
+            ttlMs: 3000
+    IntentDraftCancel:
+      name: intent.draft.cancel
+      title: Cancel transient intent draft
+      payload:
+        $ref: '#/components/schemas/IntentDraftCancelMessage'
+    IntentDraftEnded:
+      name: intent.draft.ended
+      title: Transient intent draft ended
+      summary: Server broadcast telling clients to remove a ghost draft because it was committed, cancelled, timed out or
+        disconnected.
+      payload:
+        $ref: '#/components/schemas/IntentDraftEndedMessage'
+    DragBegin:
+      name: drag.begin
+      title: Begin drag
+      payload:
+        $ref: '#/components/schemas/DragBeginMessage'
+    DragBeginAccepted:
+      name: drag.begin.accepted
+      title: Drag begin accepted
+      payload:
+        $ref: '#/components/schemas/DragBeginAcceptedMessage'
+    DragBeginRejected:
+      name: drag.begin.rejected
+      title: Drag begin rejected
+      payload:
+        $ref: '#/components/schemas/DragBeginRejectedMessage'
+    DragPreview:
+      name: drag.preview
+      title: Drag preview
+      payload:
+        $ref: '#/components/schemas/DragPreviewMessage'
+    DragCommit:
+      name: drag.commit
+      title: Commit drag
+      payload:
+        $ref: '#/components/schemas/DragCommitMessage'
+    DragCancel:
+      name: drag.cancel
+      title: Cancel drag
+      payload:
+        $ref: '#/components/schemas/DragCancelMessage'
+    DragCancelled:
+      name: drag.cancelled
+      title: Drag cancelled
+      payload:
+        $ref: '#/components/schemas/DragCancelledMessage'
+    OpSubmit:
+      name: op.submit
+      title: Submit persistent operation
+      payload:
+        $ref: '#/components/schemas/OpSubmitMessage'
     OpCommitted:
       name: op.committed
       title: Operation committed
@@ -285,375 +511,1199 @@ components:
       payload:
         $ref: '#/components/schemas/OpCommittedMessage'
       examples:
-        - name: Move point committed with authoritative solver patch
+      - name: Move point committed with authoritative solver patch
+        payload:
+          type: op.committed
+          requestId: req_move_1
+          eventId: evt_1001
+          sketchId: sk_123
+          serverTime: '2026-05-26T12:00:00Z'
           payload:
-            type: op.committed
-            requestId: req_move_1
-            eventId: evt_1001
-            sketchId: sk_123
-            serverTime: '2026-05-26T12:00:00Z'
-            payload:
-              opId: op_1001
-              version: 43
-              actorUserId: usr_1
-              clientOpId: client_op_77
+            opId: op_1001
+            version: 43
+            actorUserId: usr_1
+            clientOpId: client_op_77
+            op:
+              type: move_point
+              pointId: p2
+              target:
+                x: 130.0
+                y: 40.0
+            patch:
+              entities:
+                p2:
+                  type: point
+                  x: 130.0
+                  y: 0.0
+                l1:
+                  type: line
+                  startPointId: p1
+                  endPointId: p2
+              materializedGeometry:
+                l1:
+                  type: line_segment
+                  start:
+                    x: 0.0
+                    y: 0.0
+                  end:
+                    x: 130.0
+                    y: 0.0
+            solveStatus:
+              status: under_constrained
+              degreesOfFreedom: 3
+              diagnostics: []
+            affectedEntityIds:
+            - p2
+            - l1
+            affectedConstraintIds:
+            - c_horizontal_1
+            affectedDimensionIds: []
+            affectedComponentIds:
+            - cmp_1
+            authoritative: true
+    OpRejected:
+      name: op.rejected
+      title: Operation rejected
+      payload:
+        $ref: '#/components/schemas/OpRejectedMessage'
+    OpsBatch:
+      name: ops.batch
+      title: Operations batch
+      payload:
+        $ref: '#/components/schemas/OpsBatchMessage'
+    LockAcquire:
+      name: lock.acquire
+      title: Acquire lock
+      payload:
+        $ref: '#/components/schemas/LockAcquireMessage'
+    LockAcquired:
+      name: lock.acquired
+      title: Lock acquired
+      payload:
+        $ref: '#/components/schemas/LockAcquiredMessage'
+    LockRejected:
+      name: lock.rejected
+      title: Lock rejected
+      payload:
+        $ref: '#/components/schemas/LockRejectedMessage'
+    LockRefresh:
+      name: lock.refresh
+      title: Refresh lock
+      payload:
+        $ref: '#/components/schemas/LockRefreshMessage'
+    LockRefreshed:
+      name: lock.refreshed
+      title: Lock refreshed
+      payload:
+        $ref: '#/components/schemas/LockRefreshedMessage'
+    LockRelease:
+      name: lock.release
+      title: Release lock
+      payload:
+        $ref: '#/components/schemas/LockReleaseMessage'
+    LockReleased:
+      name: lock.released
+      title: Lock released
+      payload:
+        $ref: '#/components/schemas/LockReleasedMessage'
+    StateResyncRequired:
+      name: state.resync_required
+      title: State resync required
+      payload:
+        $ref: '#/components/schemas/StateResyncRequiredMessage'
+    StateSnapshot:
+      name: state.snapshot
+      title: State snapshot
+      payload:
+        $ref: '#/components/schemas/StateSnapshotMessage'
+    StatePatch:
+      name: state.patch
+      title: State patch
+      payload:
+        $ref: '#/components/schemas/StatePatchMessage'
+    PermissionUpdated:
+      name: permission.updated
+      title: Permission updated
+      payload:
+        $ref: '#/components/schemas/PermissionUpdatedMessage'
+    PermissionRevoked:
+      name: permission.revoked
+      title: Permission revoked
+      payload:
+        $ref: '#/components/schemas/PermissionRevokedMessage'
+    ConflictCreated:
+      name: conflict.created
+      title: Conflict created
+      payload:
+        $ref: '#/components/schemas/ConflictCreatedMessage'
+    ConflictResolved:
+      name: conflict.resolved
+      title: Conflict resolved
+      payload:
+        $ref: '#/components/schemas/ConflictResolvedMessage'
+    Error:
+      name: error
+      title: Error
+      payload:
+        $ref: '#/components/schemas/ErrorMessage'
+    SyncResume:
+      name: sync.resume
+      title: Resume session and submit offline operations
+      summary: Client reconnects and submits ordered durable operations created while offline.
+      payload:
+        $ref: '#/components/schemas/SyncResumeMessage'
+      examples:
+      - name: Reconnect with two pending offline operations
+        payload:
+          type: sync.resume
+          requestId: req_sync_1
+          sketchId: sk_123
+          payload:
+            clientId: browser_tab_01
+            lastSeenVersion: 41
+            lastAckedClientSeq: 120
+            pendingOps:
+            - clientOpId: browser_tab_01_121
+              clientSeq: 121
+              baseVersion: 41
               op:
                 type: move_point
                 pointId: p2
-                target: { x: 130.0, y: 40.0 }
+                target:
+                  x: 120.0
+                  y: 40.0
+            - clientOpId: browser_tab_01_122
+              clientSeq: 122
+              baseVersion: 41
+              op:
+                type: set_dimension_value
+                dimensionId: d1
+                value: 80.0
+    SyncResumeResult:
+      name: sync.resume.result
+      title: Resume result with missed patches and offline operation results
+      summary: Backend response after replaying offline operations over the current canonical state through the C++ solver.
+      payload:
+        $ref: '#/components/schemas/SyncResumeResultMessage'
+      examples:
+      - name: Resume result with committed and rejected operations
+        payload:
+          type: sync.resume.result
+          requestId: req_sync_1
+          eventId: evt_sync_1
+          sketchId: sk_123
+          serverTime: '2026-05-26T12:00:00Z'
+          payload:
+            status: ok
+            clientId: browser_tab_01
+            fromVersion: 41
+            currentVersion: 44
+            missedPatches:
+            - version: 42
+              opId: op_remote_1
+              actorUserId: usr_2
+              patch:
+                entities:
+                  p5:
+                    type: point
+                    x: 20.0
+                    y: 30.0
+              authoritative: true
+            opResults:
+            - clientOpId: browser_tab_01_121
+              clientSeq: 121
+              status: committed
+              committedVersion: 43
               patch:
                 entities:
                   p2:
                     type: point
-                    x: 130.0
+                    x: 120.0
                     y: 0.0
-                  l1:
-                    type: line
-                    startPointId: p1
-                    endPointId: p2
-                materializedGeometry:
-                  l1:
-                    type: line_segment
-                    start: { x: 0.0, y: 0.0 }
-                    end: { x: 130.0, y: 0.0 }
               solveStatus:
                 status: under_constrained
                 degreesOfFreedom: 3
                 diagnostics: []
-              affectedEntityIds: [p2, l1]
-              affectedConstraintIds: [c_horizontal_1]
-              affectedDimensionIds: []
-              affectedComponentIds: [cmp_1]
               authoritative: true
-    OpRejected: { name: op.rejected, title: Operation rejected, payload: { $ref: '#/components/schemas/OpRejectedMessage' } }
-    OpsBatch: { name: ops.batch, title: Operations batch, payload: { $ref: '#/components/schemas/OpsBatchMessage' } }
-    LockAcquire: { name: lock.acquire, title: Acquire lock, payload: { $ref: '#/components/schemas/LockAcquireMessage' } }
-    LockAcquired: { name: lock.acquired, title: Lock acquired, payload: { $ref: '#/components/schemas/LockAcquiredMessage' } }
-    LockRejected: { name: lock.rejected, title: Lock rejected, payload: { $ref: '#/components/schemas/LockRejectedMessage' } }
-    LockRefresh: { name: lock.refresh, title: Refresh lock, payload: { $ref: '#/components/schemas/LockRefreshMessage' } }
-    LockRefreshed: { name: lock.refreshed, title: Lock refreshed, payload: { $ref: '#/components/schemas/LockRefreshedMessage' } }
-    LockRelease: { name: lock.release, title: Release lock, payload: { $ref: '#/components/schemas/LockReleaseMessage' } }
-    LockReleased: { name: lock.released, title: Lock released, payload: { $ref: '#/components/schemas/LockReleasedMessage' } }
-    StateResyncRequired: { name: state.resync_required, title: State resync required, payload: { $ref: '#/components/schemas/StateResyncRequiredMessage' } }
-    StateSnapshot: { name: state.snapshot, title: State snapshot, payload: { $ref: '#/components/schemas/StateSnapshotMessage' } }
-    StatePatch: { name: state.patch, title: State patch, payload: { $ref: '#/components/schemas/StatePatchMessage' } }
-    PermissionUpdated: { name: permission.updated, title: Permission updated, payload: { $ref: '#/components/schemas/PermissionUpdatedMessage' } }
-    PermissionRevoked: { name: permission.revoked, title: Permission revoked, payload: { $ref: '#/components/schemas/PermissionRevokedMessage' } }
-    ConflictCreated: { name: conflict.created, title: Conflict created, payload: { $ref: '#/components/schemas/ConflictCreatedMessage' } }
-    ConflictResolved: { name: conflict.resolved, title: Conflict resolved, payload: { $ref: '#/components/schemas/ConflictResolvedMessage' } }
-    Error: { name: error, title: Error, payload: { $ref: '#/components/schemas/ErrorMessage' } }
-
+            - clientOpId: browser_tab_01_122
+              clientSeq: 122
+              status: rejected
+              currentVersion: 43
+              reason: solver_over_constrained
+              diagnostics:
+              - level: error
+                code: CONSTRAINT_CONFLICT
+                message: Dimension d1 conflicts with current geometry.
+              authoritative: true
   schemas:
     RealtimeEnvelope:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        clientTime: { type: string, format: date-time }
-        serverTime: { type: string, format: date-time }
-        payload: { type: object, additionalProperties: true }
-
+        type:
+          type: string
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          additionalProperties: true
     SessionJoinMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [session.join] }
-        requestId: { type: string }
-        sketchId: { type: string }
-        clientTime: { type: string, format: date-time }
-        payload: { $ref: '#/components/schemas/SessionJoinPayload' }
+        type:
+          type: string
+          enum:
+          - session.join
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/SessionJoinPayload'
     SessionJoinPayload:
       type: object
-      required: [lastSeenVersion, clientId, supportedProtocolVersion]
+      required:
+      - lastSeenVersion
+      - clientId
+      - supportedProtocolVersion
       properties:
-        lastSeenVersion: { type: integer, format: int64, minimum: 0 }
-        clientId: { type: string }
-        supportedProtocolVersion: { type: integer, minimum: 1 }
+        lastSeenVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        clientId:
+          type: string
+        supportedProtocolVersion:
+          type: integer
+          minimum: 1
     SessionJoinedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [session.joined] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
-        payload: { $ref: '#/components/schemas/SessionJoinedPayload' }
+        type:
+          type: string
+          enum:
+          - session.joined
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/SessionJoinedPayload'
     SessionJoinedPayload:
       type: object
-      required: [protocolVersion, currentVersion, user, activeUsers, missingOpsAvailable]
+      required:
+      - protocolVersion
+      - currentVersion
+      - user
+      - activeUsers
+      - missingOpsAvailable
       properties:
-        protocolVersion: { type: integer }
-        currentVersion: { type: integer, format: int64 }
-        user: { $ref: '#/components/schemas/RealtimeUser' }
+        protocolVersion:
+          type: integer
+        currentVersion:
+          type: integer
+          format: int64
+        user:
+          $ref: '#/components/schemas/RealtimeUser'
         activeUsers:
           type: array
-          items: { $ref: '#/components/schemas/RealtimeUser' }
-        missingOpsAvailable: { type: boolean }
+          items:
+            $ref: '#/components/schemas/RealtimeUser'
+        missingOpsAvailable:
+          type: boolean
     RealtimeUser:
       type: object
-      required: [userId, displayName, role, clientId]
+      required:
+      - userId
+      - displayName
+      - role
+      - clientId
       properties:
-        userId: { type: string }
-        displayName: { type: string }
-        role: { $ref: '#/components/schemas/SketchRole' }
-        clientId: { type: string }
-    SketchRole: { type: string, enum: [reader, editor, admin] }
-
+        userId:
+          type: string
+        displayName:
+          type: string
+        role:
+          $ref: '#/components/schemas/SketchRole'
+        clientId:
+          type: string
+    SketchRole:
+      type: string
+      enum:
+      - reader
+      - editor
+      - admin
     UserEventMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [session.user_joined] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
-        payload: { $ref: '#/components/schemas/RealtimeUser' }
+        type:
+          type: string
+          enum:
+          - session.user_joined
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/RealtimeUser'
     UserLeftMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [session.user_left] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - session.user_left
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [userId, clientId, reason]
+          required:
+          - userId
+          - clientId
+          - reason
           properties:
-            userId: { type: string }
-            clientId: { type: string }
-            reason: { type: string, enum: [disconnect, access_revoked, server_shutdown, duplicate_connection, protocol_error] }
+            userId:
+              type: string
+            clientId:
+              type: string
+            reason:
+              type: string
+              enum:
+              - disconnect
+              - access_revoked
+              - server_shutdown
+              - duplicate_connection
+              - protocol_error
     SessionPingMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [session.ping] }
-        requestId: { type: string }
-        sketchId: { type: string }
-        clientTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - session.ping
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [clientVersion]
+          required:
+          - clientVersion
           properties:
-            clientVersion: { type: integer, format: int64 }
+            clientVersion:
+              type: integer
+              format: int64
     SessionPongMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [session.pong] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - session.pong
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [currentVersion]
+          required:
+          - currentVersion
           properties:
-            currentVersion: { type: integer, format: int64 }
+            currentVersion:
+              type: integer
+              format: int64
     AccessRevokedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [session.access_revoked] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - session.access_revoked
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [message]
+          required:
+          - message
           properties:
-            message: { type: string }
-
+            message:
+              type: string
     PresenceCursorMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [presence.cursor] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        clientTime: { type: string, format: date-time }
-        serverTime: { type: string, format: date-time }
-        payload: { $ref: '#/components/schemas/PresenceCursorPayload' }
+        type:
+          type: string
+          enum:
+          - presence.cursor
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/PresenceCursorPayload'
     PresenceCursorPayload:
       type: object
-      required: [x, y]
+      required:
+      - x
+      - y
       properties:
-        userId: { type: string }
-        clientId: { type: string }
-        x: { type: number, format: double }
-        y: { type: number, format: double }
-        viewport: { $ref: '#/components/schemas/Viewport' }
+        userId:
+          type: string
+        clientId:
+          type: string
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        viewport:
+          $ref: '#/components/schemas/Viewport'
     Viewport:
       type: object
-      required: [scale, offsetX, offsetY]
+      required:
+      - scale
+      - offsetX
+      - offsetY
       properties:
-        scale: { type: number, format: double, exclusiveMinimum: 0 }
-        offsetX: { type: number, format: double }
-        offsetY: { type: number, format: double }
-    PresenceSelectionMessage: { $ref: '#/components/schemas/GenericPresenceMessage' }
-    PresenceHoverMessage: { $ref: '#/components/schemas/GenericPresenceMessage' }
-    PresenceToolMessage: { $ref: '#/components/schemas/GenericPresenceMessage' }
+        scale:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        offsetX:
+          type: number
+          format: double
+        offsetY:
+          type: number
+          format: double
+    PresenceSelectionMessage:
+      $ref: '#/components/schemas/GenericPresenceMessage'
+    PresenceHoverMessage:
+      $ref: '#/components/schemas/GenericPresenceMessage'
+    PresenceToolMessage:
+      $ref: '#/components/schemas/GenericPresenceMessage'
     GenericPresenceMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [presence.selection, presence.hover, presence.tool] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        clientTime: { type: string, format: date-time }
-        serverTime: { type: string, format: date-time }
-        payload: { type: object, additionalProperties: true }
+        type:
+          type: string
+          enum:
+          - presence.selection
+          - presence.hover
+          - presence.tool
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          additionalProperties: true
+    IntentDraftBeginMessage:
+      type: object
+      description: 'Transient event for the beginning of an unfinished user intent.
 
+        Example: user selected the first point of a line and is now choosing the second point.
+
+        Clients must render it as another user''s ghost/preview state and must not apply it to canonical sketch state.
+
+        '
+      required:
+      - type
+      - sketchId
+      - payload
+      properties:
+        type:
+          type: string
+          enum:
+          - intent.draft.begin
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/IntentDraftPayload'
+    IntentDraftUpdateMessage:
+      type: object
+      description: 'Transient update for an unfinished user intent. The backend may throttle these events.
+
+        Clients should replace the previous draft state with the same draftId.
+
+        '
+      required:
+      - type
+      - sketchId
+      - payload
+      properties:
+        type:
+          type: string
+          enum:
+          - intent.draft.update
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/IntentDraftPayload'
+    IntentDraftCancelMessage:
+      type: object
+      description: Client request or server broadcast that cancels a transient draft.
+      required:
+      - type
+      - sketchId
+      - payload
+      properties:
+        type:
+          type: string
+          enum:
+          - intent.draft.cancel
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          required:
+          - draftId
+          properties:
+            draftId:
+              type: string
+            actorUserId:
+              type: string
+            clientId:
+              type: string
+            reason:
+              type: string
+              enum:
+              - user_cancelled
+              - tool_changed
+              - invalid_target
+              - permission_denied
+              - timeout
+              - user_disconnected
+    IntentDraftEndedMessage:
+      type: object
+      description: Server broadcast telling clients to remove a draft from the ghost overlay layer.
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
+      properties:
+        type:
+          type: string
+          enum:
+          - intent.draft.ended
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          required:
+          - draftId
+          - actorUserId
+          - reason
+          properties:
+            draftId:
+              type: string
+            actorUserId:
+              type: string
+            clientId:
+              type: string
+            reason:
+              type: string
+              enum:
+              - committed
+              - cancelled
+              - timeout
+              - user_disconnected
+              - superseded
+            committedOpId:
+              type: string
+            committedVersion:
+              type: integer
+              format: int64
+    IntentDraftPayload:
+      type: object
+      description: 'Ephemeral description of another user''s current unfinished tool operation.
+
+        This payload is suitable for grey ghost rendering, cursor hints and selected anchor highlighting.
+
+        It is not a persistent operation and it must not be stored in the PostgreSQL operation log.
+
+        '
+      required:
+      - draftId
+      - actorUserId
+      - clientId
+      - baseVersion
+      - tool
+      - phase
+      properties:
+        draftId:
+          type: string
+          description: Stable id for one unfinished operation. Reused by subsequent intent.draft.update messages.
+        actorUserId:
+          type: string
+        clientId:
+          type: string
+        baseVersion:
+          type: integer
+          format: int64
+          description: Sketch version visible to the actor when the draft was started.
+        tool:
+          type: string
+          enum:
+          - select
+          - point
+          - line
+          - circle
+          - arc
+          - polyline
+          - rectangle
+          - constraint
+          - dimension
+          - move
+          - trim
+        operationType:
+          type: string
+          description: Optional target persistent operation type if the draft is later committed.
+          enum:
+          - create_point
+          - create_line
+          - create_circle
+          - create_arc
+          - create_polyline
+          - create_rectangle
+          - move_point
+          - add_constraint
+          - add_dimension
+          - set_dimension_value
+        phase:
+          type: string
+          enum:
+          - started
+          - select_first_point
+          - select_second_point
+          - select_center
+          - select_radius
+          - select_start
+          - select_end
+          - select_entity
+          - select_constraint_target
+          - dragging
+          - preview
+          - ready_to_commit
+        sequence:
+          type: integer
+          minimum: 0
+          description: Monotonic per-draft sequence number. Clients may ignore older updates for the same draftId.
+        selectedEntityIds:
+          type: array
+          items:
+            type: string
+        selectedPointIds:
+          type: array
+          items:
+            type: string
+        hoverEntityId:
+          type: string
+        hoverPointId:
+          type: string
+        cursorWorld:
+          $ref: '#/components/schemas/Vec2'
+        anchors:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntentAnchor'
+        preview:
+          $ref: '#/components/schemas/IntentPreview'
+        styleHint:
+          type: string
+          enum:
+          - ghost
+          - gray
+          - collaborator_color
+          - hidden
+          default: ghost
+        ttlMs:
+          type: integer
+          minimum: 100
+          description: Suggested client-side expiration if no update/end message is received.
+        metadata:
+          type: object
+          additionalProperties: true
+    IntentAnchor:
+      type: object
+      description: Stable selected reference in an unfinished intent, such as the first point of a line.
+      required:
+      - kind
+      properties:
+        kind:
+          type: string
+          enum:
+          - point
+          - entity
+          - constraint
+          - dimension
+          - world_point
+        pointId:
+          type: string
+        entityId:
+          type: string
+        constraintId:
+          type: string
+        dimensionId:
+          type: string
+        position:
+          $ref: '#/components/schemas/Vec2'
+    IntentPreview:
+      type: object
+      description: Grey/ghost render data for the unfinished intent. Not canonical geometry.
+      properties:
+        entities:
+          type: object
+          additionalProperties: true
+        materializedGeometry:
+          type: object
+          additionalProperties: true
+        affectedEntityIds:
+          type: array
+          items:
+            type: string
+        label:
+          type: string
     DragBeginMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [drag.begin] }
-        requestId: { type: string }
-        sketchId: { type: string }
+        type:
+          type: string
+          enum:
+          - drag.begin
+        requestId:
+          type: string
+        sketchId:
+          type: string
         payload:
           type: object
-          required: [entityId, kind, baseVersion]
+          required:
+          - entityId
+          - kind
+          - baseVersion
           properties:
-            entityId: { type: string }
-            kind: { type: string, enum: [point, line, circle, arc, entity] }
-            baseVersion: { type: integer, format: int64 }
+            entityId:
+              type: string
+            kind:
+              type: string
+              enum:
+              - point
+              - line
+              - circle
+              - arc
+              - entity
+            baseVersion:
+              type: integer
+              format: int64
     DragBeginAcceptedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [drag.begin.accepted] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - drag.begin.accepted
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [lockId, lockedEntityIds]
+          required:
+          - lockId
+          - lockedEntityIds
           properties:
-            lockId: { type: string }
-            componentId: { type: string }
+            lockId:
+              type: string
+            componentId:
+              type: string
             lockedEntityIds:
               type: array
-              items: { type: string }
+              items:
+                type: string
     DragBeginRejectedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [drag.begin.rejected] }
-        requestId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - drag.begin.rejected
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [reason]
+          required:
+          - reason
           properties:
-            reason: { type: string, enum: [lock_conflict, permission_denied, invalid_reference, stale_base_version] }
-            lockedByUserId: { type: string }
-            lockId: { type: string }
+            reason:
+              type: string
+              enum:
+              - lock_conflict
+              - permission_denied
+              - invalid_reference
+              - stale_base_version
+            lockedByUserId:
+              type: string
+            lockId:
+              type: string
     DragPreviewMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [drag.preview] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        clientTime: { type: string, format: date-time }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - drag.preview
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        clientTime:
+          type: string
+          format: date-time
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [entityId, target]
+          required:
+          - entityId
+          - target
           properties:
-            userId: { type: string }
-            clientId: { type: string }
-            lockId: { type: string }
-            entityId: { type: string }
-            target: { $ref: '#/components/schemas/Vec2' }
+            userId:
+              type: string
+            clientId:
+              type: string
+            lockId:
+              type: string
+            entityId:
+              type: string
+            target:
+              $ref: '#/components/schemas/Vec2'
     DragCommitMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [drag.commit] }
-        requestId: { type: string }
-        sketchId: { type: string }
+        type:
+          type: string
+          enum:
+          - drag.commit
+        requestId:
+          type: string
+        sketchId:
+          type: string
         payload:
           type: object
-          required: [baseVersion, clientOpId, op]
+          required:
+          - baseVersion
+          - clientOpId
+          - op
           properties:
-            lockId: { type: string }
-            baseVersion: { type: integer, format: int64 }
-            clientOpId: { type: string }
-            op: { $ref: '#/components/schemas/SketchOperation' }
+            lockId:
+              type: string
+            baseVersion:
+              type: integer
+              format: int64
+            clientOpId:
+              type: string
+            op:
+              $ref: '#/components/schemas/SketchOperation'
     DragCancelMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [drag.cancel] }
-        requestId: { type: string }
-        sketchId: { type: string }
+        type:
+          type: string
+          enum:
+          - drag.cancel
+        requestId:
+          type: string
+        sketchId:
+          type: string
         payload:
           type: object
-          required: [entityId]
+          required:
+          - entityId
           properties:
-            lockId: { type: string }
-            entityId: { type: string }
+            lockId:
+              type: string
+            entityId:
+              type: string
     DragCancelledMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [drag.cancelled] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - drag.cancelled
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [userId, entityId]
+          required:
+          - userId
+          - entityId
           properties:
-            userId: { type: string }
-            entityId: { type: string }
-            lockId: { type: string }
-
+            userId:
+              type: string
+            entityId:
+              type: string
+            lockId:
+              type: string
     OpSubmitMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [op.submit] }
-        requestId: { type: string }
-        sketchId: { type: string }
-        payload: { $ref: '#/components/schemas/OpSubmitPayload' }
+        type:
+          type: string
+          enum:
+          - op.submit
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        payload:
+          $ref: '#/components/schemas/OpSubmitPayload'
     OpSubmitPayload:
       type: object
-      required: [baseVersion, clientOpId, op]
+      required:
+      - baseVersion
+      - clientOpId
+      - op
       properties:
-        baseVersion: { type: integer, format: int64 }
-        clientOpId: { type: string }
-        op: { $ref: '#/components/schemas/SketchOperation' }
+        baseVersion:
+          type: integer
+          format: int64
+        clientOpId:
+          type: string
+        op:
+          $ref: '#/components/schemas/SketchOperation'
     OpCommittedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [op.committed] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
-        payload: { $ref: '#/components/schemas/OpCommittedPayload' }
+        type:
+          type: string
+          enum:
+          - op.committed
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/OpCommittedPayload'
     OpCommittedPayload:
       type: object
-      description: |
-        Authoritative result of a persistent operation after backend validation and C++ solver recalculation.
+      description: 'Authoritative result of a persistent operation after backend validation and C++ solver recalculation.
+
 
         A client may optimistically solve the same operation locally for preview, but this payload is the canonical result.
+
         The client must apply `patch` to reconcile its local state. The patch is intentionally sparse: it should contain
+
         only entities, constraints, dimensions and materialized geometry that changed or were affected by the solver.
-      required: [opId, version, actorUserId, op, patch, solveStatus, affectedEntityIds, authoritative]
+
+        '
+      required:
+      - opId
+      - version
+      - actorUserId
+      - op
+      - patch
+      - solveStatus
+      - affectedEntityIds
+      - authoritative
       properties:
         opId:
           type: string
@@ -677,143 +1727,307 @@ components:
         affectedEntityIds:
           type: array
           description: Entity ids that were changed or touched by the authoritative solver result.
-          items: { type: string }
+          items:
+            type: string
         affectedConstraintIds:
           type: array
           description: Constraint ids that participated in or were affected by the solver recalculation.
-          items: { type: string }
+          items:
+            type: string
         affectedDimensionIds:
           type: array
           description: Dimension ids that participated in or were affected by the solver recalculation.
-          items: { type: string }
+          items:
+            type: string
         affectedComponentIds:
           type: array
           description: Constraint component ids recalculated by the solver.
-          items: { type: string }
+          items:
+            type: string
         authoritative:
           type: boolean
           const: true
           description: Must be true. Marks this payload as the backend/C++ solver source of truth, not a client preview.
     OpRejectedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
-      properties:
-        type: { type: string, enum: [op.rejected] }
-        requestId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
-        payload: { $ref: '#/components/schemas/OpRejectedPayload' }
-    OpRejectedPayload:
-      type: object
-      required: [clientOpId, currentVersion, reason, message]
-      properties:
-        clientOpId: { type: string }
-        currentVersion: { type: integer, format: int64 }
-        reason: { type: string, enum: [stale_base_version, permission_denied, lock_conflict, invalid_reference, invalid_operation, solver_inconsistent, solver_over_constrained, solver_numerical_failure, unsupported_operation] }
-        message: { type: string }
-        diagnostics:
-          type: array
-          items: { $ref: '#/components/schemas/SolverDiagnostic' }
-    OpsBatchMessage:
-      type: object
-      required: [type, sketchId, serverTime, payload]
-      properties:
-        type: { type: string, enum: [ops.batch] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
-        payload:
-          type: object
-          required: [fromVersion, toVersion, ops]
-          properties:
-            fromVersion: { type: integer, format: int64 }
-            toVersion: { type: integer, format: int64 }
-            ops:
-              type: array
-              items: { $ref: '#/components/schemas/CommittedOperation' }
-    CommittedOperation:
-      type: object
-      required: [opId, version, actorUserId, op]
-      properties:
-        opId: { type: string }
-        version: { type: integer, format: int64 }
-        actorUserId: { type: string }
-        clientOpId: { type: string }
-        createdAt: { type: string, format: date-time }
-        op: { $ref: '#/components/schemas/SketchOperation' }
-
-    SketchOperation:
-      type: object
-      required: [type]
-      description: Persistent sketch operation. Concrete shape is selected by the type field. Discriminator is intentionally avoided for better AsyncAPI tooling compatibility.
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
         type:
           type: string
-          enum: [create_point, create_line, create_circle, create_arc, create_polyline, create_rectangle, move_point, delete_entity, add_constraint, remove_constraint, add_dimension, set_dimension_value, remove_dimension]
-        x: { type: number, format: double }
-        y: { type: number, format: double }
-        pointId: { type: string }
-        entityId: { type: string }
-        constraintId: { type: string }
-        dimensionId: { type: string }
-        value: { type: number, format: double }
-        radius: { type: number, format: double, exclusiveMinimum: 0 }
-        clockwise: { type: boolean }
-        closed: { type: boolean }
-        start: { $ref: '#/components/schemas/PointRefOrNew' }
-        end: { $ref: '#/components/schemas/PointRefOrNew' }
-        center: { $ref: '#/components/schemas/PointRefOrNew' }
-        target: { $ref: '#/components/schemas/Vec2' }
-        cornerA: { $ref: '#/components/schemas/Vec2' }
-        cornerB: { $ref: '#/components/schemas/Vec2' }
+          enum:
+          - op.rejected
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/OpRejectedPayload'
+    OpRejectedPayload:
+      type: object
+      required:
+      - clientOpId
+      - currentVersion
+      - reason
+      - message
+      properties:
+        clientOpId:
+          type: string
+        currentVersion:
+          type: integer
+          format: int64
+        reason:
+          type: string
+          enum:
+          - stale_base_version
+          - permission_denied
+          - lock_conflict
+          - invalid_reference
+          - invalid_operation
+          - solver_inconsistent
+          - solver_over_constrained
+          - solver_numerical_failure
+          - unsupported_operation
+        message:
+          type: string
+        diagnostics:
+          type: array
+          items:
+            $ref: '#/components/schemas/SolverDiagnostic'
+    OpsBatchMessage:
+      type: object
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
+      properties:
+        type:
+          type: string
+          enum:
+          - ops.batch
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          required:
+          - fromVersion
+          - toVersion
+          - ops
+          properties:
+            fromVersion:
+              type: integer
+              format: int64
+            toVersion:
+              type: integer
+              format: int64
+            ops:
+              type: array
+              items:
+                $ref: '#/components/schemas/CommittedOperation'
+    CommittedOperation:
+      type: object
+      required:
+      - opId
+      - version
+      - actorUserId
+      - op
+      properties:
+        opId:
+          type: string
+        version:
+          type: integer
+          format: int64
+        actorUserId:
+          type: string
+        clientOpId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        op:
+          $ref: '#/components/schemas/SketchOperation'
+    SketchOperation:
+      type: object
+      required:
+      - type
+      description: Persistent sketch operation. Concrete shape is selected by the type field. Discriminator is intentionally
+        avoided for better AsyncAPI tooling compatibility.
+      properties:
+        type:
+          type: string
+          enum:
+          - create_point
+          - create_line
+          - create_circle
+          - create_arc
+          - create_polyline
+          - create_rectangle
+          - move_point
+          - delete_entity
+          - add_constraint
+          - remove_constraint
+          - add_dimension
+          - set_dimension_value
+          - remove_dimension
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        pointId:
+          type: string
+        entityId:
+          type: string
+        constraintId:
+          type: string
+        dimensionId:
+          type: string
+        value:
+          type: number
+          format: double
+        radius:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        clockwise:
+          type: boolean
+        closed:
+          type: boolean
+        start:
+          $ref: '#/components/schemas/PointRefOrNew'
+        end:
+          $ref: '#/components/schemas/PointRefOrNew'
+        center:
+          $ref: '#/components/schemas/PointRefOrNew'
+        target:
+          $ref: '#/components/schemas/Vec2'
+        cornerA:
+          $ref: '#/components/schemas/Vec2'
+        cornerB:
+          $ref: '#/components/schemas/Vec2'
         points:
           type: array
-          items: { $ref: '#/components/schemas/Vec2' }
-        constraint: { $ref: '#/components/schemas/Constraint' }
-        dimension: { $ref: '#/components/schemas/Dimension' }
+          items:
+            $ref: '#/components/schemas/Vec2'
+        constraint:
+          $ref: '#/components/schemas/Constraint'
+        dimension:
+          $ref: '#/components/schemas/Dimension'
       additionalProperties: true
     PointRefOrNew:
       type: object
-      required: [kind]
+      required:
+      - kind
       properties:
-        kind: { type: string, enum: [existing_point, new_point] }
-        pointId: { type: string }
-        x: { type: number, format: double }
-        y: { type: number, format: double }
+        kind:
+          type: string
+          enum:
+          - existing_point
+          - new_point
+        pointId:
+          type: string
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
     Constraint:
       type: object
-      required: [type, refs]
+      required:
+      - type
+      - refs
       properties:
-        id: { type: string }
-        type: { type: string, enum: [coincident, horizontal, vertical, parallel, perpendicular, tangent, equal, fixed, midpoint, concentric] }
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+          - coincident
+          - horizontal
+          - vertical
+          - parallel
+          - perpendicular
+          - tangent
+          - equal
+          - fixed
+          - midpoint
+          - concentric
         refs:
           type: array
           minItems: 1
-          items: { type: string }
-        branch: { type: string, enum: [external, internal] }
-        status: { type: string, enum: [active, invalid, removed] }
+          items:
+            type: string
+        branch:
+          type: string
+          enum:
+          - external
+          - internal
+        status:
+          type: string
+          enum:
+          - active
+          - invalid
+          - removed
     Dimension:
       type: object
-      required: [type, refs, value, driving]
+      required:
+      - type
+      - refs
+      - value
+      - driving
       properties:
-        id: { type: string }
-        type: { type: string, enum: [distance, radius, diameter, angle] }
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+          - distance
+          - radius
+          - diameter
+          - angle
         refs:
           type: array
           minItems: 1
-          items: { type: string }
-        value: { type: number, format: double }
-        driving: { type: boolean }
-        orientation: { type: string, enum: [cw, ccw] }
+          items:
+            type: string
+        value:
+          type: number
+          format: double
+        driving:
+          type: boolean
+        orientation:
+          type: string
+          enum:
+          - cw
+          - ccw
     SketchPatch:
       type: object
-      description: |
-        Sparse patch applied to the client's local sketch state.
+      description: 'Sparse patch applied to the client''s local sketch state.
+
 
         In op.committed this patch is produced by backend-side C++ solver recalculation and is authoritative.
+
         It is not required to contain the full sketch. For normal interactive operations it should contain only
+
         changed/affected entities, constraints, dimensions and materialized geometry. If the client cannot apply
+
         the patch cleanly, it should request state.resync_required / state.snapshot flow.
+
+        '
       properties:
         entities:
           type: object
@@ -833,300 +2047,890 @@ components:
           additionalProperties: true
         deletedEntityIds:
           type: array
-          items: { type: string }
+          items:
+            type: string
         deletedConstraintIds:
           type: array
-          items: { type: string }
+          items:
+            type: string
         deletedDimensionIds:
           type: array
-          items: { type: string }
+          items:
+            type: string
     SolveStatus:
       type: object
-      required: [status, degreesOfFreedom]
+      required:
+      - status
+      - degreesOfFreedom
       properties:
-        status: { type: string, enum: [ok, under_constrained, fully_constrained, over_constrained, inconsistent, numerical_failure] }
-        degreesOfFreedom: { type: integer }
+        status:
+          type: string
+          enum:
+          - ok
+          - under_constrained
+          - fully_constrained
+          - over_constrained
+          - inconsistent
+          - numerical_failure
+        degreesOfFreedom:
+          type: integer
         diagnostics:
           type: array
-          items: { $ref: '#/components/schemas/SolverDiagnostic' }
+          items:
+            $ref: '#/components/schemas/SolverDiagnostic'
     SolverDiagnostic:
       type: object
-      required: [level, code, message]
+      required:
+      - level
+      - code
+      - message
       properties:
-        level: { type: string, enum: [info, warning, error] }
-        code: { type: string }
-        message: { type: string }
+        level:
+          type: string
+          enum:
+          - info
+          - warning
+          - error
+        code:
+          type: string
+        message:
+          type: string
         entityIds:
           type: array
-          items: { type: string }
+          items:
+            type: string
         constraintIds:
           type: array
-          items: { type: string }
+          items:
+            type: string
         dimensionIds:
           type: array
-          items: { type: string }
-
+          items:
+            type: string
     LockAcquireMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [lock.acquire] }
-        requestId: { type: string }
-        sketchId: { type: string }
-        payload: { $ref: '#/components/schemas/LockAcquirePayload' }
+        type:
+          type: string
+          enum:
+          - lock.acquire
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        payload:
+          $ref: '#/components/schemas/LockAcquirePayload'
     LockAcquirePayload:
       type: object
-      required: [scope, mode, ttlMs]
+      required:
+      - scope
+      - mode
+      - ttlMs
       properties:
-        scope: { $ref: '#/components/schemas/LockScope' }
-        mode: { type: string, enum: [edit] }
-        ttlMs: { type: integer, minimum: 1000 }
+        scope:
+          $ref: '#/components/schemas/LockScope'
+        mode:
+          type: string
+          enum:
+          - edit
+        ttlMs:
+          type: integer
+          minimum: 1000
     LockScope:
       type: object
-      required: [type]
+      required:
+      - type
       properties:
-        type: { type: string, enum: [entity, constraint, dimension, constraint_component] }
-        entityId: { type: string }
-        constraintId: { type: string }
-        dimensionId: { type: string }
-        componentId: { type: string }
+        type:
+          type: string
+          enum:
+          - entity
+          - constraint
+          - dimension
+          - constraint_component
+        entityId:
+          type: string
+        constraintId:
+          type: string
+        dimensionId:
+          type: string
+        componentId:
+          type: string
     LockAcquiredMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [lock.acquired] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - lock.acquired
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [lockId, userId, scope, entityIds, expiresAt]
+          required:
+          - lockId
+          - userId
+          - scope
+          - entityIds
+          - expiresAt
           properties:
-            lockId: { type: string }
-            userId: { type: string }
-            scope: { $ref: '#/components/schemas/LockScope' }
+            lockId:
+              type: string
+            userId:
+              type: string
+            scope:
+              $ref: '#/components/schemas/LockScope'
             entityIds:
               type: array
-              items: { type: string }
-            expiresAt: { type: string, format: date-time }
+              items:
+                type: string
+            expiresAt:
+              type: string
+              format: date-time
     LockRejectedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [lock.rejected] }
-        requestId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - lock.rejected
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [reason]
+          required:
+          - reason
           properties:
-            reason: { type: string, enum: [already_locked, permission_denied, invalid_scope] }
-            lockedByUserId: { type: string }
-            lockId: { type: string }
+            reason:
+              type: string
+              enum:
+              - already_locked
+              - permission_denied
+              - invalid_scope
+            lockedByUserId:
+              type: string
+            lockId:
+              type: string
     LockRefreshMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [lock.refresh] }
-        requestId: { type: string }
-        sketchId: { type: string }
+        type:
+          type: string
+          enum:
+          - lock.refresh
+        requestId:
+          type: string
+        sketchId:
+          type: string
         payload:
           type: object
-          required: [lockId, ttlMs]
+          required:
+          - lockId
+          - ttlMs
           properties:
-            lockId: { type: string }
-            ttlMs: { type: integer, minimum: 1000 }
+            lockId:
+              type: string
+            ttlMs:
+              type: integer
+              minimum: 1000
     LockRefreshedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [lock.refreshed] }
-        requestId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - lock.refreshed
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [lockId, expiresAt]
+          required:
+          - lockId
+          - expiresAt
           properties:
-            lockId: { type: string }
-            expiresAt: { type: string, format: date-time }
+            lockId:
+              type: string
+            expiresAt:
+              type: string
+              format: date-time
     LockReleaseMessage:
       type: object
-      required: [type, sketchId, payload]
+      required:
+      - type
+      - sketchId
+      - payload
       properties:
-        type: { type: string, enum: [lock.release] }
-        requestId: { type: string }
-        sketchId: { type: string }
+        type:
+          type: string
+          enum:
+          - lock.release
+        requestId:
+          type: string
+        sketchId:
+          type: string
         payload:
           type: object
-          required: [lockId]
+          required:
+          - lockId
           properties:
-            lockId: { type: string }
+            lockId:
+              type: string
     LockReleasedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [lock.released] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - lock.released
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [lockId, reason]
+          required:
+          - lockId
+          - reason
           properties:
-            lockId: { type: string }
-            reason: { type: string, enum: [released, expired, user_disconnected, operation_committed, server_revoked] }
-            userId: { type: string }
-
+            lockId:
+              type: string
+            reason:
+              type: string
+              enum:
+              - released
+              - expired
+              - user_disconnected
+              - operation_committed
+              - server_revoked
+            userId:
+              type: string
     StateResyncRequiredMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [state.resync_required] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - state.resync_required
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [currentVersion, reason, recommendedAction]
+          required:
+          - currentVersion
+          - reason
+          - recommendedAction
           properties:
-            currentVersion: { type: integer, format: int64 }
-            reason: { type: string, enum: [client_too_far_behind, missed_events, server_restart, protocol_error] }
-            recommendedAction: { type: string, enum: [fetch_snapshot, fetch_ops, reconnect] }
+            currentVersion:
+              type: integer
+              format: int64
+            reason:
+              type: string
+              enum:
+              - client_too_far_behind
+              - missed_events
+              - server_restart
+              - protocol_error
+            recommendedAction:
+              type: string
+              enum:
+              - fetch_snapshot
+              - fetch_ops
+              - reconnect
     StateSnapshotMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [state.snapshot] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - state.snapshot
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [version, document]
+          required:
+          - version
+          - document
           properties:
-            version: { type: integer, format: int64 }
-            document: { $ref: '#/components/schemas/SketchDocument' }
+            version:
+              type: integer
+              format: int64
+            document:
+              $ref: '#/components/schemas/SketchDocument'
     StatePatchMessage:
       type: object
-      description: Generic sparse state patch. For committed user operations prefer op.committed because it carries op metadata and solver status.
-      required: [type, sketchId, serverTime, payload]
+      description: Generic sparse state patch. For committed user operations prefer op.committed because it carries op metadata
+        and solver status.
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [state.patch] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - state.patch
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [version, patch]
+          required:
+          - version
+          - patch
           properties:
-            version: { type: integer, format: int64 }
-            patch: { $ref: '#/components/schemas/SketchPatch' }
+            version:
+              type: integer
+              format: int64
+            patch:
+              $ref: '#/components/schemas/SketchPatch'
     SketchDocument:
       type: object
       properties:
-        entities: { type: object, additionalProperties: true }
-        constraints: { type: object, additionalProperties: true }
-        dimensions: { type: object, additionalProperties: true }
-        groups: { type: object, additionalProperties: true }
-        materializedGeometry: { type: object, additionalProperties: true }
-        solveStatus: { $ref: '#/components/schemas/SolveStatus' }
-
+        entities:
+          type: object
+          additionalProperties: true
+        constraints:
+          type: object
+          additionalProperties: true
+        dimensions:
+          type: object
+          additionalProperties: true
+        groups:
+          type: object
+          additionalProperties: true
+        materializedGeometry:
+          type: object
+          additionalProperties: true
+        solveStatus:
+          $ref: '#/components/schemas/SolveStatus'
     PermissionUpdatedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [permission.updated] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - permission.updated
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [targetUserId, role, changedByUserId]
+          required:
+          - targetUserId
+          - role
+          - changedByUserId
           properties:
-            targetUserId: { type: string }
-            role: { $ref: '#/components/schemas/SketchRole' }
-            changedByUserId: { type: string }
+            targetUserId:
+              type: string
+            role:
+              $ref: '#/components/schemas/SketchRole'
+            changedByUserId:
+              type: string
     PermissionRevokedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [permission.revoked] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - permission.revoked
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [targetUserId, changedByUserId]
+          required:
+          - targetUserId
+          - changedByUserId
           properties:
-            targetUserId: { type: string }
-            changedByUserId: { type: string }
-
+            targetUserId:
+              type: string
+            changedByUserId:
+              type: string
     ConflictCreatedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [conflict.created] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - conflict.created
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [conflictId, conflictType, status, affectedEntityIds, causedByOps, message]
+          required:
+          - conflictId
+          - conflictType
+          - status
+          - affectedEntityIds
+          - causedByOps
+          - message
           properties:
-            conflictId: { type: string }
-            conflictType: { type: string, enum: [over_constrained, inconsistent_constraints, dangling_reference, dimension_conflict, solver_branch_conflict] }
-            status: { type: string, enum: [open, resolved, ignored] }
+            conflictId:
+              type: string
+            conflictType:
+              type: string
+              enum:
+              - over_constrained
+              - inconsistent_constraints
+              - dangling_reference
+              - dimension_conflict
+              - solver_branch_conflict
+            status:
+              type: string
+              enum:
+              - open
+              - resolved
+              - ignored
             affectedEntityIds:
               type: array
-              items: { type: string }
+              items:
+                type: string
             causedByOps:
               type: array
-              items: { type: string }
-            message: { type: string }
+              items:
+                type: string
+            message:
+              type: string
             possibleResolutions:
               type: array
-              items: { type: object, additionalProperties: true }
+              items:
+                type: object
+                additionalProperties: true
     ConflictResolvedMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [conflict.resolved] }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+          - conflict.resolved
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
         payload:
           type: object
-          required: [conflictId, resolvedByUserId]
+          required:
+          - conflictId
+          - resolvedByUserId
           properties:
-            conflictId: { type: string }
-            resolvedByUserId: { type: string }
-            resolutionOpId: { type: string }
-
+            conflictId:
+              type: string
+            resolvedByUserId:
+              type: string
+            resolutionOpId:
+              type: string
     ErrorMessage:
       type: object
-      required: [type, sketchId, serverTime, payload]
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
       properties:
-        type: { type: string, enum: [error] }
-        requestId: { type: string }
-        eventId: { type: string }
-        sketchId: { type: string }
-        serverTime: { type: string, format: date-time }
-        payload: { $ref: '#/components/schemas/ErrorPayload' }
+        type:
+          type: string
+          enum:
+          - error
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/ErrorPayload'
     ErrorPayload:
       type: object
-      required: [code, message]
+      required:
+      - code
+      - message
       properties:
-        code: { type: string, enum: [INVALID_MESSAGE, INVALID_PAYLOAD, AUTH_REQUIRED, PERMISSION_DENIED, SKETCH_NOT_FOUND, STALE_VERSION, LOCK_CONFLICT, RATE_LIMITED, INTERNAL_ERROR] }
-        message: { type: string }
-        details: { type: object, additionalProperties: true }
-
+        code:
+          type: string
+          enum:
+          - INVALID_MESSAGE
+          - INVALID_PAYLOAD
+          - AUTH_REQUIRED
+          - PERMISSION_DENIED
+          - SKETCH_NOT_FOUND
+          - STALE_VERSION
+          - LOCK_CONFLICT
+          - RATE_LIMITED
+          - INTERNAL_ERROR
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
     Vec2:
       type: object
-      required: [x, y]
+      required:
+      - x
+      - y
       properties:
-        x: { type: number, format: double }
-        y: { type: number, format: double }
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+    SyncResumeMessage:
+      type: object
+      required:
+      - type
+      - sketchId
+      - payload
+      properties:
+        type:
+          type: string
+          enum:
+          - sync.resume
+        requestId:
+          type: string
+        sketchId:
+          type: string
+        payload:
+          $ref: '#/components/schemas/SyncResumePayload'
+    SyncResumePayload:
+      type: object
+      description: Reconnect request. Pending operations are durable semantic operations created while offline; they must
+        not contain frontend-solved geometry as the source of truth.
+      required:
+      - clientId
+      - lastSeenVersion
+      - pendingOps
+      properties:
+        clientId:
+          type: string
+        lastSeenVersion:
+          type: integer
+          format: int64
+          description: Highest committed server version known by this client before reconnect.
+        lastAckedClientSeq:
+          type: integer
+          format: int64
+          description: Highest client sequence number acknowledged by the server, if known.
+        pendingOps:
+          type: array
+          description: Ordered durable operations created while the client was offline. Backend must process them in ascending
+            clientSeq order.
+          items:
+            $ref: '#/components/schemas/PendingOfflineOperation'
+    PendingOfflineOperation:
+      type: object
+      required:
+      - clientOpId
+      - clientSeq
+      - baseVersion
+      - op
+      properties:
+        clientOpId:
+          type: string
+          description: Stable idempotency key generated by the client.
+        clientSeq:
+          type: integer
+          format: int64
+          description: Monotonic sequence number for this client/session.
+        baseVersion:
+          type: integer
+          format: int64
+          description: Sketch version on which the operation was originally created.
+        createdAt:
+          type: string
+          format: date-time
+        op:
+          $ref: '#/components/schemas/SketchOperation'
+    SyncResumeResultMessage:
+      type: object
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
+      properties:
+        type:
+          type: string
+          enum:
+          - sync.resume.result
+        requestId:
+          type: string
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          $ref: '#/components/schemas/SyncResumeResultPayload'
+    SyncResumeResultPayload:
+      type: object
+      description: Authoritative reconnect result. Client must rebuild committedState from missedPatches plus opResults, and
+        discard/reconcile local optimistic geometry using backend patches.
+      required:
+      - status
+      - clientId
+      - currentVersion
+      - opResults
+      properties:
+        status:
+          type: string
+          enum:
+          - ok
+          - snapshot_required
+          - rejected
+        clientId:
+          type: string
+        fromVersion:
+          type: integer
+          format: int64
+        currentVersion:
+          type: integer
+          format: int64
+        missedPatches:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommittedPatch'
+        opResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfflineOperationResult'
+        snapshot:
+          $ref: '#/components/schemas/SketchSnapshot'
+        message:
+          type: string
+    CommittedPatch:
+      type: object
+      required:
+      - version
+      - patch
+      - authoritative
+      properties:
+        version:
+          type: integer
+          format: int64
+        opId:
+          type: string
+        actorUserId:
+          type: string
+        clientOpId:
+          type: string
+        patch:
+          $ref: '#/components/schemas/SketchPatch'
+        solveStatus:
+          $ref: '#/components/schemas/SolveStatus'
+        affectedEntityIds:
+          type: array
+          items:
+            type: string
+        affectedConstraintIds:
+          type: array
+          items:
+            type: string
+        affectedDimensionIds:
+          type: array
+          items:
+            type: string
+        affectedComponentIds:
+          type: array
+          items:
+            type: string
+        authoritative:
+          type: boolean
+          const: true
+    OfflineOperationResult:
+      type: object
+      required:
+      - clientOpId
+      - clientSeq
+      - status
+      - authoritative
+      properties:
+        clientOpId:
+          type: string
+        clientSeq:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - committed
+          - rejected
+          - duplicate_committed
+          - duplicate_rejected
+        committedVersion:
+          type: integer
+          format: int64
+        currentVersion:
+          type: integer
+          format: int64
+        opId:
+          type: string
+        patch:
+          $ref: '#/components/schemas/SketchPatch'
+        solveStatus:
+          $ref: '#/components/schemas/SolveStatus'
+        reason:
+          type: string
+          enum:
+          - stale_base_version
+          - permission_denied
+          - lock_conflict
+          - invalid_reference
+          - invalid_operation
+          - entity_not_found
+          - constraint_not_found
+          - dimension_not_found
+          - solver_inconsistent
+          - solver_over_constrained
+          - solver_numerical_failure
+          - unsupported_operation
+          - duplicate_client_op
+        diagnostics:
+          type: array
+          items:
+            $ref: '#/components/schemas/SolverDiagnostic'
+        affectedEntityIds:
+          type: array
+          items:
+            type: string
+        affectedConstraintIds:
+          type: array
+          items:
+            type: string
+        affectedDimensionIds:
+          type: array
+          items:
+            type: string
+        affectedComponentIds:
+          type: array
+          items:
+            type: string
+        authoritative:
+          type: boolean
+          const: true
+    SketchSnapshot:
+      type: object
+      required:
+      - version
+      - document
+      properties:
+        version:
+          type: integer
+          format: int64
+        document:
+          $ref: '#/components/schemas/SketchDocument'

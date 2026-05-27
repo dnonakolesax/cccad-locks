@@ -94,10 +94,32 @@ func (l *locksStub) Release(_ context.Context, _ string, lockID string) error {
 }
 
 type operationsStub struct {
-	submitResponse *model.SubmitOperationResponse
-	submitUserID   string
-	submitSketchID string
-	submitRequest  *model.SubmitOperationRequest
+	submitResponse  *model.SubmitOperationResponse
+	submitResponses []*model.SubmitOperationResponse
+	submitUserID    string
+	submitSketchID  string
+	submitRequest   *model.SubmitOperationRequest
+	submitRequests  []*model.SubmitOperationRequest
+	listResult      *model.SketchOperationPage
+	listUserID      string
+}
+
+func (o *operationsStub) List(
+	ctx context.Context,
+	sketchID string,
+	afterVersion int64,
+	limit int,
+) (*model.SketchOperationPage, error) {
+	o.listUserID, _ = auth.UserIDFromContext(ctx)
+	if o.listResult != nil {
+		return o.listResult, nil
+	}
+	return &model.SketchOperationPage{
+		SketchID:             sketchID,
+		FromVersionExclusive: afterVersion,
+		ToVersion:            afterVersion,
+		Ops:                  []model.CommittedOperation{},
+	}, nil
 }
 
 func (o *operationsStub) Submit(
@@ -108,6 +130,12 @@ func (o *operationsStub) Submit(
 	o.submitUserID, _ = auth.UserIDFromContext(ctx)
 	o.submitSketchID = sketchID
 	o.submitRequest = request
+	o.submitRequests = append(o.submitRequests, request)
+	if len(o.submitResponses) > 0 {
+		response := o.submitResponses[0]
+		o.submitResponses = o.submitResponses[1:]
+		return response, nil
+	}
 	if o.submitResponse != nil {
 		return o.submitResponse, nil
 	}
@@ -523,6 +551,173 @@ func TestOpSubmitRepliesAndBroadcastsCommitted(t *testing.T) {
 	broadcast := nextMessage(t, second)
 	if broadcast.Type != msgOpCommitted || broadcast.RequestID != "req-op" {
 		t.Fatalf("broadcast = %#v, want op.committed req-op", broadcast)
+	}
+}
+
+func TestIntentDraftUpdateBroadcastsTransientDraft(t *testing.T) {
+	service := testService()
+	ctx := context.Background()
+
+	first, err := service.OpenConnection(ctx, model.OpenRealtimeSessionRequest{
+		SketchID: "sketch-id",
+		UserID:   "user-1",
+	})
+	if err != nil {
+		t.Fatalf("OpenConnection first returned error: %v", err)
+	}
+	if err := first.HandleClientMessage(ctx, joinMessage("req-1", "client-1", 7)); err != nil {
+		t.Fatalf("first join returned error: %v", err)
+	}
+	_ = nextMessage(t, first)
+
+	second, err := service.OpenConnection(ctx, model.OpenRealtimeSessionRequest{
+		SketchID: "sketch-id",
+		UserID:   "user-3",
+	})
+	if err != nil {
+		t.Fatalf("OpenConnection second returned error: %v", err)
+	}
+	if err := second.HandleClientMessage(ctx, joinMessage("req-2", "client-2", 7)); err != nil {
+		t.Fatalf("second join returned error: %v", err)
+	}
+	_ = nextMessage(t, second)
+	_ = nextMessage(t, first)
+
+	err = first.HandleClientMessage(ctx, model.ClientRealtimeMessage{
+		Type:      msgIntentDraftUpdate,
+		RequestID: "req-draft",
+		SketchID:  "sketch-id",
+		Payload:   json.RawMessage(`{"draftId":"draft-1","baseVersion":7,"tool":"line","phase":"select_second_point","sequence":2}`),
+	})
+	if err != nil {
+		t.Fatalf("intent.draft.update returned error: %v", err)
+	}
+
+	broadcast := nextMessage(t, second)
+	if broadcast.Type != msgIntentDraftUpdate || broadcast.RequestID != "req-draft" {
+		t.Fatalf("broadcast = %#v, want intent.draft.update req-draft", broadcast)
+	}
+	var payload model.IntentDraftPayload
+	decodePayload(t, broadcast, &payload)
+	if payload.DraftID != "draft-1" || payload.ActorUserID != "user-1" || payload.ClientID != "client-1" {
+		t.Fatalf("draft payload = %#v, want draft-1 from user-1/client-1", payload)
+	}
+}
+
+func TestSyncResumeProcessesOfflineOperationsAndBroadcastsCommitted(t *testing.T) {
+	opID1 := "op-8"
+	version1 := int64(8)
+	opID2 := "op-9"
+	version2 := int64(9)
+	ops := &operationsStub{
+		listResult: &model.SketchOperationPage{
+			SketchID:             "sketch-id",
+			FromVersionExclusive: 6,
+			ToVersion:            7,
+			Ops: []model.CommittedOperation{
+				{
+					ID:          "remote-op-7",
+					SketchID:    "sketch-id",
+					Version:     7,
+					ActorUserID: "user-3",
+					ClientOpID:  optionalTestString("remote-client-op"),
+					Patch:       []byte(`{"entities":{"remote":{}}}`),
+					SolveStatus: []byte(`{"status":"ok"}`),
+				},
+			},
+		},
+		submitResponses: []*model.SubmitOperationResponse{
+			{
+				Accepted:         true,
+				OpID:             &opID1,
+				Version:          &version1,
+				CurrentVersion:   version1,
+				Patch:            []byte(`{"entities":{"p1":{}}}`),
+				SolveStatus:      []byte(`{"status":"ok"}`),
+				ChangedEntityIDs: []string{"p1"},
+			},
+			{
+				Accepted:         true,
+				OpID:             &opID2,
+				Version:          &version2,
+				CurrentVersion:   version2,
+				Patch:            []byte(`{"entities":{"p2":{}}}`),
+				SolveStatus:      []byte(`{"status":"ok"}`),
+				ChangedEntityIDs: []string{"p2"},
+			},
+		},
+	}
+	service := testServiceWithOperations(ops)
+	ctx := context.Background()
+
+	first, err := service.OpenConnection(ctx, model.OpenRealtimeSessionRequest{
+		SketchID: "sketch-id",
+		UserID:   "user-1",
+	})
+	if err != nil {
+		t.Fatalf("OpenConnection first returned error: %v", err)
+	}
+	if err := first.HandleClientMessage(ctx, joinMessage("req-1", "client-1", 7)); err != nil {
+		t.Fatalf("first join returned error: %v", err)
+	}
+	_ = nextMessage(t, first)
+
+	second, err := service.OpenConnection(ctx, model.OpenRealtimeSessionRequest{
+		SketchID: "sketch-id",
+		UserID:   "user-3",
+	})
+	if err != nil {
+		t.Fatalf("OpenConnection second returned error: %v", err)
+	}
+	if err := second.HandleClientMessage(ctx, joinMessage("req-2", "client-2", 7)); err != nil {
+		t.Fatalf("second join returned error: %v", err)
+	}
+	_ = nextMessage(t, second)
+	_ = nextMessage(t, first)
+
+	err = first.HandleClientMessage(ctx, model.ClientRealtimeMessage{
+		Type:      msgSyncResume,
+		RequestID: "req-sync",
+		SketchID:  "sketch-id",
+		Payload: json.RawMessage(`{
+			"clientId":"client-1",
+				"lastSeenVersion":6,
+			"pendingOps":[
+				{"clientOpId":"client-op-2","clientSeq":2,"baseVersion":7,"op":{"type":"create_point","pointId":"p2"}},
+				{"clientOpId":"client-op-1","clientSeq":1,"baseVersion":7,"op":{"type":"create_point","pointId":"p1"}}
+			]
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("sync.resume returned error: %v", err)
+	}
+
+	reply := nextMessage(t, first)
+	if reply.Type != msgSyncResumeResult || reply.RequestID != "req-sync" {
+		t.Fatalf("reply = %#v, want sync.resume.result req-sync", reply)
+	}
+	var payload model.SyncResumeResultPayload
+	decodePayload(t, reply, &payload)
+	if payload.Status != "ok" || payload.CurrentVersion != 9 || len(payload.OpResults) != 2 {
+		t.Fatalf("resume payload = %#v, want ok currentVersion 9 with 2 results", payload)
+	}
+	if len(payload.MissedPatches) != 1 || payload.MissedPatches[0].OpID != "remote-op-7" {
+		t.Fatalf("missed patches = %#v, want remote-op-7", payload.MissedPatches)
+	}
+	if payload.OpResults[0].ClientOpID != "client-op-1" || payload.OpResults[0].CommittedVersion != 8 {
+		t.Fatalf("first op result = %#v, want client-op-1 committed at 8", payload.OpResults[0])
+	}
+	if ops.listUserID != "user-1" {
+		t.Fatalf("list userID = %q, want user-1", ops.listUserID)
+	}
+	if len(ops.submitRequests) != 2 || ops.submitRequests[0].BaseVersion != 7 || ops.submitRequests[1].BaseVersion != 8 {
+		t.Fatalf("submit requests = %#v, want rebased versions 7 then 8", ops.submitRequests)
+	}
+
+	firstBroadcast := nextMessage(t, second)
+	secondBroadcast := nextMessage(t, second)
+	if firstBroadcast.Type != msgOpCommitted || secondBroadcast.Type != msgOpCommitted {
+		t.Fatalf("broadcasts = %#v/%#v, want op.committed", firstBroadcast, secondBroadcast)
 	}
 }
 
@@ -1299,6 +1494,10 @@ func joinMessage(requestID, clientID string, lastSeenVersion int64) model.Client
 		SketchID:  "sketch-id",
 		Payload:   payload,
 	}
+}
+
+func optionalTestString(value string) *string {
+	return &value
 }
 
 func nextMessage(t *testing.T, conn *Connection) model.ServerRealtimeMessage {
