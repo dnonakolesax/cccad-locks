@@ -45,6 +45,7 @@ type OpenRealtimeSessionRequest struct {
 //easyjson:json
 type UserPresenceSummary struct {
 	UserID      string `json:"userId"`
+	UserName    string `json:"userName,omitempty"`
 	DisplayName string `json:"displayName"`
 	Role        string `json:"role"`
 	ClientID    string `json:"clientId"`
@@ -69,6 +70,7 @@ type SessionJoinedPayload struct {
 //easyjson:json
 type SessionUserLeftPayload struct {
 	UserID   string `json:"userId"`
+	UserName string `json:"userName,omitempty"`
 	ClientID string `json:"clientId"`
 	Reason   string `json:"reason"`
 }
@@ -124,6 +126,7 @@ type ToolPayload struct {
 type IntentDraftPayload struct {
 	DraftID           string          `json:"draftId"`
 	ActorUserID       string          `json:"actorUserId"`
+	ActorUserName     string          `json:"actorUserName,omitempty"`
 	ClientID          string          `json:"clientId"`
 	BaseVersion       int64           `json:"baseVersion"`
 	Tool              string          `json:"tool"`
@@ -154,16 +157,18 @@ type IntentAnchor struct {
 
 //easyjson:json
 type IntentDraftCancelPayload struct {
-	DraftID     string `json:"draftId"`
-	ActorUserID string `json:"actorUserId,omitempty"`
-	ClientID    string `json:"clientId,omitempty"`
-	Reason      string `json:"reason,omitempty"`
+	DraftID       string `json:"draftId"`
+	ActorUserID   string `json:"actorUserId,omitempty"`
+	ActorUserName string `json:"actorUserName,omitempty"`
+	ClientID      string `json:"clientId,omitempty"`
+	Reason        string `json:"reason,omitempty"`
 }
 
 //easyjson:json
 type IntentDraftEndedPayload struct {
 	DraftID          string `json:"draftId"`
 	ActorUserID      string `json:"actorUserId"`
+	ActorUserName    string `json:"actorUserName,omitempty"`
 	ClientID         string `json:"clientId,omitempty"`
 	Reason           string `json:"reason"`
 	CommittedOpID    string `json:"committedOpId,omitempty"`
@@ -186,9 +191,10 @@ type DragBeginAcceptedPayload struct {
 
 //easyjson:json
 type DragBeginRejectedPayload struct {
-	Reason         string `json:"reason"`
-	LockedByUserID string `json:"lockedByUserId,omitempty"`
-	LockID         string `json:"lockId,omitempty"`
+	Reason           string `json:"reason"`
+	LockedByUserID   string `json:"lockedByUserId,omitempty"`
+	LockedByUserName string `json:"lockedByUserName,omitempty"`
+	LockID           string `json:"lockId,omitempty"`
 }
 
 //easyjson:json
@@ -224,6 +230,7 @@ type OpCommittedPayload struct {
 	OpID                  string          `json:"opId"`
 	Version               int64           `json:"version"`
 	ActorUserID           string          `json:"actorUserId"`
+	ActorUserName         string          `json:"actorUserName,omitempty"`
 	ClientOpID            string          `json:"clientOpId,omitempty"`
 	Op                    json.RawMessage `json:"op"`
 	Patch                 json.RawMessage `json:"patch"`
@@ -278,6 +285,7 @@ type CommittedPatchPayload struct {
 	Version               int64           `json:"version"`
 	OpID                  string          `json:"opId,omitempty"`
 	ActorUserID           string          `json:"actorUserId,omitempty"`
+	ActorUserName         string          `json:"actorUserName,omitempty"`
 	ClientOpID            string          `json:"clientOpId,omitempty"`
 	Patch                 json.RawMessage `json:"patch"`
 	SolveStatus           json.RawMessage `json:"solveStatus,omitempty"`
@@ -328,6 +336,7 @@ type LockAcquirePayload struct {
 type LockAcquiredPayload struct {
 	LockID    string           `json:"lockId"`
 	UserID    string           `json:"userId"`
+	UserName  string           `json:"userName,omitempty"`
 	Scope     LockScopePayload `json:"scope"`
 	EntityIDs []string         `json:"entityIds,omitempty"`
 	ExpiresAt string           `json:"expiresAt"`
@@ -335,9 +344,10 @@ type LockAcquiredPayload struct {
 
 //easyjson:json
 type LockRejectedPayload struct {
-	Reason         string `json:"reason"`
-	LockedByUserID string `json:"lockedByUserId,omitempty"`
-	LockID         string `json:"lockId,omitempty"`
+	Reason           string `json:"reason"`
+	LockedByUserID   string `json:"lockedByUserId,omitempty"`
+	LockedByUserName string `json:"lockedByUserName,omitempty"`
+	LockID           string `json:"lockId,omitempty"`
 }
 
 //easyjson:json
@@ -359,22 +369,27 @@ type LockReleasePayload struct {
 
 //easyjson:json
 type LockReleasedPayload struct {
-	LockID string `json:"lockId"`
-	Reason string `json:"reason"`
-	UserID string `json:"userId,omitempty"`
+	LockID   string `json:"lockId"`
+	Reason   string `json:"reason"`
+	UserID   string `json:"userId,omitempty"`
+	UserName string `json:"userName,omitempty"`
 }
 
 //easyjson:json
 type PermissionUpdatedPayload struct {
-	TargetUserID    string `json:"targetUserId"`
-	Role            string `json:"role"`
-	ChangedByUserID string `json:"changedByUserId"`
+	TargetUserID      string `json:"targetUserId"`
+	TargetUserName    string `json:"targetUserName,omitempty"`
+	Role              string `json:"role"`
+	ChangedByUserID   string `json:"changedByUserId"`
+	ChangedByUserName string `json:"changedByUserName,omitempty"`
 }
 
 //easyjson:json
 type PermissionRevokedPayload struct {
-	TargetUserID    string `json:"targetUserId"`
-	ChangedByUserID string `json:"changedByUserId"`
+	TargetUserID      string `json:"targetUserId"`
+	TargetUserName    string `json:"targetUserName,omitempty"`
+	ChangedByUserID   string `json:"changedByUserId"`
+	ChangedByUserName string `json:"changedByUserName,omitempty"`
 }
 
 //easyjson:json
@@ -390,9 +405,10 @@ type ConflictCreatedPayload struct {
 
 //easyjson:json
 type ConflictResolvedPayload struct {
-	ConflictID       string `json:"conflictId"`
-	ResolvedByUserID string `json:"resolvedByUserId"`
-	ResolutionOpID   string `json:"resolutionOpId,omitempty"`
+	ConflictID         string `json:"conflictId"`
+	ResolvedByUserID   string `json:"resolvedByUserId"`
+	ResolvedByUserName string `json:"resolvedByUserName,omitempty"`
+	ResolutionOpID     string `json:"resolutionOpId,omitempty"`
 }
 
 //easyjson:json

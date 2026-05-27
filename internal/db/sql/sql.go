@@ -44,7 +44,8 @@ func (err RDBError) Error() string {
 }
 
 type PGXResponse struct {
-	rows pgx.Rows
+	rows   pgx.Rows
+	cancel context.CancelFunc
 }
 
 func NewPGXConn(config configs.RDBConfig, logger *slog.Logger) (*PGXConn, error) {
@@ -226,7 +227,6 @@ func (pw *PGXWorker) Exec(ctx context.Context, sql string, args ...interface{}) 
 
 func (pw *PGXWorker) Query(ctx context.Context, sql string, args ...interface{}) (*PGXResponse, error) {
 	timeCtx, cancel := context.WithTimeout(ctx, pw.Conn.requestTimeout)
-	defer cancel()
 	pw.Conn.logger.DebugContext(ctx, "executing sql", slog.String(sqlLoggerKey, sql))
 	if pw.ConnUpdating.Load() {
 		for pw.ConnUpdating.Load() {
@@ -237,6 +237,7 @@ func (pw *PGXWorker) Query(ctx context.Context, sql string, args ...interface{})
 	var pgErr *pgconn.PgError
 
 	if err != nil {
+		cancel()
 		pw.Alive.Store(false)
 		pw.Conn.logger.ErrorContext(ctx, "failed executing sql", slog.String(sqlLoggerKey, sql),
 			slog.String(consts.ErrorLoggerKey, err.Error()))
@@ -251,7 +252,7 @@ func (pw *PGXWorker) Query(ctx context.Context, sql string, args ...interface{})
 	}
 	pw.Conn.logger.DebugContext(ctx, "done executing sql", slog.String(sqlLoggerKey, sql))
 
-	return &PGXResponse{result}, nil
+	return &PGXResponse{rows: result, cancel: cancel}, nil
 }
 
 func (pr *PGXResponse) Next() bool {
@@ -273,6 +274,9 @@ func (pr *PGXResponse) Close() error {
 	// if the query executed successfully as some errors can only be detected by reading the entire response.
 	// e.g. A divide by zero error on the last row.
 	err := pr.rows.Err()
+	if pr.cancel != nil {
+		pr.cancel()
+	}
 	if err != nil {
 		return err
 	}

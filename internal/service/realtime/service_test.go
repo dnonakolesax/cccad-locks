@@ -196,6 +196,12 @@ func TestSessionJoinRepliesWithActiveUsersAndBroadcastsJoin(t *testing.T) {
 	if len(joinedPayload.ActiveUsers) != 1 || joinedPayload.ActiveUsers[0].UserID != "user-1" {
 		t.Fatalf("activeUsers = %#v, want user-1", joinedPayload.ActiveUsers)
 	}
+	if joinedPayload.User.UserName != "User 2" || joinedPayload.ActiveUsers[0].UserName != "User 1" {
+		t.Fatalf("joined usernames = user:%q active:%q, want User 2/User 1",
+			joinedPayload.User.UserName,
+			joinedPayload.ActiveUsers[0].UserName,
+		)
+	}
 	if joinedPayload.MissingOpsAvailable {
 		t.Fatal("missingOpsAvailable = true, want false")
 	}
@@ -208,6 +214,9 @@ func TestSessionJoinRepliesWithActiveUsersAndBroadcastsJoin(t *testing.T) {
 	decodePayload(t, userJoined, &joinedUser)
 	if joinedUser.UserID != "user-2" || joinedUser.ClientID != "client-2" {
 		t.Fatalf("joined user = %#v, want user-2/client-2", joinedUser)
+	}
+	if joinedUser.UserName != "User 2" {
+		t.Fatalf("joined userName = %q, want User 2", joinedUser.UserName)
 	}
 }
 

@@ -4,6 +4,8 @@ import "context"
 
 type userIDContextKey struct{}
 
+type userNameContextKey struct{}
+
 type traceIDContextKey struct{}
 
 func ContextWithUserID(ctx context.Context, userID string) context.Context {
@@ -13,6 +15,15 @@ func ContextWithUserID(ctx context.Context, userID string) context.Context {
 func UserIDFromContext(ctx context.Context) (string, bool) {
 	userID, ok := ctx.Value(userIDContextKey{}).(string)
 	return userID, ok && userID != ""
+}
+
+func ContextWithUserName(ctx context.Context, userName string) context.Context {
+	return context.WithValue(ctx, userNameContextKey{}, userName)
+}
+
+func UserNameFromContext(ctx context.Context) (string, bool) {
+	userName, ok := ctx.Value(userNameContextKey{}).(string)
+	return userName, ok && userName != ""
 }
 
 func ContextWithTraceID(ctx context.Context, traceID string) context.Context {

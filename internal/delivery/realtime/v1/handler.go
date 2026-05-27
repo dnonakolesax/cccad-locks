@@ -299,7 +299,8 @@ func (h *Handler) extractSketchID(path string) (string, bool) {
 
 func (h *Handler) resolveUser(r *http.Request) (UserIdentity, error) {
 	if userID, ok := auth.UserIDFromContext(r.Context()); ok {
-		return UserIdentity{UserID: userID}, nil
+		userName, _ := auth.UserNameFromContext(r.Context())
+		return UserIdentity{UserID: userID, DisplayName: userName}, nil
 	}
 
 	return UserIdentity{}, errors.New("authenticated user id is missing from request context")

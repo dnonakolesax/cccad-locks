@@ -326,11 +326,13 @@ components:
             missingOpsAvailable: false
             user:
               userId: usr_1
+              userName: david
               displayName: David
               role: editor
               clientId: browser_tab_01
             activeUsers:
             - userId: usr_2
+              userName: alex
               displayName: Alex
               role: editor
               clientId: browser_tab_02
@@ -396,6 +398,7 @@ components:
           payload:
             draftId: draft_line_usr1_001
             actorUserId: usr_1
+            actorUserName: david
             clientId: browser_tab_01
             baseVersion: 43
             tool: line
@@ -429,6 +432,7 @@ components:
           payload:
             draftId: draft_line_usr1_001
             actorUserId: usr_1
+            actorUserName: david
             clientId: browser_tab_01
             baseVersion: 43
             tool: line
@@ -522,6 +526,7 @@ components:
             opId: op_1001
             version: 43
             actorUserId: usr_1
+            actorUserName: david
             clientOpId: client_op_77
             op:
               type: move_point
@@ -702,6 +707,7 @@ components:
             - version: 42
               opId: op_remote_1
               actorUserId: usr_2
+              actorUserName: alex
               patch:
                 entities:
                   p5:
@@ -851,6 +857,8 @@ components:
       properties:
         userId:
           type: string
+        userName:
+          type: string
         displayName:
           type: string
         role:
@@ -911,6 +919,8 @@ components:
           - reason
           properties:
             userId:
+              type: string
+            userName:
               type: string
             clientId:
               type: string
@@ -1035,6 +1045,8 @@ components:
       - y
       properties:
         userId:
+          type: string
+        userName:
           type: string
         clientId:
           type: string
@@ -1192,6 +1204,8 @@ components:
               type: string
             actorUserId:
               type: string
+            actorUserName:
+              type: string
             clientId:
               type: string
             reason:
@@ -1234,6 +1248,8 @@ components:
               type: string
             actorUserId:
               type: string
+            actorUserName:
+              type: string
             clientId:
               type: string
             reason:
@@ -1270,6 +1286,8 @@ components:
           type: string
           description: Stable id for one unfinished operation. Reused by subsequent intent.draft.update messages.
         actorUserId:
+          type: string
+        actorUserName:
           type: string
         clientId:
           type: string
@@ -1502,6 +1520,8 @@ components:
               - stale_base_version
             lockedByUserId:
               type: string
+            lockedByUserName:
+              type: string
             lockId:
               type: string
     DragPreviewMessage:
@@ -1534,6 +1554,8 @@ components:
           - target
           properties:
             userId:
+              type: string
+            userName:
               type: string
             clientId:
               type: string
@@ -1625,6 +1647,8 @@ components:
           properties:
             userId:
               type: string
+            userName:
+              type: string
             entityId:
               type: string
             lockId:
@@ -1715,6 +1739,9 @@ components:
         actorUserId:
           type: string
           description: User that submitted the operation.
+        actorUserName:
+          type: string
+          description: preferred_username for the user that submitted the operation, when known.
         clientOpId:
           type: string
           description: Client-generated id used to match this commit with a local optimistic operation.
@@ -1850,6 +1877,8 @@ components:
           type: integer
           format: int64
         actorUserId:
+          type: string
+        actorUserName:
           type: string
         clientOpId:
           type: string
@@ -2194,6 +2223,8 @@ components:
               type: string
             userId:
               type: string
+            userName:
+              type: string
             scope:
               $ref: '#/components/schemas/LockScope'
             entityIds:
@@ -2234,6 +2265,8 @@ components:
               - permission_denied
               - invalid_scope
             lockedByUserId:
+              type: string
+            lockedByUserName:
               type: string
             lockId:
               type: string
@@ -2353,6 +2386,8 @@ components:
               - operation_committed
               - server_revoked
             userId:
+              type: string
+            userName:
               type: string
     StateResyncRequiredMessage:
       type: object
@@ -2506,9 +2541,13 @@ components:
           properties:
             targetUserId:
               type: string
+            targetUserName:
+              type: string
             role:
               $ref: '#/components/schemas/SketchRole'
             changedByUserId:
+              type: string
+            changedByUserName:
               type: string
     PermissionRevokedMessage:
       type: object
@@ -2537,7 +2576,11 @@ components:
           properties:
             targetUserId:
               type: string
+            targetUserName:
+              type: string
             changedByUserId:
+              type: string
+            changedByUserName:
               type: string
     ConflictCreatedMessage:
       type: object
@@ -2627,6 +2670,8 @@ components:
             conflictId:
               type: string
             resolvedByUserId:
+              type: string
+            resolvedByUserName:
               type: string
             resolutionOpId:
               type: string
@@ -2826,6 +2871,8 @@ components:
         opId:
           type: string
         actorUserId:
+          type: string
+        actorUserName:
           type: string
         clientOpId:
           type: string

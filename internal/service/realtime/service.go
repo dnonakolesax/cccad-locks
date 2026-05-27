@@ -229,7 +229,7 @@ func newConnection(
 		id:             newID(),
 		sketchID:       req.SketchID,
 		userID:         req.UserID,
-		displayName:    req.UserName,
+		displayName:    userDisplayName(req.UserID, req.UserName),
 		clientID:       req.ClientID,
 		role:           role,
 		currentVersion: currentVersion,
@@ -437,6 +437,7 @@ func (c *Connection) handleDragBegin(ctx context.Context, msg model.ClientRealti
 		rejected := model.DragBeginRejectedPayload{Reason: "lock_conflict"}
 		if response.Conflict != nil {
 			rejected.LockedByUserID = response.Conflict.HolderUserID
+			rejected.LockedByUserName = c.service.userNameForUser(c.sketchID, response.Conflict.HolderUserID)
 			rejected.LockID = response.Conflict.LockID
 		}
 		c.send(msgDragBeginRejected, msg.RequestID, rejected)
@@ -474,6 +475,7 @@ func (c *Connection) handleDragPreview(msg model.ClientRealtimeMessage) error {
 		return err
 	}
 	payload["userId"] = c.userID
+	payload["userName"] = c.displayName
 	payload["clientId"] = c.clientID
 
 	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msgDragPreview, msg.RequestID, payload))
@@ -531,12 +533,14 @@ func (c *Connection) handleDragCancel(ctx context.Context, msg model.ClientRealt
 
 	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msgDragCancelled, msg.RequestID, map[string]any{
 		"userId":   c.userID,
+		"userName": c.displayName,
 		"clientId": c.clientID,
 		"entityId": payload.EntityID,
 		"lockId":   payload.LockID,
 	}))
 	c.send(msgDragCancelled, msg.RequestID, map[string]any{
 		"userId":   c.userID,
+		"userName": c.displayName,
 		"clientId": c.clientID,
 		"entityId": payload.EntityID,
 		"lockId":   payload.LockID,
@@ -573,6 +577,7 @@ func (c *Connection) handlePresence(msg model.ClientRealtimeMessage) error {
 		return err
 	}
 	payload["userId"] = c.userID
+	payload["userName"] = c.displayName
 	payload["clientId"] = c.clientID
 
 	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msg.Type, msg.RequestID, payload))
@@ -619,6 +624,7 @@ func (c *Connection) handleIntentDraft(msg model.ClientRealtimeMessage) error {
 	if payload.ActorUserID != c.userID {
 		return errors.New("actorUserId must match authenticated user")
 	}
+	payload.ActorUserName = c.displayName
 	if payload.ClientID == "" {
 		payload.ClientID = c.clientID
 	}
@@ -655,6 +661,7 @@ func (c *Connection) handleIntentDraftCancel(msg model.ClientRealtimeMessage) er
 	if payload.ActorUserID != c.userID {
 		return errors.New("actorUserId must match authenticated user")
 	}
+	payload.ActorUserName = c.displayName
 	if payload.ClientID == "" {
 		payload.ClientID = c.clientID
 	}
@@ -664,10 +671,11 @@ func (c *Connection) handleIntentDraftCancel(msg model.ClientRealtimeMessage) er
 
 	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msgIntentDraftCancel, msg.RequestID, payload))
 	c.service.broadcastExcept(c.sketchID, c.id, c.serverMessage(msgIntentDraftEnded, msg.RequestID, model.IntentDraftEndedPayload{
-		DraftID:     payload.DraftID,
-		ActorUserID: payload.ActorUserID,
-		ClientID:    payload.ClientID,
-		Reason:      "cancelled",
+		DraftID:       payload.DraftID,
+		ActorUserID:   payload.ActorUserID,
+		ActorUserName: c.displayName,
+		ClientID:      payload.ClientID,
+		Reason:        "cancelled",
 	}))
 	return nil
 }
@@ -717,6 +725,7 @@ func (c *Connection) handleLockAcquire(ctx context.Context, msg model.ClientReal
 		rejected := model.LockRejectedPayload{Reason: "already_locked"}
 		if response.Conflict != nil {
 			rejected.LockedByUserID = response.Conflict.HolderUserID
+			rejected.LockedByUserName = c.service.userNameForUser(c.sketchID, response.Conflict.HolderUserID)
 			rejected.LockID = response.Conflict.LockID
 		}
 		c.send(msgLockRejected, msg.RequestID, rejected)
@@ -729,6 +738,10 @@ func (c *Connection) handleLockAcquire(ctx context.Context, msg model.ClientReal
 	acquired, err := lockAcquiredPayload(response.Lock)
 	if err != nil {
 		return err
+	}
+	acquired.UserName = c.service.userNameForUser(c.sketchID, acquired.UserID)
+	if acquired.UserID == c.userID {
+		acquired.UserName = c.displayName
 	}
 	c.send(msgLockAcquired, msg.RequestID, acquired)
 	return nil
@@ -799,9 +812,10 @@ func (c *Connection) handleLockRelease(ctx context.Context, msg model.ClientReal
 	}
 
 	c.send(msgLockReleased, msg.RequestID, model.LockReleasedPayload{
-		LockID: payload.LockID,
-		Reason: "released",
-		UserID: c.userID,
+		LockID:   payload.LockID,
+		Reason:   "released",
+		UserID:   c.userID,
+		UserName: c.displayName,
 	})
 	return nil
 }
@@ -882,7 +896,7 @@ func (c *Connection) handleSyncResume(ctx context.Context, msg model.ClientRealt
 	if missed == nil {
 		return errors.New("operations service returned nil operation page")
 	}
-	result.MissedPatches = committedPatchPayloads(missed.Ops)
+	result.MissedPatches = c.committedPatchPayloads(missed.Ops)
 	if len(missed.Ops) == syncResumeOpsLimit && missed.ToVersion < c.currentVersion {
 		result.Status = "snapshot_required"
 		result.Message = "too many missed operations; fetch a fresh snapshot"
@@ -958,7 +972,7 @@ func (c *Connection) submitOperation(
 		return nil
 	}
 
-	committed, err := opCommittedPayload(c.userID, payload, response)
+	committed, err := opCommittedPayload(c.userID, c.displayName, payload, response)
 	if err != nil {
 		return err
 	}
@@ -1022,7 +1036,7 @@ func (c *Connection) submitOfflineOperation(
 		return result, nil
 	}
 
-	committed, err := opCommittedPayload(c.userID, model.OpSubmitPayload{
+	committed, err := opCommittedPayload(c.userID, c.displayName, model.OpSubmitPayload{
 		BaseVersion: c.currentVersion,
 		ClientOpID:  pending.ClientOpID,
 		Op:          pending.Op,
@@ -1063,6 +1077,7 @@ func (c *Connection) handlePermissionUpdated(ctx context.Context, msg model.Clie
 		return fmt.Errorf("decode permission.updated: %w", err)
 	}
 	payload.TargetUserID = strings.TrimSpace(payload.TargetUserID)
+	payload.TargetUserName = strings.TrimSpace(payload.TargetUserName)
 	payload.Role = strings.TrimSpace(payload.Role)
 	if payload.TargetUserID == "" {
 		return errors.New("targetUserId is required")
@@ -1084,10 +1099,16 @@ func (c *Connection) handlePermissionUpdated(ctx context.Context, msg model.Clie
 		return errors.New("permissions service returned nil permission")
 	}
 
+	targetUserName := c.service.userNameForUser(c.sketchID, permission.UserID)
+	if targetUserName == "" {
+		targetUserName = payload.TargetUserName
+	}
 	c.broadcastToSketch(c.serverMessage(msgPermissionUpdated, msg.RequestID, model.PermissionUpdatedPayload{
-		TargetUserID:    permission.UserID,
-		Role:            permission.Role,
-		ChangedByUserID: c.userID,
+		TargetUserID:      permission.UserID,
+		TargetUserName:    targetUserName,
+		Role:              permission.Role,
+		ChangedByUserID:   c.userID,
+		ChangedByUserName: c.displayName,
 	}))
 	return nil
 }
@@ -1105,6 +1126,7 @@ func (c *Connection) handlePermissionRevoked(ctx context.Context, msg model.Clie
 		return fmt.Errorf("decode permission.revoked: %w", err)
 	}
 	payload.TargetUserID = strings.TrimSpace(payload.TargetUserID)
+	payload.TargetUserName = strings.TrimSpace(payload.TargetUserName)
 	if payload.TargetUserID == "" {
 		return errors.New("targetUserId is required")
 	}
@@ -1116,9 +1138,15 @@ func (c *Connection) handlePermissionRevoked(ctx context.Context, msg model.Clie
 		return err
 	}
 
+	targetUserName := c.service.userNameForUser(c.sketchID, payload.TargetUserID)
+	if targetUserName == "" {
+		targetUserName = payload.TargetUserName
+	}
 	c.broadcastToSketch(c.serverMessage(msgPermissionRevoked, msg.RequestID, model.PermissionRevokedPayload{
-		TargetUserID:    payload.TargetUserID,
-		ChangedByUserID: c.userID,
+		TargetUserID:      payload.TargetUserID,
+		TargetUserName:    targetUserName,
+		ChangedByUserID:   c.userID,
+		ChangedByUserName: c.displayName,
 	}))
 	c.service.closeUserConnections(
 		ctx,
@@ -1188,6 +1216,11 @@ func (c *Connection) handleConflictResolved(msg model.ClientRealtimeMessage) err
 	}
 	if payload.ResolvedByUserID == "" {
 		payload.ResolvedByUserID = c.userID
+	}
+	if payload.ResolvedByUserID == c.userID {
+		payload.ResolvedByUserName = c.displayName
+	} else if payload.ResolvedByUserName == "" {
+		payload.ResolvedByUserName = c.service.userNameForUser(c.sketchID, payload.ResolvedByUserID)
 	}
 
 	c.broadcastToSketch(c.serverMessage(msgConflictResolved, msg.RequestID, payload))
@@ -1293,6 +1326,7 @@ func (c *Connection) SendAccessRevoked(message string) {
 func (c *Connection) presence() model.UserPresenceSummary {
 	return model.UserPresenceSummary{
 		UserID:      c.userID,
+		UserName:    c.displayName,
 		DisplayName: c.displayName,
 		Role:        c.role,
 		ClientID:    c.clientID,
@@ -1490,6 +1524,14 @@ func stringValue(value any) string {
 	return text
 }
 
+func userDisplayName(userID, userName string) string {
+	userName = strings.TrimSpace(userName)
+	if userName != "" {
+		return userName
+	}
+	return userID
+}
+
 func rawObject(raw json.RawMessage) bool {
 	var payload map[string]any
 	if len(raw) == 0 {
@@ -1581,6 +1623,7 @@ func opRejectedPayload(clientOpID string, response *model.SubmitOperationRespons
 
 func opCommittedPayload(
 	userID string,
+	userName string,
 	request model.OpSubmitPayload,
 	response *model.SubmitOperationResponse,
 ) (model.OpCommittedPayload, error) {
@@ -1595,6 +1638,7 @@ func opCommittedPayload(
 		OpID:                  *response.OpID,
 		Version:               *response.Version,
 		ActorUserID:           userID,
+		ActorUserName:         userName,
 		ClientOpID:            request.ClientOpID,
 		Op:                    request.Op,
 		Patch:                 json.RawMessage(response.Patch),
@@ -1607,7 +1651,7 @@ func opCommittedPayload(
 	}, nil
 }
 
-func committedPatchPayloads(ops []model.CommittedOperation) []model.CommittedPatchPayload {
+func (c *Connection) committedPatchPayloads(ops []model.CommittedOperation) []model.CommittedPatchPayload {
 	patches := make([]model.CommittedPatchPayload, 0, len(ops))
 	for _, op := range ops {
 		clientOpID := ""
@@ -1618,6 +1662,7 @@ func committedPatchPayloads(ops []model.CommittedOperation) []model.CommittedPat
 			Version:       op.Version,
 			OpID:          op.ID,
 			ActorUserID:   op.ActorUserID,
+			ActorUserName: c.service.userNameForUser(c.sketchID, op.ActorUserID),
 			ClientOpID:    clientOpID,
 			Patch:         json.RawMessage(op.Patch),
 			SolveStatus:   json.RawMessage(op.SolveStatus),
@@ -1693,10 +1738,28 @@ func (s *Service) leave(conn *Connection, reason string) {
 		ServerTime: time.Now().UTC().Format(time.RFC3339Nano),
 		Payload: mustJSON(model.SessionUserLeftPayload{
 			UserID:   conn.userID,
+			UserName: conn.displayName,
 			ClientID: conn.clientID,
 			Reason:   reason,
 		}),
 	})
+}
+
+func (s *Service) userNameForUser(sketchID, userID string) string {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return ""
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, conn := range s.connections[sketchID] {
+		if conn.userID == userID && conn.displayName != "" {
+			return conn.displayName
+		}
+	}
+
+	return ""
 }
 
 func (s *Service) broadcastExcept(sketchID, excludedConnectionID string, msg model.ServerRealtimeMessage) {

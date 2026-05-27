@@ -2,7 +2,9 @@ package auth
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -71,8 +73,38 @@ func (m *Middleware) Handle(next http.Handler) http.Handler {
 		setRenewedTokenCookie(w, RefreshTokenCookie, tokenData.RT)
 		setRenewedTokenCookie(w, IDTokenCookie, tokenData.IT)
 
-		next.ServeHTTP(w, r.WithContext(ContextWithUserID(ctx, tokenData.UserID)))
+		tokenForUsername := accessToken
+		if tokenData.AT != nil && *tokenData.AT != "" {
+			tokenForUsername = *tokenData.AT
+		}
+		ctx = ContextWithUserID(ctx, tokenData.UserID)
+		if userName := preferredUsername(tokenForUsername); userName != "" {
+			ctx = ContextWithUserName(ctx, userName)
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func preferredUsername(accessToken string) string {
+	parts := strings.Split(accessToken, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return ""
+	}
+
+	var claims struct {
+		PreferredUsername string `json:"preferred_username"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(claims.PreferredUsername)
 }
 
 func newTraceID() string {

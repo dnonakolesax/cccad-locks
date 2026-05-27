@@ -124,6 +124,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel1(in *jle
 			} else {
 				out.UserID = string(in.String())
 			}
+		case "userName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.UserName = string(in.String())
+			}
 		case "displayName":
 			if in.IsNull() {
 				in.Skip()
@@ -160,6 +166,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel1(out *jw
 		const prefix string = ",\"userId\":"
 		out.RawString(prefix[1:])
 		out.String(string(in.UserID))
+	}
+	if in.UserName != "" {
+		const prefix string = ",\"userName\":"
+		out.RawString(prefix)
+		out.String(string(in.UserName))
 	}
 	{
 		const prefix string = ",\"displayName\":"
@@ -872,6 +883,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel8(in *jle
 			} else {
 				out.UserID = string(in.String())
 			}
+		case "userName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.UserName = string(in.String())
+			}
 		case "clientId":
 			if in.IsNull() {
 				in.Skip()
@@ -902,6 +919,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel8(out *jw
 		const prefix string = ",\"userId\":"
 		out.RawString(prefix[1:])
 		out.String(string(in.UserID))
+	}
+	if in.UserName != "" {
+		const prefix string = ",\"userName\":"
+		out.RawString(prefix)
+		out.String(string(in.UserName))
 	}
 	{
 		const prefix string = ",\"clientId\":"
@@ -1109,7 +1131,7 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel11(in *jl
 				in.Delim('[')
 				if out.ActiveUsers == nil {
 					if !in.IsDelim(']') {
-						out.ActiveUsers = make([]UserPresenceSummary, 0, 1)
+						out.ActiveUsers = make([]UserPresenceSummary, 0, 0)
 					} else {
 						out.ActiveUsers = []UserPresenceSummary{}
 					}
@@ -1857,6 +1879,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel18(in *jl
 			} else {
 				out.TargetUserID = string(in.String())
 			}
+		case "targetUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.TargetUserName = string(in.String())
+			}
 		case "role":
 			if in.IsNull() {
 				in.Skip()
@@ -1868,6 +1896,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel18(in *jl
 				in.Skip()
 			} else {
 				out.ChangedByUserID = string(in.String())
+			}
+		case "changedByUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ChangedByUserName = string(in.String())
 			}
 		default:
 			in.SkipRecursive()
@@ -1888,6 +1922,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel18(out *j
 		out.RawString(prefix[1:])
 		out.String(string(in.TargetUserID))
 	}
+	if in.TargetUserName != "" {
+		const prefix string = ",\"targetUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.TargetUserName))
+	}
 	{
 		const prefix string = ",\"role\":"
 		out.RawString(prefix)
@@ -1897,6 +1936,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel18(out *j
 		const prefix string = ",\"changedByUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.ChangedByUserID))
+	}
+	if in.ChangedByUserName != "" {
+		const prefix string = ",\"changedByUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.ChangedByUserName))
 	}
 	out.RawByte('}')
 }
@@ -1944,11 +1988,23 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel19(in *jl
 			} else {
 				out.TargetUserID = string(in.String())
 			}
+		case "targetUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.TargetUserName = string(in.String())
+			}
 		case "changedByUserId":
 			if in.IsNull() {
 				in.Skip()
 			} else {
 				out.ChangedByUserID = string(in.String())
+			}
+		case "changedByUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ChangedByUserName = string(in.String())
 			}
 		default:
 			in.SkipRecursive()
@@ -1969,10 +2025,20 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel19(out *j
 		out.RawString(prefix[1:])
 		out.String(string(in.TargetUserID))
 	}
+	if in.TargetUserName != "" {
+		const prefix string = ",\"targetUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.TargetUserName))
+	}
 	{
 		const prefix string = ",\"changedByUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.ChangedByUserID))
+	}
+	if in.ChangedByUserName != "" {
+		const prefix string = ",\"changedByUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.ChangedByUserName))
 	}
 	out.RawByte('}')
 }
@@ -2469,6 +2535,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel24(in *jl
 			} else {
 				out.ActorUserID = string(in.String())
 			}
+		case "actorUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ActorUserName = string(in.String())
+			}
 		case "clientOpId":
 			if in.IsNull() {
 				in.Skip()
@@ -2641,6 +2713,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel24(out *j
 		const prefix string = ",\"actorUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.ActorUserID))
+	}
+	if in.ActorUserName != "" {
+		const prefix string = ",\"actorUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.ActorUserName))
 	}
 	if in.ClientOpID != "" {
 		const prefix string = ",\"clientOpId\":"
@@ -3248,6 +3325,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel27(in *jl
 			} else {
 				out.UserID = string(in.String())
 			}
+		case "userName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.UserName = string(in.String())
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -3276,6 +3359,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel27(out *j
 		const prefix string = ",\"userId\":"
 		out.RawString(prefix)
 		out.String(string(in.UserID))
+	}
+	if in.UserName != "" {
+		const prefix string = ",\"userName\":"
+		out.RawString(prefix)
+		out.String(string(in.UserName))
 	}
 	out.RawByte('}')
 }
@@ -3394,6 +3482,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel29(in *jl
 			} else {
 				out.LockedByUserID = string(in.String())
 			}
+		case "lockedByUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.LockedByUserName = string(in.String())
+			}
 		case "lockId":
 			if in.IsNull() {
 				in.Skip()
@@ -3423,6 +3517,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel29(out *j
 		const prefix string = ",\"lockedByUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.LockedByUserID))
+	}
+	if in.LockedByUserName != "" {
+		const prefix string = ",\"lockedByUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.LockedByUserName))
 	}
 	if in.LockID != "" {
 		const prefix string = ",\"lockId\":"
@@ -3633,6 +3732,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel32(in *jl
 			} else {
 				out.UserID = string(in.String())
 			}
+		case "userName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.UserName = string(in.String())
+			}
 		case "scope":
 			if in.IsNull() {
 				in.Skip()
@@ -3695,6 +3800,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel32(out *j
 		const prefix string = ",\"userId\":"
 		out.RawString(prefix)
 		out.String(string(in.UserID))
+	}
+	if in.UserName != "" {
+		const prefix string = ",\"userName\":"
+		out.RawString(prefix)
+		out.String(string(in.UserName))
 	}
 	{
 		const prefix string = ",\"scope\":"
@@ -3858,6 +3968,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel34(in *jl
 				in.Skip()
 			} else {
 				out.ActorUserID = string(in.String())
+			}
+		case "actorUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ActorUserName = string(in.String())
 			}
 		case "clientId":
 			if in.IsNull() {
@@ -4054,6 +4170,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel34(out *j
 		out.RawString(prefix)
 		out.String(string(in.ActorUserID))
 	}
+	if in.ActorUserName != "" {
+		const prefix string = ",\"actorUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.ActorUserName))
+	}
 	{
 		const prefix string = ",\"clientId\":"
 		out.RawString(prefix)
@@ -4213,6 +4334,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel35(in *jl
 			} else {
 				out.ActorUserID = string(in.String())
 			}
+		case "actorUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ActorUserName = string(in.String())
+			}
 		case "clientId":
 			if in.IsNull() {
 				in.Skip()
@@ -4260,6 +4387,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel35(out *j
 		const prefix string = ",\"actorUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.ActorUserID))
+	}
+	if in.ActorUserName != "" {
+		const prefix string = ",\"actorUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.ActorUserName))
 	}
 	if in.ClientID != "" {
 		const prefix string = ",\"clientId\":"
@@ -4333,6 +4465,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel36(in *jl
 			} else {
 				out.ActorUserID = string(in.String())
 			}
+		case "actorUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ActorUserName = string(in.String())
+			}
 		case "clientId":
 			if in.IsNull() {
 				in.Skip()
@@ -4368,6 +4506,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel36(out *j
 		const prefix string = ",\"actorUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.ActorUserID))
+	}
+	if in.ActorUserName != "" {
+		const prefix string = ",\"actorUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.ActorUserName))
 	}
 	if in.ClientID != "" {
 		const prefix string = ",\"clientId\":"
@@ -4916,6 +5059,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel42(in *jl
 			} else {
 				out.LockedByUserID = string(in.String())
 			}
+		case "lockedByUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.LockedByUserName = string(in.String())
+			}
 		case "lockId":
 			if in.IsNull() {
 				in.Skip()
@@ -4945,6 +5094,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel42(out *j
 		const prefix string = ",\"lockedByUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.LockedByUserID))
+	}
+	if in.LockedByUserName != "" {
+		const prefix string = ",\"lockedByUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.LockedByUserName))
 	}
 	if in.LockID != "" {
 		const prefix string = ",\"lockId\":"
@@ -5302,6 +5456,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel46(in *jl
 			} else {
 				out.ResolvedByUserID = string(in.String())
 			}
+		case "resolvedByUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ResolvedByUserName = string(in.String())
+			}
 		case "resolutionOpId":
 			if in.IsNull() {
 				in.Skip()
@@ -5331,6 +5491,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel46(out *j
 		const prefix string = ",\"resolvedByUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.ResolvedByUserID))
+	}
+	if in.ResolvedByUserName != "" {
+		const prefix string = ",\"resolvedByUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.ResolvedByUserName))
 	}
 	if in.ResolutionOpID != "" {
 		const prefix string = ",\"resolutionOpId\":"
@@ -5622,6 +5787,12 @@ func easyjson99a38fa8DecodeGithubComDnonakolesaxCccadLocksInternalModel48(in *jl
 			} else {
 				out.ActorUserID = string(in.String())
 			}
+		case "actorUserName":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ActorUserName = string(in.String())
+			}
 		case "clientOpId":
 			if in.IsNull() {
 				in.Skip()
@@ -5786,6 +5957,11 @@ func easyjson99a38fa8EncodeGithubComDnonakolesaxCccadLocksInternalModel48(out *j
 		const prefix string = ",\"actorUserId\":"
 		out.RawString(prefix)
 		out.String(string(in.ActorUserID))
+	}
+	if in.ActorUserName != "" {
+		const prefix string = ",\"actorUserName\":"
+		out.RawString(prefix)
+		out.String(string(in.ActorUserName))
 	}
 	if in.ClientOpID != "" {
 		const prefix string = ",\"clientOpId\":"
