@@ -406,3 +406,206 @@ func TestServiceSubmitRemoveConstraintCommitsGraphState(t *testing.T) {
 		t.Fatalf("ChangedEntityIDs = %#v, want [line-1]", response.ChangedEntityIDs)
 	}
 }
+
+func TestServiceSubmitApplyFilletCommitsFeatureIntent(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 3,
+			GraphState: []byte(`{
+				"entities":{
+					"corner":{"id":"corner","type":"point","x":0,"y":0},
+					"line-1":{"id":"line-1","type":"line","startPointId":"corner","endPointId":"p1"},
+					"line-2":{"id":"line-2","type":"line","startPointId":"corner","endPointId":"p2"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	solver := &solverStub{response: &solverv1.SolveResponse{
+		Status:           solverv1.SolveStatus_SOLVE_STATUS_OK,
+		DegreesOfFreedom: 3,
+		Solution:         &solverv1.SketchSolution{},
+	}}
+	service := NewServiceWithSolver(repo, solver)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 3,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"ApplyFillet",
+			"featureId":"fillet-1",
+			"line1Id":"line-1",
+			"line2Id":"line-2",
+			"cornerPointId":"corner",
+			"createdPoint1Id":"fillet-p1",
+			"createdPoint2Id":"fillet-p2",
+			"createdArcId":"fillet-arc",
+			"radius":4.5,
+			"trim":true,
+			"clockwise":false
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if repo.submitRequest.OpType != "ApplyFillet" {
+		t.Fatalf("Submit opType = %q, want ApplyFillet", repo.submitRequest.OpType)
+	}
+	if solver.solveRequest == nil {
+		t.Fatal("solver Solve was not called")
+	}
+
+	var graph struct {
+		Entities map[string]map[string]any `json:"entities"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	feature := graph.Entities["fillet-1"]
+	if feature["type"] != "fillet" {
+		t.Fatalf("feature type = %#v, want fillet", feature["type"])
+	}
+	if feature["createdArcId"] != "fillet-arc" || feature["radius"] != float64(4.5) {
+		t.Fatalf("fillet feature = %#v, want createdArcId fillet-arc radius 4.5", feature)
+	}
+	if !containsAll(response.ChangedEntityIDs, "line-1", "line-2", "corner", "fillet-p1", "fillet-p2", "fillet-arc", "fillet-1") {
+		t.Fatalf("ChangedEntityIDs = %#v, missing fillet affected IDs", response.ChangedEntityIDs)
+	}
+}
+
+func TestServiceSubmitApplyChamferCommitsFeatureIntent(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 5,
+			GraphState: []byte(`{
+				"entities":{
+					"corner":{"id":"corner","type":"point","x":0,"y":0},
+					"line-1":{"id":"line-1","type":"line","startPointId":"corner","endPointId":"p1"},
+					"line-2":{"id":"line-2","type":"line","startPointId":"corner","endPointId":"p2"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	solver := &solverStub{response: &solverv1.SolveResponse{
+		Status:           solverv1.SolveStatus_SOLVE_STATUS_OK,
+		DegreesOfFreedom: 4,
+		Solution:         &solverv1.SketchSolution{},
+	}}
+	service := NewServiceWithSolver(repo, solver)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 5,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"ApplyChamfer",
+			"featureId":"chamfer-1",
+			"line1Id":"line-1",
+			"line2Id":"line-2",
+			"cornerPointId":"corner",
+			"createdPoint1Id":"chamfer-p1",
+			"createdPoint2Id":"chamfer-p2",
+			"createdLineId":"chamfer-line",
+			"distance1":2,
+			"distance2":3,
+			"trim":true
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if repo.submitRequest.OpType != "ApplyChamfer" {
+		t.Fatalf("Submit opType = %q, want ApplyChamfer", repo.submitRequest.OpType)
+	}
+	if solver.solveRequest == nil {
+		t.Fatal("solver Solve was not called")
+	}
+
+	var graph struct {
+		Entities map[string]map[string]any `json:"entities"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	feature := graph.Entities["chamfer-1"]
+	if feature["type"] != "chamfer" {
+		t.Fatalf("feature type = %#v, want chamfer", feature["type"])
+	}
+	if feature["createdLineId"] != "chamfer-line" || feature["distance1"] != float64(2) || feature["distance2"] != float64(3) {
+		t.Fatalf("chamfer feature = %#v, want createdLineId chamfer-line distances 2 and 3", feature)
+	}
+	if !containsAll(response.ChangedEntityIDs, "line-1", "line-2", "corner", "chamfer-p1", "chamfer-p2", "chamfer-line", "chamfer-1") {
+		t.Fatalf("ChangedEntityIDs = %#v, missing chamfer affected IDs", response.ChangedEntityIDs)
+	}
+}
+
+func TestServiceSubmitApplyChamferRejectsInvalidDistance(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 1,
+			GraphState: []byte(`{
+				"entities":{
+					"line-1":{"id":"line-1","type":"line","startPointId":"p0","endPointId":"p1"},
+					"line-2":{"id":"line-2","type":"line","startPointId":"p0","endPointId":"p2"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	service := NewServiceWithSolver(repo, &solverStub{})
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 1,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"ApplyChamfer",
+			"line1Id":"line-1",
+			"line2Id":"line-2",
+			"distance1":0,
+			"distance2":3
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response.Accepted {
+		t.Fatal("Submit accepted invalid chamfer")
+	}
+	if response.Rejection == nil || response.Rejection.Reason != "invalid_operation" {
+		t.Fatalf("Rejection = %#v, want invalid_operation", response.Rejection)
+	}
+}
+
+func containsAll(values []string, want ...string) bool {
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		seen[value] = struct{}{}
+	}
+	for _, value := range want {
+		if _, ok := seen[value]; !ok {
+			return false
+		}
+	}
+	return true
+}

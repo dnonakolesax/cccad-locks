@@ -1319,6 +1319,8 @@ components:
           - create_arc
           - create_polyline
           - create_rectangle
+          - ApplyFillet
+          - ApplyChamfer
           - move_point
           - add_constraint
           - add_dimension
@@ -1903,6 +1905,8 @@ components:
           - create_arc
           - create_polyline
           - create_rectangle
+          - ApplyFillet
+          - ApplyChamfer
           - move_point
           - delete_entity
           - add_constraint
@@ -1920,6 +1924,24 @@ components:
           type: string
         entityId:
           type: string
+        opId:
+          type: string
+        featureId:
+          type: string
+        line1Id:
+          type: string
+        line2Id:
+          type: string
+        cornerPointId:
+          type: string
+        createdPoint1Id:
+          type: string
+        createdPoint2Id:
+          type: string
+        createdArcId:
+          type: string
+        createdLineId:
+          type: string
         constraintId:
           type: string
         dimensionId:
@@ -1931,8 +1953,22 @@ components:
           type: number
           format: double
           exclusiveMinimum: 0
+        distance1:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        distance2:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        trim:
+          type: boolean
         clockwise:
           type: boolean
+        isConstruction:
+          type: boolean
+          description: Marks created line, circle, or arc geometry as construction/reference geometry.
+          default: false
         closed:
           type: boolean
         start:

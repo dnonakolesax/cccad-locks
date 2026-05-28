@@ -310,6 +310,10 @@ func applyOperation(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, a
 		return applyCreateRectangle(graph, raw)
 	case "create_polyline":
 		return applyCreatePolyline(graph, raw)
+	case "ApplyFillet":
+		return applyFillet(graph, raw)
+	case "ApplyChamfer":
+		return applyChamfer(graph, raw)
 	case "move_point":
 		return applyMovePoint(graph, raw)
 	case "delete_entity":
@@ -332,6 +336,7 @@ func applyOperation(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, a
 func operationRequiresSolve(opType string) bool {
 	switch opType {
 	case "create_point", "create_line", "create_circle", "create_arc", "create_rectangle", "create_polyline",
+		"ApplyFillet", "ApplyChamfer",
 		"move_point", "delete_entity", "add_constraint", "remove_constraint",
 		"add_dimension", "set_dimension_value", "remove_dimension":
 		return true
@@ -835,6 +840,220 @@ func applyMovePoint(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, a
 	point := mustJSON(map[string]any{"id": op.PointID, "type": "point", "x": op.Target.X, "y": op.Target.Y})
 	graph.Entities[op.PointID] = point
 	return &sketchPatch{Entities: map[string]json.RawMessage{op.PointID: point}}, affectedIDs{EntityIDs: []string{op.PointID}}, nil
+}
+
+func applyFillet(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		FeatureID       string  `json:"featureId"`
+		Line1ID         string  `json:"line1Id"`
+		Line2ID         string  `json:"line2Id"`
+		CornerPointID   string  `json:"cornerPointId"`
+		CreatedPoint1ID string  `json:"createdPoint1Id"`
+		CreatedPoint2ID string  `json:"createdPoint2Id"`
+		CreatedArcID    string  `json:"createdArcId"`
+		Radius          float64 `json:"radius"`
+		Trim            bool    `json:"trim"`
+		Clockwise       bool    `json:"clockwise"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode ApplyFillet: %w", err)
+	}
+	if op.FeatureID == "" {
+		op.FeatureID = generatedID(raw, "fillet")
+	}
+	op.FeatureID = strings.TrimSpace(op.FeatureID)
+	op.Line1ID = strings.TrimSpace(op.Line1ID)
+	op.Line2ID = strings.TrimSpace(op.Line2ID)
+	op.CornerPointID = strings.TrimSpace(op.CornerPointID)
+	op.CreatedPoint1ID = strings.TrimSpace(op.CreatedPoint1ID)
+	op.CreatedPoint2ID = strings.TrimSpace(op.CreatedPoint2ID)
+	op.CreatedArcID = strings.TrimSpace(op.CreatedArcID)
+	if op.FeatureID == "" {
+		return nil, affectedIDs{}, errors.New("featureId is required")
+	}
+	if _, exists := graph.Entities[op.FeatureID]; exists {
+		return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", op.FeatureID)
+	}
+	if op.Radius <= 0 {
+		return nil, affectedIDs{}, errors.New("radius must be greater than 0")
+	}
+	if err := requireLineEntity(graph, op.Line1ID, "line1Id"); err != nil {
+		return nil, affectedIDs{}, err
+	}
+	if err := requireLineEntity(graph, op.Line2ID, "line2Id"); err != nil {
+		return nil, affectedIDs{}, err
+	}
+	if op.Line1ID == op.Line2ID {
+		return nil, affectedIDs{}, errors.New("line1Id and line2Id must be different")
+	}
+	if op.CornerPointID != "" {
+		if err := requirePointEntity(graph, op.CornerPointID, "cornerPointId"); err != nil {
+			return nil, affectedIDs{}, err
+		}
+	}
+	if op.CreatedPoint1ID == "" {
+		op.CreatedPoint1ID = generatedID(raw, "fillet-point-1")
+	}
+	if op.CreatedPoint2ID == "" {
+		op.CreatedPoint2ID = generatedID(raw, "fillet-point-2")
+	}
+	if op.CreatedArcID == "" {
+		op.CreatedArcID = generatedID(raw, "fillet-arc")
+	}
+	for _, id := range []string{op.CreatedPoint1ID, op.CreatedPoint2ID, op.CreatedArcID} {
+		if _, exists := graph.Entities[id]; exists {
+			return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", id)
+		}
+	}
+
+	entity := mustJSON(map[string]any{
+		"id":              op.FeatureID,
+		"type":            "fillet",
+		"line1Id":         op.Line1ID,
+		"line2Id":         op.Line2ID,
+		"cornerPointId":   op.CornerPointID,
+		"createdPoint1Id": op.CreatedPoint1ID,
+		"createdPoint2Id": op.CreatedPoint2ID,
+		"createdArcId":    op.CreatedArcID,
+		"radius":          op.Radius,
+		"trim":            op.Trim,
+		"clockwise":       op.Clockwise,
+	})
+	graph.Entities[op.FeatureID] = entity
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.FeatureID: entity}}, affectedIDs{
+		EntityIDs: []string{
+			op.Line1ID,
+			op.Line2ID,
+			op.CornerPointID,
+			op.CreatedPoint1ID,
+			op.CreatedPoint2ID,
+			op.CreatedArcID,
+			op.FeatureID,
+		},
+	}, nil
+}
+
+func applyChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		FeatureID       string  `json:"featureId"`
+		Line1ID         string  `json:"line1Id"`
+		Line2ID         string  `json:"line2Id"`
+		CornerPointID   string  `json:"cornerPointId"`
+		CreatedPoint1ID string  `json:"createdPoint1Id"`
+		CreatedPoint2ID string  `json:"createdPoint2Id"`
+		CreatedLineID   string  `json:"createdLineId"`
+		Distance1       float64 `json:"distance1"`
+		Distance2       float64 `json:"distance2"`
+		Trim            bool    `json:"trim"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode ApplyChamfer: %w", err)
+	}
+	if op.FeatureID == "" {
+		op.FeatureID = generatedID(raw, "chamfer")
+	}
+	op.FeatureID = strings.TrimSpace(op.FeatureID)
+	op.Line1ID = strings.TrimSpace(op.Line1ID)
+	op.Line2ID = strings.TrimSpace(op.Line2ID)
+	op.CornerPointID = strings.TrimSpace(op.CornerPointID)
+	op.CreatedPoint1ID = strings.TrimSpace(op.CreatedPoint1ID)
+	op.CreatedPoint2ID = strings.TrimSpace(op.CreatedPoint2ID)
+	op.CreatedLineID = strings.TrimSpace(op.CreatedLineID)
+	if op.FeatureID == "" {
+		return nil, affectedIDs{}, errors.New("featureId is required")
+	}
+	if _, exists := graph.Entities[op.FeatureID]; exists {
+		return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", op.FeatureID)
+	}
+	if op.Distance1 <= 0 {
+		return nil, affectedIDs{}, errors.New("distance1 must be greater than 0")
+	}
+	if op.Distance2 <= 0 {
+		return nil, affectedIDs{}, errors.New("distance2 must be greater than 0")
+	}
+	if err := requireLineEntity(graph, op.Line1ID, "line1Id"); err != nil {
+		return nil, affectedIDs{}, err
+	}
+	if err := requireLineEntity(graph, op.Line2ID, "line2Id"); err != nil {
+		return nil, affectedIDs{}, err
+	}
+	if op.Line1ID == op.Line2ID {
+		return nil, affectedIDs{}, errors.New("line1Id and line2Id must be different")
+	}
+	if op.CornerPointID != "" {
+		if err := requirePointEntity(graph, op.CornerPointID, "cornerPointId"); err != nil {
+			return nil, affectedIDs{}, err
+		}
+	}
+	if op.CreatedPoint1ID == "" {
+		op.CreatedPoint1ID = generatedID(raw, "chamfer-point-1")
+	}
+	if op.CreatedPoint2ID == "" {
+		op.CreatedPoint2ID = generatedID(raw, "chamfer-point-2")
+	}
+	if op.CreatedLineID == "" {
+		op.CreatedLineID = generatedID(raw, "chamfer-line")
+	}
+	for _, id := range []string{op.CreatedPoint1ID, op.CreatedPoint2ID, op.CreatedLineID} {
+		if _, exists := graph.Entities[id]; exists {
+			return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", id)
+		}
+	}
+
+	entity := mustJSON(map[string]any{
+		"id":              op.FeatureID,
+		"type":            "chamfer",
+		"line1Id":         op.Line1ID,
+		"line2Id":         op.Line2ID,
+		"cornerPointId":   op.CornerPointID,
+		"createdPoint1Id": op.CreatedPoint1ID,
+		"createdPoint2Id": op.CreatedPoint2ID,
+		"createdLineId":   op.CreatedLineID,
+		"distance1":       op.Distance1,
+		"distance2":       op.Distance2,
+		"trim":            op.Trim,
+	})
+	graph.Entities[op.FeatureID] = entity
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.FeatureID: entity}}, affectedIDs{
+		EntityIDs: []string{
+			op.Line1ID,
+			op.Line2ID,
+			op.CornerPointID,
+			op.CreatedPoint1ID,
+			op.CreatedPoint2ID,
+			op.CreatedLineID,
+			op.FeatureID,
+		},
+	}, nil
+}
+
+func requireLineEntity(graph *graphState, id string, field string) error {
+	return requireEntityType(graph, id, field, "line")
+}
+
+func requirePointEntity(graph *graphState, id string, field string) error {
+	return requireEntityType(graph, id, field, "point")
+}
+
+func requireEntityType(graph *graphState, id string, field string, wantType string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("%s is required", field)
+	}
+	body, exists := graph.Entities[id]
+	if !exists {
+		return fmt.Errorf("%s %q does not exist", field, id)
+	}
+	var entity struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(body, &entity); err != nil {
+		return fmt.Errorf("decode %s %q: %w", field, id, err)
+	}
+	if entity.Type != wantType {
+		return fmt.Errorf("%s %q is not a %s", field, id, wantType)
+	}
+	return nil
 }
 
 func ensurePoint(graph *graphState, patch *sketchPatch, point pointRefOrNew) (string, error) {
