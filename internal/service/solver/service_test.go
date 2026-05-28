@@ -84,6 +84,93 @@ func TestPreviewBuildsApplyIntentRequest(t *testing.T) {
 	}
 }
 
+func TestPreviewBuildsApplyFilletIntentRequest(t *testing.T) {
+	client := &clientStub{}
+	service := NewService(&sketchRepositoryStub{document: testSketchDocument()}, client)
+
+	_, err := service.Preview(context.Background(), "sketch-id", &model.SolvePreviewRequest{
+		BaseVersion: 7,
+		Intent: easyjson.RawMessage(`{
+			"type":"ApplyFillet",
+			"featureId":"fillet-1",
+			"line1Id":"line-1",
+			"line2Id":"line-2",
+			"cornerPointId":"corner",
+			"createdPoint1Id":"fillet-p1",
+			"createdPoint2Id":"fillet-p2",
+			"createdArcId":"fillet-arc",
+			"radius":2.5,
+			"trim":true,
+			"clockwise":true
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Preview returned error: %v", err)
+	}
+	intent := client.applyIntentRequest.GetIntent().GetApplyFillet()
+	if intent == nil {
+		t.Fatal("intent was not ApplyFillet")
+	}
+	if intent.GetLine1Id() != "line-1" || intent.GetLine2Id() != "line-2" ||
+		intent.GetCreatedArcId() != "fillet-arc" || intent.GetRadius() != 2.5 ||
+		!intent.GetTrim() || !intent.GetClockwise() {
+		t.Fatalf("unexpected fillet intent: %#v", intent)
+	}
+}
+
+func TestPreviewBuildsApplyChamferIntentRequest(t *testing.T) {
+	client := &clientStub{}
+	service := NewService(&sketchRepositoryStub{document: testSketchDocument()}, client)
+
+	_, err := service.Preview(context.Background(), "sketch-id", &model.SolvePreviewRequest{
+		BaseVersion: 7,
+		Intent: easyjson.RawMessage(`{
+			"type":"ApplyChamfer",
+			"featureId":"chamfer-1",
+			"line1Id":"line-1",
+			"line2Id":"line-2",
+			"cornerPointId":"corner",
+			"createdPoint1Id":"chamfer-p1",
+			"createdPoint2Id":"chamfer-p2",
+			"createdLineId":"chamfer-line",
+			"distance1":2,
+			"distance2":3,
+			"trim":true
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Preview returned error: %v", err)
+	}
+	intent := client.applyIntentRequest.GetIntent().GetApplyChamfer()
+	if intent == nil {
+		t.Fatal("intent was not ApplyChamfer")
+	}
+	if intent.GetLine1Id() != "line-1" || intent.GetLine2Id() != "line-2" ||
+		intent.GetCreatedLineId() != "chamfer-line" || intent.GetDistance1() != 2 ||
+		intent.GetDistance2() != 3 || !intent.GetTrim() {
+		t.Fatalf("unexpected chamfer intent: %#v", intent)
+	}
+}
+
+func TestSolutionPatchIncludesSolvedLine(t *testing.T) {
+	patch, err := SolutionPatch(&solverv1.SketchSolution{
+		Entities: []*solverv1.SolvedEntity{
+			{
+				Id: "line-1",
+				Kind: &solverv1.SolvedEntity_Line{
+					Line: &solverv1.SolvedLine{StartPointId: "p1", EndPointId: "p2"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SolutionPatch returned error: %v", err)
+	}
+	if string(patch) != `{"entities":{"line-1":{"id":"line-1","type":"line","startPointId":"p1","endPointId":"p2"}}}` {
+		t.Fatalf("patch = %s", patch)
+	}
+}
+
 func TestAnalyzeCallsSolverAnalyze(t *testing.T) {
 	client := &clientStub{}
 	service := NewService(&sketchRepositoryStub{document: testSketchDocument()}, client)

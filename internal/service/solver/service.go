@@ -411,15 +411,28 @@ func dimension(raw easyjson.RawMessage) (*solverv1.Dimension, error) {
 
 func userIntent(raw easyjson.RawMessage) (*solverv1.UserIntent, error) {
 	var data struct {
-		Type        string          `json:"type"`
-		PointID     string          `json:"pointId"`
-		EntityID    string          `json:"entityId"`
-		DimensionID string          `json:"dimensionId"`
-		Target      vec2JSON        `json:"target"`
-		Delta       vec2JSON        `json:"delta"`
-		Value       float64         `json:"value"`
-		Weight      float64         `json:"weight"`
-		Constraint  json.RawMessage `json:"constraint"`
+		Type            string          `json:"type"`
+		PointID         string          `json:"pointId"`
+		EntityID        string          `json:"entityId"`
+		DimensionID     string          `json:"dimensionId"`
+		FeatureID       string          `json:"featureId"`
+		Line1ID         string          `json:"line1Id"`
+		Line2ID         string          `json:"line2Id"`
+		CornerPointID   string          `json:"cornerPointId"`
+		CreatedPoint1ID string          `json:"createdPoint1Id"`
+		CreatedPoint2ID string          `json:"createdPoint2Id"`
+		CreatedArcID    string          `json:"createdArcId"`
+		CreatedLineID   string          `json:"createdLineId"`
+		Target          vec2JSON        `json:"target"`
+		Delta           vec2JSON        `json:"delta"`
+		Value           float64         `json:"value"`
+		Weight          float64         `json:"weight"`
+		Radius          float64         `json:"radius"`
+		Distance1       float64         `json:"distance1"`
+		Distance2       float64         `json:"distance2"`
+		Trim            bool            `json:"trim"`
+		Clockwise       bool            `json:"clockwise"`
+		Constraint      json.RawMessage `json:"constraint"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return nil, fmt.Errorf("decode solver intent: %w", err)
@@ -458,11 +471,41 @@ func userIntent(raw easyjson.RawMessage) (*solverv1.UserIntent, error) {
 		result.Kind = &solverv1.UserIntent_AddConstraint{AddConstraint: &solverv1.AddConstraintIntent{
 			Constraint: constraint,
 		}}
+	case "ApplyFillet":
+		result.Kind = &solverv1.UserIntent_ApplyFillet{ApplyFillet: &solverv1.ApplyFilletIntent{
+			FeatureId:       data.FeatureID,
+			Line1Id:         data.Line1ID,
+			Line2Id:         data.Line2ID,
+			CornerPointId:   data.CornerPointID,
+			CreatedPoint1Id: data.CreatedPoint1ID,
+			CreatedPoint2Id: data.CreatedPoint2ID,
+			CreatedArcId:    data.CreatedArcID,
+			Radius:          data.Radius,
+			Trim:            data.Trim,
+			Clockwise:       data.Clockwise,
+		}}
+	case "ApplyChamfer":
+		result.Kind = &solverv1.UserIntent_ApplyChamfer{ApplyChamfer: &solverv1.ApplyChamferIntent{
+			FeatureId:       data.FeatureID,
+			Line1Id:         data.Line1ID,
+			Line2Id:         data.Line2ID,
+			CornerPointId:   data.CornerPointID,
+			CreatedPoint1Id: data.CreatedPoint1ID,
+			CreatedPoint2Id: data.CreatedPoint2ID,
+			CreatedLineId:   data.CreatedLineID,
+			Distance1:       data.Distance1,
+			Distance2:       data.Distance2,
+			Trim:            data.Trim,
+		}}
 	default:
 		return nil, fmt.Errorf("unsupported solver intent type %q", data.Type)
 	}
 
 	return result, nil
+}
+
+func UserIntent(raw easyjson.RawMessage) (*solverv1.UserIntent, error) {
+	return userIntent(raw)
 }
 
 type vec2JSON struct {
@@ -549,6 +592,13 @@ func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, erro
 				Type: "point",
 				X:    kind.Point.GetX(),
 				Y:    kind.Point.GetY(),
+			}
+		case *solverv1.SolvedEntity_Line:
+			patch.Entities[entity.GetId()] = patchEntity{
+				ID:           entity.GetId(),
+				Type:         "line",
+				StartPointID: kind.Line.GetStartPointId(),
+				EndPointID:   kind.Line.GetEndPointId(),
 			}
 		case *solverv1.SolvedEntity_Circle:
 			patch.Entities[entity.GetId()] = patchEntity{

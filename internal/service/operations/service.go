@@ -35,6 +35,7 @@ type Repository interface {
 
 type SolverClient interface {
 	Solve(ctx context.Context, req *solverv1.SolveRequest) (*solverv1.SolveResponse, error)
+	ApplyIntent(ctx context.Context, req *solverv1.ApplyIntentRequest) (*solverv1.ApplyIntentResponse, error)
 }
 
 type Service struct {
@@ -154,12 +155,27 @@ func (s *Service) Submit(
 		if s.solver == nil {
 			return nil, fmt.Errorf("solver client is required for operation type %q", opType)
 		}
-		solvePatch, solvedGeometry, solvedStatus, solvedAffected, err := s.solveGraph(
-			ctx,
-			sketchID,
-			request.BaseVersion+1,
-			graph,
-		)
+		var solvePatch *sketchPatch
+		var solvedGeometry easyjson.RawMessage
+		var solvedStatus easyjson.RawMessage
+		var solvedAffected affectedIDs
+		var err error
+		if operationRequiresSolverIntent(opType) {
+			solvePatch, solvedGeometry, solvedStatus, solvedAffected, err = s.applySolverIntent(
+				ctx,
+				sketchID,
+				request.BaseVersion+1,
+				graph,
+				request.Op,
+			)
+		} else {
+			solvePatch, solvedGeometry, solvedStatus, solvedAffected, err = s.solveGraph(
+				ctx,
+				sketchID,
+				request.BaseVersion+1,
+				graph,
+			)
+		}
 		if err != nil {
 			return rejected(request.ClientOpID, state.Version, "solver_failure", err.Error()), nil
 		}
@@ -345,6 +361,15 @@ func operationRequiresSolve(opType string) bool {
 	}
 }
 
+func operationRequiresSolverIntent(opType string) bool {
+	switch opType {
+	case "ApplyFillet", "ApplyChamfer":
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Service) solveGraph(
 	ctx context.Context,
 	sketchID string,
@@ -386,6 +411,56 @@ func (s *Service) solveGraph(
 	}
 
 	affected := affectedFromDiagnostics(result.GetDiagnostics())
+	affected.EntityIDs = mergeIDs(affected.EntityIDs, entityIDs)
+	return patch, patchBody, solveStatus, affected, nil
+}
+
+func (s *Service) applySolverIntent(
+	ctx context.Context,
+	sketchID string,
+	version int64,
+	graph *graphState,
+	raw easyjson.RawMessage,
+) (*sketchPatch, easyjson.RawMessage, easyjson.RawMessage, affectedIDs, error) {
+	intent, err := solverService.UserIntent(raw)
+	if err != nil {
+		return nil, nil, nil, affectedIDs{}, err
+	}
+	result, err := s.solver.ApplyIntent(ctx, &solverv1.ApplyIntentRequest{
+		Model: solverService.BuildSketchModel(&model.SketchDocument{
+			ID:          sketchID,
+			Version:     version,
+			Entities:    rawMessageMap(graph.Entities),
+			Constraints: rawMessageMap(graph.Constraints),
+			Dimensions:  rawMessageMap(graph.Dimensions),
+			Groups:      rawMessageMap(graph.Groups),
+		}),
+		Intent:  intent,
+		Options: defaultSolverOptions(),
+	})
+	if err != nil {
+		return nil, nil, nil, affectedIDs{}, fmt.Errorf("apply solver intent: %w", err)
+	}
+	if result == nil {
+		return nil, nil, nil, affectedIDs{}, errors.New("solver returned nil apply intent response")
+	}
+
+	patchBody, err := solverService.SolutionPatch(result.GetSolution())
+	if err != nil {
+		return nil, nil, nil, affectedIDs{}, err
+	}
+	patch, entityIDs, err := applySolverPatch(graph, patchBody)
+	if err != nil {
+		return nil, nil, nil, affectedIDs{}, err
+	}
+
+	solveStatus, err := encodeSolveStatus(result.GetStatus(), result.GetDegreesOfFreedom(), result.GetDiagnostics())
+	if err != nil {
+		return nil, nil, nil, affectedIDs{}, err
+	}
+
+	affected := affectedFromDiagnostics(result.GetDiagnostics())
+	affected.EntityIDs = mergeIDs(affected.EntityIDs, result.GetAffectedEntityIds())
 	affected.EntityIDs = mergeIDs(affected.EntityIDs, entityIDs)
 	return patch, patchBody, solveStatus, affected, nil
 }

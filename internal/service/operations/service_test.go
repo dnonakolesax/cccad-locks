@@ -24,8 +24,10 @@ type repositoryStub struct {
 }
 
 type solverStub struct {
-	solveRequest *solverv1.SolveRequest
-	response     *solverv1.SolveResponse
+	solveRequest        *solverv1.SolveRequest
+	applyIntentRequest  *solverv1.ApplyIntentRequest
+	response            *solverv1.SolveResponse
+	applyIntentResponse *solverv1.ApplyIntentResponse
 }
 
 func (s *solverStub) Solve(
@@ -37,6 +39,30 @@ func (s *solverStub) Solve(
 		return s.response, nil
 	}
 	return &solverv1.SolveResponse{
+		Status:           solverv1.SolveStatus_SOLVE_STATUS_OK,
+		DegreesOfFreedom: 1,
+		Solution: &solverv1.SketchSolution{
+			Entities: []*solverv1.SolvedEntity{
+				{
+					Id: "point-2",
+					Kind: &solverv1.SolvedEntity_Point{
+						Point: &solverv1.SolvedPoint{X: 4, Y: 1},
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+func (s *solverStub) ApplyIntent(
+	_ context.Context,
+	request *solverv1.ApplyIntentRequest,
+) (*solverv1.ApplyIntentResponse, error) {
+	s.applyIntentRequest = request
+	if s.applyIntentResponse != nil {
+		return s.applyIntentResponse, nil
+	}
+	return &solverv1.ApplyIntentResponse{
 		Status:           solverv1.SolveStatus_SOLVE_STATUS_OK,
 		DegreesOfFreedom: 1,
 		Solution: &solverv1.SketchSolution{
@@ -459,8 +485,11 @@ func TestServiceSubmitApplyFilletCommitsFeatureIntent(t *testing.T) {
 	if repo.submitRequest.OpType != "ApplyFillet" {
 		t.Fatalf("Submit opType = %q, want ApplyFillet", repo.submitRequest.OpType)
 	}
-	if solver.solveRequest == nil {
-		t.Fatal("solver Solve was not called")
+	if solver.applyIntentRequest == nil {
+		t.Fatal("solver ApplyIntent was not called")
+	}
+	if solver.applyIntentRequest.GetIntent().GetApplyFillet() == nil {
+		t.Fatalf("solver intent = %#v, want ApplyFillet", solver.applyIntentRequest.GetIntent())
 	}
 
 	var graph struct {
@@ -533,8 +562,11 @@ func TestServiceSubmitApplyChamferCommitsFeatureIntent(t *testing.T) {
 	if repo.submitRequest.OpType != "ApplyChamfer" {
 		t.Fatalf("Submit opType = %q, want ApplyChamfer", repo.submitRequest.OpType)
 	}
-	if solver.solveRequest == nil {
-		t.Fatal("solver Solve was not called")
+	if solver.applyIntentRequest == nil {
+		t.Fatal("solver ApplyIntent was not called")
+	}
+	if solver.applyIntentRequest.GetIntent().GetApplyChamfer() == nil {
+		t.Fatalf("solver intent = %#v, want ApplyChamfer", solver.applyIntentRequest.GetIntent())
 	}
 
 	var graph struct {
