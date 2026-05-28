@@ -1320,7 +1320,17 @@ components:
           - create_polyline
           - create_rectangle
           - ApplyFillet
+          - UpdateFillet
           - ApplyChamfer
+          - UpdateChamfer
+          - set_entity_construction
+          - split_entity
+          - break_entity_at_point
+          - trim_entity
+          - extend_entity
+          - mirror_entities
+          - linear_pattern
+          - circular_pattern
           - move_point
           - add_constraint
           - add_dimension
@@ -1893,8 +1903,20 @@ components:
       type: object
       required:
       - type
-      description: Persistent sketch operation. Concrete shape is selected by the type field. Discriminator is intentionally
+      description: 'Persistent sketch operation. Concrete shape is selected by the type field. Discriminator is intentionally
         avoided for better AsyncAPI tooling compatibility.
+
+        For type UpdateFillet, featureId and radius are required. The backend must update the existing fillet feature
+        parameter, rerun the solver, and emit an authoritative op.committed.patch containing the changed fillet feature
+        and affected materialized geometry. UpdateFillet must not create a new feature, and clients must not send
+        createdPoint1Id, createdPoint2Id, or createdArcId for this operation.
+
+        For type UpdateChamfer, featureId, distance1, and distance2 are required. The backend must update the existing
+        chamfer feature parameters, rerun the solver, and emit an authoritative op.committed.patch containing the changed
+        chamfer feature and affected materialized geometry. UpdateChamfer must not create a new feature, and clients must
+        not send createdPoint1Id, createdPoint2Id, or createdLineId for this operation.
+
+        '
       properties:
         type:
           type: string
@@ -1906,7 +1928,17 @@ components:
           - create_polyline
           - create_rectangle
           - ApplyFillet
+          - UpdateFillet
           - ApplyChamfer
+          - UpdateChamfer
+          - set_entity_construction
+          - split_entity
+          - break_entity_at_point
+          - trim_entity
+          - extend_entity
+          - mirror_entities
+          - linear_pattern
+          - circular_pattern
           - move_point
           - delete_entity
           - add_constraint
@@ -1969,6 +2001,12 @@ components:
           type: boolean
           description: Marks created line, circle, or arc geometry as construction/reference geometry.
           default: false
+        endpoint:
+          type: string
+          description: Endpoint selector for extend_entity.
+          enum:
+          - start
+          - end
         closed:
           type: boolean
         start:
@@ -1979,6 +2017,51 @@ components:
           $ref: '#/components/schemas/PointRefOrNew'
         target:
           $ref: '#/components/schemas/Vec2'
+        pickPoint:
+          $ref: '#/components/schemas/Vec2'
+        boundaryEntityIds:
+          type: array
+          description: Optional trimming boundaries for trim_entity. If omitted, backend chooses applicable boundaries.
+          items:
+            type: string
+        targetEntityIds:
+          type: array
+          description: Optional target entities for extend_entity. If omitted, backend chooses applicable targets.
+          items:
+            type: string
+        sourceEntityIds:
+          type: array
+          description: Source entities for mirror and pattern operations.
+          items:
+            type: string
+        mirrorLineId:
+          type: string
+          description: Line or centerline used as the mirror axis.
+        createdEntityIds:
+          type: array
+          description: Client-reserved IDs for solver-created mirror or pattern instances.
+          items:
+            type: string
+        direction:
+          $ref: '#/components/schemas/Vec2'
+        spacing:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        count:
+          type: integer
+          minimum: 2
+        centerPointId:
+          type: string
+        totalAngleRad:
+          type: number
+          format: double
+        copy:
+          type: boolean
+        keepConstraints:
+          type: boolean
+        rotateInstances:
+          type: boolean
         cornerA:
           $ref: '#/components/schemas/Vec2'
         cornerB:
@@ -2074,6 +2157,12 @@ components:
           format: double
         driving:
           type: boolean
+        refKind:
+          type: string
+          enum:
+          - point_point
+          - point_line
+          - line_line
         orientation:
           type: string
           enum:

@@ -433,6 +433,60 @@ func TestServiceSubmitRemoveConstraintCommitsGraphState(t *testing.T) {
 	}
 }
 
+func TestServiceSubmitAddDistanceDimensionPointLineRefs(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 3,
+			GraphState: []byte(`{
+				"entities":{
+					"point-1":{"id":"point-1","type":"point","x":1,"y":2},
+					"line-1":{"id":"line-1","type":"line","startPointId":"point-2","endPointId":"point-3"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	service := NewServiceWithSolver(repo, &solverStub{response: &solverv1.SolveResponse{
+		Status:           solverv1.SolveStatus_SOLVE_STATUS_OK,
+		DegreesOfFreedom: 2,
+		Solution:         &solverv1.SketchSolution{},
+	}})
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 3,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"add_dimension",
+			"dimension":{"id":"dimension-1","type":"distance","refs":["point-1","point_line","line-1"],"value":12,"driving":true}
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+
+	var graph struct {
+		Dimensions map[string]map[string]any `json:"dimensions"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	dimension := graph.Dimensions["dimension-1"]
+	if dimension["refAId"] != "point-1" || dimension["refBId"] != "line-1" || dimension["refKind"] != "point_line" {
+		t.Fatalf("dimension = %#v, want point-line refs", dimension)
+	}
+	if !containsAll(response.ChangedEntityIDs, "point-1", "line-1") {
+		t.Fatalf("ChangedEntityIDs = %#v, want point-1 and line-1", response.ChangedEntityIDs)
+	}
+}
+
 func TestServiceSubmitApplyFilletCommitsFeatureIntent(t *testing.T) {
 	repo := &repositoryStub{
 		submitState: &model.SubmitState{
@@ -626,6 +680,202 @@ func TestServiceSubmitApplyChamferRejectsInvalidDistance(t *testing.T) {
 	}
 	if response.Rejection == nil || response.Rejection.Reason != "invalid_operation" {
 		t.Fatalf("Rejection = %#v, want invalid_operation", response.Rejection)
+	}
+}
+
+func TestServiceSubmitUpdateFilletCommitsFeatureUpdate(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 6,
+			GraphState: []byte(`{
+				"entities":{
+					"fillet-1":{"id":"fillet-1","type":"fillet","line1Id":"line-1","line2Id":"line-2","createdArcId":"arc-1","radius":2},
+					"line-1":{"id":"line-1","type":"line","startPointId":"p0","endPointId":"p1"},
+					"line-2":{"id":"line-2","type":"line","startPointId":"p0","endPointId":"p2"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	solver := &solverStub{}
+	service := NewServiceWithSolver(repo, solver)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 6,
+		ClientOpID:  "client-op-id",
+		Op:          []byte(`{"type":"UpdateFillet","featureId":"fillet-1","radius":5,"trim":true}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if solver.applyIntentRequest.GetIntent().GetUpdateFillet() == nil {
+		t.Fatalf("solver intent = %#v, want UpdateFillet", solver.applyIntentRequest.GetIntent())
+	}
+
+	var graph struct {
+		Entities map[string]map[string]any `json:"entities"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	if graph.Entities["fillet-1"]["radius"] != float64(5) || graph.Entities["fillet-1"]["trim"] != true {
+		t.Fatalf("fillet feature = %#v, want updated radius/trim", graph.Entities["fillet-1"])
+	}
+}
+
+func TestServiceSubmitSetEntityConstructionCommitsWithoutSolver(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 2,
+			GraphState: []byte(`{
+				"entities":{"line-1":{"id":"line-1","type":"line","startPointId":"p0","endPointId":"p1"}},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	solver := &solverStub{}
+	service := NewServiceWithSolver(repo, solver)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 2,
+		ClientOpID:  "client-op-id",
+		Op:          []byte(`{"type":"set_entity_construction","entityId":"line-1","isConstruction":true}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if solver.solveRequest != nil || solver.applyIntentRequest != nil {
+		t.Fatal("solver was called for set_entity_construction")
+	}
+
+	var graph struct {
+		Entities map[string]map[string]any `json:"entities"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	if graph.Entities["line-1"]["isConstruction"] != true {
+		t.Fatalf("line entity = %#v, want construction flag", graph.Entities["line-1"])
+	}
+}
+
+func TestServiceSubmitTrimEntityUsesSolverIntent(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 9,
+			GraphState: []byte(`{
+				"entities":{
+					"line-1":{"id":"line-1","type":"line","startPointId":"p0","endPointId":"p1"},
+					"line-2":{"id":"line-2","type":"line","startPointId":"p2","endPointId":"p3"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	solver := &solverStub{}
+	service := NewServiceWithSolver(repo, solver)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 9,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"trim_entity",
+			"opId":"trim-1",
+			"entityId":"line-1",
+			"pickPoint":{"x":1,"y":2},
+			"boundaryEntityIds":["line-2"]
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if solver.applyIntentRequest.GetIntent().GetTrimEntity() == nil {
+		t.Fatalf("solver intent = %#v, want trim_entity", solver.applyIntentRequest.GetIntent())
+	}
+	if !containsAll(response.ChangedEntityIDs, "line-1", "line-2", "trim-1") {
+		t.Fatalf("ChangedEntityIDs = %#v, missing trim affected IDs", response.ChangedEntityIDs)
+	}
+}
+
+func TestServiceSubmitMirrorEntitiesUsesSolverIntent(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 10,
+			GraphState: []byte(`{
+				"entities":{
+					"line-1":{"id":"line-1","type":"line","startPointId":"p0","endPointId":"p1"},
+					"axis-1":{"id":"axis-1","type":"line","startPointId":"p2","endPointId":"p3"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	solver := &solverStub{}
+	service := NewServiceWithSolver(repo, solver)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 10,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"mirror_entities",
+			"featureId":"mirror-1",
+			"sourceEntityIds":["line-1"],
+			"mirrorLineId":"axis-1",
+			"createdEntityIds":["line-copy"],
+			"copy":true,
+			"keepConstraints":true
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if solver.applyIntentRequest.GetIntent().GetMirrorEntities() == nil {
+		t.Fatalf("solver intent = %#v, want mirror_entities", solver.applyIntentRequest.GetIntent())
+	}
+	if !containsAll(response.ChangedEntityIDs, "line-1", "axis-1", "line-copy", "mirror-1") {
+		t.Fatalf("ChangedEntityIDs = %#v, missing mirror affected IDs", response.ChangedEntityIDs)
+	}
+
+	var graph struct {
+		Entities map[string]map[string]any `json:"entities"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	if graph.Entities["mirror-1"]["type"] != "mirror_entities" {
+		t.Fatalf("mirror feature = %#v, want mirror_entities", graph.Entities["mirror-1"])
 	}
 }
 

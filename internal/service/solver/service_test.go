@@ -152,6 +152,130 @@ func TestPreviewBuildsApplyChamferIntentRequest(t *testing.T) {
 	}
 }
 
+func TestPreviewBuildsUpdateAndEditIntentRequests(t *testing.T) {
+	tests := map[string]struct {
+		raw   easyjson.RawMessage
+		check func(*testing.T, *solverv1.UserIntent)
+	}{
+		"update fillet": {
+			raw: easyjson.RawMessage(`{"type":"UpdateFillet","featureId":"fillet-1","radius":4}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetUpdateFillet().GetFeatureId() != "fillet-1" || intent.GetUpdateFillet().GetRadius() != 4 {
+					t.Fatalf("unexpected UpdateFillet intent: %#v", intent)
+				}
+			},
+		},
+		"update chamfer": {
+			raw: easyjson.RawMessage(`{"type":"UpdateChamfer","featureId":"chamfer-1","distance1":2,"distance2":3}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetUpdateChamfer().GetFeatureId() != "chamfer-1" ||
+					intent.GetUpdateChamfer().GetDistance1() != 2 ||
+					intent.GetUpdateChamfer().GetDistance2() != 3 {
+					t.Fatalf("unexpected UpdateChamfer intent: %#v", intent)
+				}
+			},
+		},
+		"split entity": {
+			raw: easyjson.RawMessage(`{"type":"split_entity","entityId":"line-1","pickPoint":{"x":1,"y":2},"createdPointId":"p-new","createdEntityIds":["line-a","line-b"]}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetSplitEntity().GetEntityId() != "line-1" ||
+					intent.GetSplitEntity().GetCreatedPointId() != "p-new" ||
+					len(intent.GetSplitEntity().GetCreatedEntityIds()) != 2 {
+					t.Fatalf("unexpected split_entity intent: %#v", intent)
+				}
+			},
+		},
+		"break entity": {
+			raw: easyjson.RawMessage(`{"type":"break_entity_at_point","entityId":"line-1","pointId":"p1","createdEntityIds":["line-a"]}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetBreakEntityAtPoint().GetEntityId() != "line-1" ||
+					intent.GetBreakEntityAtPoint().GetPointId() != "p1" {
+					t.Fatalf("unexpected break_entity_at_point intent: %#v", intent)
+				}
+			},
+		},
+		"trim entity": {
+			raw: easyjson.RawMessage(`{"type":"trim_entity","entityId":"line-1","pickPoint":{"x":1,"y":2},"boundaryEntityIds":["line-2"]}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetTrimEntity().GetEntityId() != "line-1" ||
+					len(intent.GetTrimEntity().GetBoundaryEntityIds()) != 1 {
+					t.Fatalf("unexpected trim_entity intent: %#v", intent)
+				}
+			},
+		},
+		"extend entity": {
+			raw: easyjson.RawMessage(`{"type":"extend_entity","entityId":"line-1","endpoint":"end","target":{"x":5,"y":6},"targetEntityIds":["line-2"]}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetExtendEntity().GetEntityId() != "line-1" ||
+					intent.GetExtendEntity().GetEndpoint() != "end" ||
+					intent.GetExtendEntity().GetTarget().GetX() != 5 {
+					t.Fatalf("unexpected extend_entity intent: %#v", intent)
+				}
+			},
+		},
+		"mirror entities": {
+			raw: easyjson.RawMessage(`{"type":"mirror_entities","featureId":"mirror-1","sourceEntityIds":["line-1"],"mirrorLineId":"axis-1","createdEntityIds":["line-2"],"copy":true,"keepConstraints":true}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetMirrorEntities().GetFeatureId() != "mirror-1" ||
+					intent.GetMirrorEntities().GetMirrorLineId() != "axis-1" ||
+					len(intent.GetMirrorEntities().GetSourceEntityIds()) != 1 ||
+					!intent.GetMirrorEntities().GetCopy() ||
+					!intent.GetMirrorEntities().GetKeepConstraints() {
+					t.Fatalf("unexpected mirror_entities intent: %#v", intent)
+				}
+			},
+		},
+		"linear pattern": {
+			raw: easyjson.RawMessage(`{"type":"linear_pattern","featureId":"pattern-1","sourceEntityIds":["line-1"],"direction":{"x":1,"y":0},"spacing":5,"count":3,"createdEntityIds":["line-2","line-3"],"keepConstraints":true}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetLinearPattern().GetFeatureId() != "pattern-1" ||
+					intent.GetLinearPattern().GetDirection().GetX() != 1 ||
+					intent.GetLinearPattern().GetSpacing() != 5 ||
+					intent.GetLinearPattern().GetCount() != 3 ||
+					len(intent.GetLinearPattern().GetCreatedEntityIds()) != 2 {
+					t.Fatalf("unexpected linear_pattern intent: %#v", intent)
+				}
+			},
+		},
+		"circular pattern": {
+			raw: easyjson.RawMessage(`{"type":"circular_pattern","featureId":"pattern-1","sourceEntityIds":["line-1"],"centerPointId":"p1","totalAngleRad":6.283185307179586,"count":4,"createdEntityIds":["line-2"],"rotateInstances":true,"keepConstraints":true}`),
+			check: func(t *testing.T, intent *solverv1.UserIntent) {
+				t.Helper()
+				if intent.GetCircularPattern().GetFeatureId() != "pattern-1" ||
+					intent.GetCircularPattern().GetCenterPointId() != "p1" ||
+					intent.GetCircularPattern().GetTotalAngleRad() == 0 ||
+					intent.GetCircularPattern().GetCount() != 4 ||
+					!intent.GetCircularPattern().GetRotateInstances() {
+					t.Fatalf("unexpected circular_pattern intent: %#v", intent)
+				}
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := &clientStub{}
+			service := NewService(&sketchRepositoryStub{document: testSketchDocument()}, client)
+			_, err := service.Preview(context.Background(), "sketch-id", &model.SolvePreviewRequest{
+				BaseVersion: 7,
+				Intent:      tt.raw,
+			})
+			if err != nil {
+				t.Fatalf("Preview returned error: %v", err)
+			}
+			tt.check(t, client.applyIntentRequest.GetIntent())
+		})
+	}
+}
+
 func TestSolutionPatchIncludesSolvedLine(t *testing.T) {
 	patch, err := SolutionPatch(&solverv1.SketchSolution{
 		Entities: []*solverv1.SolvedEntity{

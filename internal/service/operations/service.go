@@ -328,8 +328,28 @@ func applyOperation(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, a
 		return applyCreatePolyline(graph, raw)
 	case "ApplyFillet":
 		return applyFillet(graph, raw)
+	case "UpdateFillet":
+		return applyUpdateFillet(graph, raw)
 	case "ApplyChamfer":
 		return applyChamfer(graph, raw)
+	case "UpdateChamfer":
+		return applyUpdateChamfer(graph, raw)
+	case "set_entity_construction":
+		return applySetEntityConstruction(graph, raw)
+	case "split_entity":
+		return applyEntityIntent(graph, raw, "split_entity")
+	case "break_entity_at_point":
+		return applyEntityIntent(graph, raw, "break_entity_at_point")
+	case "trim_entity":
+		return applyEntityIntent(graph, raw, "trim_entity")
+	case "extend_entity":
+		return applyEntityIntent(graph, raw, "extend_entity")
+	case "mirror_entities":
+		return applyMirrorEntities(graph, raw)
+	case "linear_pattern":
+		return applyLinearPattern(graph, raw)
+	case "circular_pattern":
+		return applyCircularPattern(graph, raw)
 	case "move_point":
 		return applyMovePoint(graph, raw)
 	case "delete_entity":
@@ -352,7 +372,9 @@ func applyOperation(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, a
 func operationRequiresSolve(opType string) bool {
 	switch opType {
 	case "create_point", "create_line", "create_circle", "create_arc", "create_rectangle", "create_polyline",
-		"ApplyFillet", "ApplyChamfer",
+		"ApplyFillet", "UpdateFillet", "ApplyChamfer", "UpdateChamfer",
+		"split_entity", "break_entity_at_point", "trim_entity", "extend_entity",
+		"mirror_entities", "linear_pattern", "circular_pattern",
 		"move_point", "delete_entity", "add_constraint", "remove_constraint",
 		"add_dimension", "set_dimension_value", "remove_dimension":
 		return true
@@ -363,7 +385,9 @@ func operationRequiresSolve(opType string) bool {
 
 func operationRequiresSolverIntent(opType string) bool {
 	switch opType {
-	case "ApplyFillet", "ApplyChamfer":
+	case "ApplyFillet", "UpdateFillet", "ApplyChamfer", "UpdateChamfer",
+		"split_entity", "break_entity_at_point", "trim_entity", "extend_entity",
+		"mirror_entities", "linear_pattern", "circular_pattern":
 		return true
 	default:
 		return false
@@ -1102,6 +1126,453 @@ func applyChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, aff
 	}, nil
 }
 
+func applyUpdateFillet(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		FeatureID       string  `json:"featureId"`
+		CreatedPoint1ID *string `json:"createdPoint1Id"`
+		CreatedPoint2ID *string `json:"createdPoint2Id"`
+		CreatedArcID    *string `json:"createdArcId"`
+		Radius          float64 `json:"radius"`
+		Trim            bool    `json:"trim"`
+		Clockwise       bool    `json:"clockwise"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode UpdateFillet: %w", err)
+	}
+	if op.CreatedPoint1ID != nil || op.CreatedPoint2ID != nil || op.CreatedArcID != nil {
+		return nil, affectedIDs{}, errors.New("UpdateFillet must not include createdPoint1Id, createdPoint2Id, or createdArcId")
+	}
+	op.FeatureID = strings.TrimSpace(op.FeatureID)
+	if op.FeatureID == "" {
+		return nil, affectedIDs{}, errors.New("featureId is required")
+	}
+	if op.Radius <= 0 {
+		return nil, affectedIDs{}, errors.New("radius must be greater than 0")
+	}
+
+	feature, err := featureEntity(graph, op.FeatureID, "fillet")
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+	feature["radius"] = op.Radius
+	feature["trim"] = op.Trim
+	feature["clockwise"] = op.Clockwise
+
+	body, err := json.Marshal(feature)
+	if err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("encode fillet feature: %w", err)
+	}
+	graph.Entities[op.FeatureID] = body
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.FeatureID: body}}, affectedIDs{
+		EntityIDs: featureAffectedIDs(feature, op.FeatureID),
+	}, nil
+}
+
+func applyUpdateChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		FeatureID       string  `json:"featureId"`
+		CreatedPoint1ID *string `json:"createdPoint1Id"`
+		CreatedPoint2ID *string `json:"createdPoint2Id"`
+		CreatedLineID   *string `json:"createdLineId"`
+		Distance1       float64 `json:"distance1"`
+		Distance2       float64 `json:"distance2"`
+		Trim            bool    `json:"trim"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode UpdateChamfer: %w", err)
+	}
+	if op.CreatedPoint1ID != nil || op.CreatedPoint2ID != nil || op.CreatedLineID != nil {
+		return nil, affectedIDs{}, errors.New("UpdateChamfer must not include createdPoint1Id, createdPoint2Id, or createdLineId")
+	}
+	op.FeatureID = strings.TrimSpace(op.FeatureID)
+	if op.FeatureID == "" {
+		return nil, affectedIDs{}, errors.New("featureId is required")
+	}
+	if op.Distance1 <= 0 {
+		return nil, affectedIDs{}, errors.New("distance1 must be greater than 0")
+	}
+	if op.Distance2 <= 0 {
+		return nil, affectedIDs{}, errors.New("distance2 must be greater than 0")
+	}
+
+	feature, err := featureEntity(graph, op.FeatureID, "chamfer")
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+	feature["distance1"] = op.Distance1
+	feature["distance2"] = op.Distance2
+	feature["trim"] = op.Trim
+
+	body, err := json.Marshal(feature)
+	if err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("encode chamfer feature: %w", err)
+	}
+	graph.Entities[op.FeatureID] = body
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.FeatureID: body}}, affectedIDs{
+		EntityIDs: featureAffectedIDs(feature, op.FeatureID),
+	}, nil
+}
+
+func applySetEntityConstruction(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		EntityID       string `json:"entityId"`
+		IsConstruction *bool  `json:"isConstruction"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode set_entity_construction: %w", err)
+	}
+	op.EntityID = strings.TrimSpace(op.EntityID)
+	if op.EntityID == "" {
+		return nil, affectedIDs{}, errors.New("entityId is required")
+	}
+	if op.IsConstruction == nil {
+		return nil, affectedIDs{}, errors.New("isConstruction is required")
+	}
+
+	entity, err := mutableEntity(graph, op.EntityID)
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+	entityType, _ := entity["type"].(string)
+	switch entityType {
+	case "line", "circle", "arc":
+	default:
+		return nil, affectedIDs{}, fmt.Errorf("entity %q is not construction-capable", op.EntityID)
+	}
+	entity["isConstruction"] = *op.IsConstruction
+
+	body, err := json.Marshal(entity)
+	if err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("encode entity %q: %w", op.EntityID, err)
+	}
+	graph.Entities[op.EntityID] = body
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.EntityID: body}}, affectedIDs{
+		EntityIDs: []string{op.EntityID},
+	}, nil
+}
+
+func applyEntityIntent(graph *graphState, raw easyjson.RawMessage, opType string) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		OpID              string   `json:"opId"`
+		EntityID          string   `json:"entityId"`
+		PointID           string   `json:"pointId"`
+		Endpoint          string   `json:"endpoint"`
+		CreatedPointID    string   `json:"createdPointId"`
+		CreatedEntityIDs  []string `json:"createdEntityIds"`
+		BoundaryEntityIDs []string `json:"boundaryEntityIds"`
+		TargetEntityIDs   []string `json:"targetEntityIds"`
+		PickPoint         *vec2Op  `json:"pickPoint"`
+		Target            *vec2Op  `json:"target"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode %s: %w", opType, err)
+	}
+	op.OpID = strings.TrimSpace(op.OpID)
+	if op.OpID == "" {
+		op.OpID = generatedID(raw, opType)
+	}
+	op.EntityID = strings.TrimSpace(op.EntityID)
+	if op.EntityID == "" {
+		return nil, affectedIDs{}, errors.New("entityId is required")
+	}
+	if _, exists := graph.Entities[op.EntityID]; !exists {
+		return nil, affectedIDs{}, fmt.Errorf("entity %q does not exist", op.EntityID)
+	}
+	if _, exists := graph.Entities[op.OpID]; exists {
+		return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", op.OpID)
+	}
+
+	switch opType {
+	case "split_entity", "trim_entity":
+		if op.PickPoint == nil {
+			return nil, affectedIDs{}, errors.New("pickPoint is required")
+		}
+	case "break_entity_at_point":
+		op.PointID = strings.TrimSpace(op.PointID)
+		if op.PointID == "" && op.PickPoint == nil {
+			return nil, affectedIDs{}, errors.New("pointId or pickPoint is required")
+		}
+		if op.PointID != "" {
+			if err := requirePointEntity(graph, op.PointID, "pointId"); err != nil {
+				return nil, affectedIDs{}, err
+			}
+		}
+	case "extend_entity":
+		op.Endpoint = strings.TrimSpace(op.Endpoint)
+		if op.Endpoint != "start" && op.Endpoint != "end" {
+			return nil, affectedIDs{}, errors.New("endpoint must be start or end")
+		}
+		if op.Target == nil && len(op.TargetEntityIDs) == 0 {
+			return nil, affectedIDs{}, errors.New("target or targetEntityIds is required")
+		}
+	}
+
+	changed := []string{op.EntityID}
+	changed = mergeIDs(changed, []string{op.PointID, op.CreatedPointID, op.OpID})
+	changed = mergeIDs(changed, op.CreatedEntityIDs)
+	changed = mergeIDs(changed, op.BoundaryEntityIDs)
+	changed = mergeIDs(changed, op.TargetEntityIDs)
+
+	entity := mustJSON(map[string]any{
+		"id":                op.OpID,
+		"type":              opType,
+		"entityId":          op.EntityID,
+		"pointId":           strings.TrimSpace(op.PointID),
+		"endpoint":          strings.TrimSpace(op.Endpoint),
+		"createdPointId":    strings.TrimSpace(op.CreatedPointID),
+		"createdEntityIds":  nonEmptyIDs(op.CreatedEntityIDs),
+		"boundaryEntityIds": nonEmptyIDs(op.BoundaryEntityIDs),
+		"targetEntityIds":   nonEmptyIDs(op.TargetEntityIDs),
+		"pickPoint":         op.PickPoint,
+		"target":            op.Target,
+	})
+	graph.Entities[op.OpID] = entity
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.OpID: entity}}, affectedIDs{EntityIDs: changed}, nil
+}
+
+func applyMirrorEntities(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		FeatureID        string   `json:"featureId"`
+		SourceEntityIDs  []string `json:"sourceEntityIds"`
+		MirrorLineID     string   `json:"mirrorLineId"`
+		CreatedEntityIDs []string `json:"createdEntityIds"`
+		Copy             bool     `json:"copy"`
+		KeepConstraints  bool     `json:"keepConstraints"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode mirror_entities: %w", err)
+	}
+	op.FeatureID = defaultFeatureID(raw, strings.TrimSpace(op.FeatureID), "mirror")
+	op.MirrorLineID = strings.TrimSpace(op.MirrorLineID)
+	if op.FeatureID == "" {
+		return nil, affectedIDs{}, errors.New("featureId is required")
+	}
+	if _, exists := graph.Entities[op.FeatureID]; exists {
+		return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", op.FeatureID)
+	}
+	sourceIDs, err := requireEntities(graph, op.SourceEntityIDs, "sourceEntityIds")
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+	if err := requireLineEntity(graph, op.MirrorLineID, "mirrorLineId"); err != nil {
+		return nil, affectedIDs{}, err
+	}
+	createdIDs, err := validateCreatedEntityIDs(graph, op.CreatedEntityIDs)
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+
+	entity := mustJSON(map[string]any{
+		"id":               op.FeatureID,
+		"type":             "mirror_entities",
+		"sourceEntityIds":  sourceIDs,
+		"mirrorLineId":     op.MirrorLineID,
+		"createdEntityIds": createdIDs,
+		"copy":             op.Copy,
+		"keepConstraints":  op.KeepConstraints,
+	})
+	graph.Entities[op.FeatureID] = entity
+	changed := mergeIDs([]string{op.FeatureID, op.MirrorLineID}, sourceIDs)
+	changed = mergeIDs(changed, createdIDs)
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.FeatureID: entity}}, affectedIDs{EntityIDs: changed}, nil
+}
+
+func applyLinearPattern(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		FeatureID        string   `json:"featureId"`
+		SourceEntityIDs  []string `json:"sourceEntityIds"`
+		Direction        *vec2Op  `json:"direction"`
+		Spacing          float64  `json:"spacing"`
+		Count            int32    `json:"count"`
+		CreatedEntityIDs []string `json:"createdEntityIds"`
+		KeepConstraints  bool     `json:"keepConstraints"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode linear_pattern: %w", err)
+	}
+	op.FeatureID = defaultFeatureID(raw, strings.TrimSpace(op.FeatureID), "linear-pattern")
+	if op.FeatureID == "" {
+		return nil, affectedIDs{}, errors.New("featureId is required")
+	}
+	if _, exists := graph.Entities[op.FeatureID]; exists {
+		return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", op.FeatureID)
+	}
+	sourceIDs, err := requireEntities(graph, op.SourceEntityIDs, "sourceEntityIds")
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+	if op.Direction == nil {
+		return nil, affectedIDs{}, errors.New("direction is required")
+	}
+	if op.Direction.X == 0 && op.Direction.Y == 0 {
+		return nil, affectedIDs{}, errors.New("direction must not be zero")
+	}
+	if op.Spacing <= 0 {
+		return nil, affectedIDs{}, errors.New("spacing must be greater than 0")
+	}
+	if op.Count < 2 {
+		return nil, affectedIDs{}, errors.New("count must be greater than or equal to 2")
+	}
+	createdIDs, err := validateCreatedEntityIDs(graph, op.CreatedEntityIDs)
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+
+	entity := mustJSON(map[string]any{
+		"id":               op.FeatureID,
+		"type":             "linear_pattern",
+		"sourceEntityIds":  sourceIDs,
+		"direction":        op.Direction,
+		"spacing":          op.Spacing,
+		"count":            op.Count,
+		"createdEntityIds": createdIDs,
+		"keepConstraints":  op.KeepConstraints,
+	})
+	graph.Entities[op.FeatureID] = entity
+	changed := mergeIDs([]string{op.FeatureID}, sourceIDs)
+	changed = mergeIDs(changed, createdIDs)
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.FeatureID: entity}}, affectedIDs{EntityIDs: changed}, nil
+}
+
+func applyCircularPattern(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
+	var op struct {
+		FeatureID        string   `json:"featureId"`
+		SourceEntityIDs  []string `json:"sourceEntityIds"`
+		CenterPointID    string   `json:"centerPointId"`
+		TotalAngleRad    float64  `json:"totalAngleRad"`
+		Count            int32    `json:"count"`
+		CreatedEntityIDs []string `json:"createdEntityIds"`
+		RotateInstances  bool     `json:"rotateInstances"`
+		KeepConstraints  bool     `json:"keepConstraints"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		return nil, affectedIDs{}, fmt.Errorf("decode circular_pattern: %w", err)
+	}
+	op.FeatureID = defaultFeatureID(raw, strings.TrimSpace(op.FeatureID), "circular-pattern")
+	op.CenterPointID = strings.TrimSpace(op.CenterPointID)
+	if op.FeatureID == "" {
+		return nil, affectedIDs{}, errors.New("featureId is required")
+	}
+	if _, exists := graph.Entities[op.FeatureID]; exists {
+		return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", op.FeatureID)
+	}
+	sourceIDs, err := requireEntities(graph, op.SourceEntityIDs, "sourceEntityIds")
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+	if err := requirePointEntity(graph, op.CenterPointID, "centerPointId"); err != nil {
+		return nil, affectedIDs{}, err
+	}
+	if op.TotalAngleRad == 0 {
+		return nil, affectedIDs{}, errors.New("totalAngleRad must not be 0")
+	}
+	if op.Count < 2 {
+		return nil, affectedIDs{}, errors.New("count must be greater than or equal to 2")
+	}
+	createdIDs, err := validateCreatedEntityIDs(graph, op.CreatedEntityIDs)
+	if err != nil {
+		return nil, affectedIDs{}, err
+	}
+
+	entity := mustJSON(map[string]any{
+		"id":               op.FeatureID,
+		"type":             "circular_pattern",
+		"sourceEntityIds":  sourceIDs,
+		"centerPointId":    op.CenterPointID,
+		"totalAngleRad":    op.TotalAngleRad,
+		"count":            op.Count,
+		"createdEntityIds": createdIDs,
+		"rotateInstances":  op.RotateInstances,
+		"keepConstraints":  op.KeepConstraints,
+	})
+	graph.Entities[op.FeatureID] = entity
+	changed := mergeIDs([]string{op.FeatureID, op.CenterPointID}, sourceIDs)
+	changed = mergeIDs(changed, createdIDs)
+	return &sketchPatch{Entities: map[string]json.RawMessage{op.FeatureID: entity}}, affectedIDs{EntityIDs: changed}, nil
+}
+
+func defaultFeatureID(raw easyjson.RawMessage, value string, prefix string) string {
+	if value != "" {
+		return value
+	}
+	return generatedID(raw, prefix)
+}
+
+func requireEntities(graph *graphState, ids []string, field string) ([]string, error) {
+	ids = nonEmptyIDs(ids)
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("%s must contain at least one entity", field)
+	}
+	for _, id := range ids {
+		if _, exists := graph.Entities[id]; !exists {
+			return nil, fmt.Errorf("%s contains missing entity %q", field, id)
+		}
+	}
+	return ids, nil
+}
+
+func validateCreatedEntityIDs(graph *graphState, ids []string) ([]string, error) {
+	ids = nonEmptyIDs(ids)
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			return nil, fmt.Errorf("createdEntityIds contains duplicate entity %q", id)
+		}
+		seen[id] = struct{}{}
+		if _, exists := graph.Entities[id]; exists {
+			return nil, fmt.Errorf("entity %q already exists", id)
+		}
+	}
+	return ids, nil
+}
+
+func featureEntity(graph *graphState, id string, wantType string) (map[string]any, error) {
+	entity, err := mutableEntity(graph, id)
+	if err != nil {
+		return nil, err
+	}
+	entityType, _ := entity["type"].(string)
+	if entityType != wantType {
+		return nil, fmt.Errorf("feature %q is not a %s", id, wantType)
+	}
+	return entity, nil
+}
+
+func mutableEntity(graph *graphState, id string) (map[string]any, error) {
+	body, exists := graph.Entities[id]
+	if !exists {
+		return nil, fmt.Errorf("entity %q does not exist", id)
+	}
+	var entity map[string]any
+	if err := json.Unmarshal(body, &entity); err != nil {
+		return nil, fmt.Errorf("decode entity %q: %w", id, err)
+	}
+	return entity, nil
+}
+
+func featureAffectedIDs(feature map[string]any, featureID string) []string {
+	ids := []string{featureID}
+	for _, key := range []string{
+		"line1Id", "line2Id", "cornerPointId",
+		"createdPoint1Id", "createdPoint2Id", "createdArcId", "createdLineId",
+	} {
+		value, _ := feature[key].(string)
+		ids = mergeIDs(ids, []string{value})
+	}
+	return ids
+}
+
+func nonEmptyIDs(ids []string) []string {
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
 func requireLineEntity(graph *graphState, id string, field string) error {
 	return requireEntityType(graph, id, field, "line")
 }
@@ -1500,35 +1971,54 @@ func normalizeDimension(dimension *dimensionPayload) {
 }
 
 func inferDimensionRefs(dimension *dimensionPayload) {
-	ref := func(index int) string {
-		if index < 0 || index >= len(dimension.Refs) {
+	ref := func(index int, refs []string) string {
+		if index < 0 || index >= len(refs) {
 			return ""
 		}
-		return dimension.Refs[index]
+		return refs[index]
 	}
 
 	switch dimension.Type {
 	case "distance":
+		entityRefs := make([]string, 0, len(dimension.Refs))
+		for _, candidate := range dimension.Refs {
+			if isDistanceRefKind(candidate) {
+				if dimension.RefKind == "" {
+					dimension.RefKind = candidate
+				}
+				continue
+			}
+			entityRefs = append(entityRefs, candidate)
+		}
 		if dimension.RefAID == "" {
-			dimension.RefAID = ref(0)
+			dimension.RefAID = ref(0, entityRefs)
 		}
 		if dimension.RefBID == "" {
-			dimension.RefBID = ref(1)
+			dimension.RefBID = ref(1, entityRefs)
 		}
 		if dimension.RefKind == "" {
 			dimension.RefKind = "point_point"
 		}
 	case "radius", "diameter":
 		if dimension.EntityID == "" {
-			dimension.EntityID = ref(0)
+			dimension.EntityID = ref(0, dimension.Refs)
 		}
 	case "angle":
 		if dimension.LineAID == "" {
-			dimension.LineAID = ref(0)
+			dimension.LineAID = ref(0, dimension.Refs)
 		}
 		if dimension.LineBID == "" {
-			dimension.LineBID = ref(1)
+			dimension.LineBID = ref(1, dimension.Refs)
 		}
+	}
+}
+
+func isDistanceRefKind(value string) bool {
+	switch strings.TrimSpace(value) {
+	case "point_point", "point_line", "line_line":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -1644,14 +2134,27 @@ func dimensionReferencedEntityIDs(dimension *dimensionPayload) []string {
 		refs = append(refs, value)
 	}
 
-	for _, ref := range dimension.Refs {
-		add(ref)
+	switch dimension.Type {
+	case "distance":
+		add(dimension.RefAID)
+		add(dimension.RefBID)
+	case "radius", "diameter":
+		add(dimension.EntityID)
+	case "angle":
+		add(dimension.LineAID)
+		add(dimension.LineBID)
+	default:
+		for _, ref := range dimension.Refs {
+			if !isDistanceRefKind(ref) {
+				add(ref)
+			}
+		}
+		add(dimension.RefAID)
+		add(dimension.RefBID)
+		add(dimension.EntityID)
+		add(dimension.LineAID)
+		add(dimension.LineBID)
 	}
-	add(dimension.RefAID)
-	add(dimension.RefBID)
-	add(dimension.EntityID)
-	add(dimension.LineAID)
-	add(dimension.LineBID)
 
 	return refs
 }

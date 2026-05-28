@@ -2617,6 +2617,15 @@ type UserIntent struct {
 	//	*UserIntent_AddConstraint
 	//	*UserIntent_ApplyFillet
 	//	*UserIntent_ApplyChamfer
+	//	*UserIntent_UpdateFillet
+	//	*UserIntent_UpdateChamfer
+	//	*UserIntent_SplitEntity
+	//	*UserIntent_BreakEntityAtPoint
+	//	*UserIntent_TrimEntity
+	//	*UserIntent_ExtendEntity
+	//	*UserIntent_MirrorEntities
+	//	*UserIntent_LinearPattern
+	//	*UserIntent_CircularPattern
 	Kind          isUserIntent_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2713,6 +2722,87 @@ func (x *UserIntent) GetApplyChamfer() *ApplyChamferIntent {
 	return nil
 }
 
+func (x *UserIntent) GetUpdateFillet() *UpdateFilletIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_UpdateFillet); ok {
+			return x.UpdateFillet
+		}
+	}
+	return nil
+}
+
+func (x *UserIntent) GetUpdateChamfer() *UpdateChamferIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_UpdateChamfer); ok {
+			return x.UpdateChamfer
+		}
+	}
+	return nil
+}
+
+func (x *UserIntent) GetSplitEntity() *SplitEntityIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_SplitEntity); ok {
+			return x.SplitEntity
+		}
+	}
+	return nil
+}
+
+func (x *UserIntent) GetBreakEntityAtPoint() *BreakEntityAtPointIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_BreakEntityAtPoint); ok {
+			return x.BreakEntityAtPoint
+		}
+	}
+	return nil
+}
+
+func (x *UserIntent) GetTrimEntity() *TrimEntityIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_TrimEntity); ok {
+			return x.TrimEntity
+		}
+	}
+	return nil
+}
+
+func (x *UserIntent) GetExtendEntity() *ExtendEntityIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_ExtendEntity); ok {
+			return x.ExtendEntity
+		}
+	}
+	return nil
+}
+
+func (x *UserIntent) GetMirrorEntities() *MirrorEntitiesIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_MirrorEntities); ok {
+			return x.MirrorEntities
+		}
+	}
+	return nil
+}
+
+func (x *UserIntent) GetLinearPattern() *LinearPatternIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_LinearPattern); ok {
+			return x.LinearPattern
+		}
+	}
+	return nil
+}
+
+func (x *UserIntent) GetCircularPattern() *CircularPatternIntent {
+	if x != nil {
+		if x, ok := x.Kind.(*UserIntent_CircularPattern); ok {
+			return x.CircularPattern
+		}
+	}
+	return nil
+}
+
 type isUserIntent_Kind interface {
 	isUserIntent_Kind()
 }
@@ -2741,6 +2831,42 @@ type UserIntent_ApplyChamfer struct {
 	ApplyChamfer *ApplyChamferIntent `protobuf:"bytes,6,opt,name=apply_chamfer,json=applyChamfer,proto3,oneof"`
 }
 
+type UserIntent_UpdateFillet struct {
+	UpdateFillet *UpdateFilletIntent `protobuf:"bytes,7,opt,name=update_fillet,json=updateFillet,proto3,oneof"`
+}
+
+type UserIntent_UpdateChamfer struct {
+	UpdateChamfer *UpdateChamferIntent `protobuf:"bytes,8,opt,name=update_chamfer,json=updateChamfer,proto3,oneof"`
+}
+
+type UserIntent_SplitEntity struct {
+	SplitEntity *SplitEntityIntent `protobuf:"bytes,9,opt,name=split_entity,json=splitEntity,proto3,oneof"`
+}
+
+type UserIntent_BreakEntityAtPoint struct {
+	BreakEntityAtPoint *BreakEntityAtPointIntent `protobuf:"bytes,10,opt,name=break_entity_at_point,json=breakEntityAtPoint,proto3,oneof"`
+}
+
+type UserIntent_TrimEntity struct {
+	TrimEntity *TrimEntityIntent `protobuf:"bytes,11,opt,name=trim_entity,json=trimEntity,proto3,oneof"`
+}
+
+type UserIntent_ExtendEntity struct {
+	ExtendEntity *ExtendEntityIntent `protobuf:"bytes,12,opt,name=extend_entity,json=extendEntity,proto3,oneof"`
+}
+
+type UserIntent_MirrorEntities struct {
+	MirrorEntities *MirrorEntitiesIntent `protobuf:"bytes,13,opt,name=mirror_entities,json=mirrorEntities,proto3,oneof"`
+}
+
+type UserIntent_LinearPattern struct {
+	LinearPattern *LinearPatternIntent `protobuf:"bytes,14,opt,name=linear_pattern,json=linearPattern,proto3,oneof"`
+}
+
+type UserIntent_CircularPattern struct {
+	CircularPattern *CircularPatternIntent `protobuf:"bytes,15,opt,name=circular_pattern,json=circularPattern,proto3,oneof"`
+}
+
 func (*UserIntent_MovePoint) isUserIntent_Kind() {}
 
 func (*UserIntent_MoveEntity) isUserIntent_Kind() {}
@@ -2752,6 +2878,24 @@ func (*UserIntent_AddConstraint) isUserIntent_Kind() {}
 func (*UserIntent_ApplyFillet) isUserIntent_Kind() {}
 
 func (*UserIntent_ApplyChamfer) isUserIntent_Kind() {}
+
+func (*UserIntent_UpdateFillet) isUserIntent_Kind() {}
+
+func (*UserIntent_UpdateChamfer) isUserIntent_Kind() {}
+
+func (*UserIntent_SplitEntity) isUserIntent_Kind() {}
+
+func (*UserIntent_BreakEntityAtPoint) isUserIntent_Kind() {}
+
+func (*UserIntent_TrimEntity) isUserIntent_Kind() {}
+
+func (*UserIntent_ExtendEntity) isUserIntent_Kind() {}
+
+func (*UserIntent_MirrorEntities) isUserIntent_Kind() {}
+
+func (*UserIntent_LinearPattern) isUserIntent_Kind() {}
+
+func (*UserIntent_CircularPattern) isUserIntent_Kind() {}
 
 type MovePointIntent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -3201,6 +3345,682 @@ func (x *ApplyChamferIntent) GetTrim() bool {
 	return false
 }
 
+type UpdateFilletIntent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FeatureId     string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
+	Radius        float64                `protobuf:"fixed64,2,opt,name=radius,proto3" json:"radius,omitempty"`
+	Trim          bool                   `protobuf:"varint,3,opt,name=trim,proto3" json:"trim,omitempty"`
+	Clockwise     bool                   `protobuf:"varint,4,opt,name=clockwise,proto3" json:"clockwise,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateFilletIntent) Reset() {
+	*x = UpdateFilletIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateFilletIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateFilletIntent) ProtoMessage() {}
+
+func (x *UpdateFilletIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateFilletIntent.ProtoReflect.Descriptor instead.
+func (*UpdateFilletIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *UpdateFilletIntent) GetFeatureId() string {
+	if x != nil {
+		return x.FeatureId
+	}
+	return ""
+}
+
+func (x *UpdateFilletIntent) GetRadius() float64 {
+	if x != nil {
+		return x.Radius
+	}
+	return 0
+}
+
+func (x *UpdateFilletIntent) GetTrim() bool {
+	if x != nil {
+		return x.Trim
+	}
+	return false
+}
+
+func (x *UpdateFilletIntent) GetClockwise() bool {
+	if x != nil {
+		return x.Clockwise
+	}
+	return false
+}
+
+type UpdateChamferIntent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FeatureId     string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
+	Distance1     float64                `protobuf:"fixed64,2,opt,name=distance1,proto3" json:"distance1,omitempty"`
+	Distance2     float64                `protobuf:"fixed64,3,opt,name=distance2,proto3" json:"distance2,omitempty"`
+	Trim          bool                   `protobuf:"varint,4,opt,name=trim,proto3" json:"trim,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateChamferIntent) Reset() {
+	*x = UpdateChamferIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateChamferIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateChamferIntent) ProtoMessage() {}
+
+func (x *UpdateChamferIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateChamferIntent.ProtoReflect.Descriptor instead.
+func (*UpdateChamferIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *UpdateChamferIntent) GetFeatureId() string {
+	if x != nil {
+		return x.FeatureId
+	}
+	return ""
+}
+
+func (x *UpdateChamferIntent) GetDistance1() float64 {
+	if x != nil {
+		return x.Distance1
+	}
+	return 0
+}
+
+func (x *UpdateChamferIntent) GetDistance2() float64 {
+	if x != nil {
+		return x.Distance2
+	}
+	return 0
+}
+
+func (x *UpdateChamferIntent) GetTrim() bool {
+	if x != nil {
+		return x.Trim
+	}
+	return false
+}
+
+type SplitEntityIntent struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	EntityId         string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	PickPoint        *Vec2                  `protobuf:"bytes,2,opt,name=pick_point,json=pickPoint,proto3" json:"pick_point,omitempty"`
+	CreatedPointId   string                 `protobuf:"bytes,3,opt,name=created_point_id,json=createdPointId,proto3" json:"created_point_id,omitempty"`
+	CreatedEntityIds []string               `protobuf:"bytes,4,rep,name=created_entity_ids,json=createdEntityIds,proto3" json:"created_entity_ids,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SplitEntityIntent) Reset() {
+	*x = SplitEntityIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SplitEntityIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SplitEntityIntent) ProtoMessage() {}
+
+func (x *SplitEntityIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SplitEntityIntent.ProtoReflect.Descriptor instead.
+func (*SplitEntityIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *SplitEntityIntent) GetEntityId() string {
+	if x != nil {
+		return x.EntityId
+	}
+	return ""
+}
+
+func (x *SplitEntityIntent) GetPickPoint() *Vec2 {
+	if x != nil {
+		return x.PickPoint
+	}
+	return nil
+}
+
+func (x *SplitEntityIntent) GetCreatedPointId() string {
+	if x != nil {
+		return x.CreatedPointId
+	}
+	return ""
+}
+
+func (x *SplitEntityIntent) GetCreatedEntityIds() []string {
+	if x != nil {
+		return x.CreatedEntityIds
+	}
+	return nil
+}
+
+type BreakEntityAtPointIntent struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	EntityId         string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	PointId          string                 `protobuf:"bytes,2,opt,name=point_id,json=pointId,proto3" json:"point_id,omitempty"`
+	PickPoint        *Vec2                  `protobuf:"bytes,3,opt,name=pick_point,json=pickPoint,proto3" json:"pick_point,omitempty"`
+	CreatedEntityIds []string               `protobuf:"bytes,4,rep,name=created_entity_ids,json=createdEntityIds,proto3" json:"created_entity_ids,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *BreakEntityAtPointIntent) Reset() {
+	*x = BreakEntityAtPointIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BreakEntityAtPointIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BreakEntityAtPointIntent) ProtoMessage() {}
+
+func (x *BreakEntityAtPointIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BreakEntityAtPointIntent.ProtoReflect.Descriptor instead.
+func (*BreakEntityAtPointIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *BreakEntityAtPointIntent) GetEntityId() string {
+	if x != nil {
+		return x.EntityId
+	}
+	return ""
+}
+
+func (x *BreakEntityAtPointIntent) GetPointId() string {
+	if x != nil {
+		return x.PointId
+	}
+	return ""
+}
+
+func (x *BreakEntityAtPointIntent) GetPickPoint() *Vec2 {
+	if x != nil {
+		return x.PickPoint
+	}
+	return nil
+}
+
+func (x *BreakEntityAtPointIntent) GetCreatedEntityIds() []string {
+	if x != nil {
+		return x.CreatedEntityIds
+	}
+	return nil
+}
+
+type TrimEntityIntent struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EntityId          string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	PickPoint         *Vec2                  `protobuf:"bytes,2,opt,name=pick_point,json=pickPoint,proto3" json:"pick_point,omitempty"`
+	BoundaryEntityIds []string               `protobuf:"bytes,3,rep,name=boundary_entity_ids,json=boundaryEntityIds,proto3" json:"boundary_entity_ids,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *TrimEntityIntent) Reset() {
+	*x = TrimEntityIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrimEntityIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrimEntityIntent) ProtoMessage() {}
+
+func (x *TrimEntityIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrimEntityIntent.ProtoReflect.Descriptor instead.
+func (*TrimEntityIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *TrimEntityIntent) GetEntityId() string {
+	if x != nil {
+		return x.EntityId
+	}
+	return ""
+}
+
+func (x *TrimEntityIntent) GetPickPoint() *Vec2 {
+	if x != nil {
+		return x.PickPoint
+	}
+	return nil
+}
+
+func (x *TrimEntityIntent) GetBoundaryEntityIds() []string {
+	if x != nil {
+		return x.BoundaryEntityIds
+	}
+	return nil
+}
+
+type ExtendEntityIntent struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	EntityId        string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	Endpoint        string                 `protobuf:"bytes,2,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	Target          *Vec2                  `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
+	TargetEntityIds []string               `protobuf:"bytes,4,rep,name=target_entity_ids,json=targetEntityIds,proto3" json:"target_entity_ids,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ExtendEntityIntent) Reset() {
+	*x = ExtendEntityIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExtendEntityIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExtendEntityIntent) ProtoMessage() {}
+
+func (x *ExtendEntityIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExtendEntityIntent.ProtoReflect.Descriptor instead.
+func (*ExtendEntityIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *ExtendEntityIntent) GetEntityId() string {
+	if x != nil {
+		return x.EntityId
+	}
+	return ""
+}
+
+func (x *ExtendEntityIntent) GetEndpoint() string {
+	if x != nil {
+		return x.Endpoint
+	}
+	return ""
+}
+
+func (x *ExtendEntityIntent) GetTarget() *Vec2 {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *ExtendEntityIntent) GetTargetEntityIds() []string {
+	if x != nil {
+		return x.TargetEntityIds
+	}
+	return nil
+}
+
+type MirrorEntitiesIntent struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	FeatureId        string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
+	SourceEntityIds  []string               `protobuf:"bytes,2,rep,name=source_entity_ids,json=sourceEntityIds,proto3" json:"source_entity_ids,omitempty"`
+	MirrorLineId     string                 `protobuf:"bytes,3,opt,name=mirror_line_id,json=mirrorLineId,proto3" json:"mirror_line_id,omitempty"`
+	CreatedEntityIds []string               `protobuf:"bytes,4,rep,name=created_entity_ids,json=createdEntityIds,proto3" json:"created_entity_ids,omitempty"`
+	Copy             bool                   `protobuf:"varint,5,opt,name=copy,proto3" json:"copy,omitempty"`
+	KeepConstraints  bool                   `protobuf:"varint,6,opt,name=keep_constraints,json=keepConstraints,proto3" json:"keep_constraints,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *MirrorEntitiesIntent) Reset() {
+	*x = MirrorEntitiesIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MirrorEntitiesIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MirrorEntitiesIntent) ProtoMessage() {}
+
+func (x *MirrorEntitiesIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MirrorEntitiesIntent.ProtoReflect.Descriptor instead.
+func (*MirrorEntitiesIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *MirrorEntitiesIntent) GetFeatureId() string {
+	if x != nil {
+		return x.FeatureId
+	}
+	return ""
+}
+
+func (x *MirrorEntitiesIntent) GetSourceEntityIds() []string {
+	if x != nil {
+		return x.SourceEntityIds
+	}
+	return nil
+}
+
+func (x *MirrorEntitiesIntent) GetMirrorLineId() string {
+	if x != nil {
+		return x.MirrorLineId
+	}
+	return ""
+}
+
+func (x *MirrorEntitiesIntent) GetCreatedEntityIds() []string {
+	if x != nil {
+		return x.CreatedEntityIds
+	}
+	return nil
+}
+
+func (x *MirrorEntitiesIntent) GetCopy() bool {
+	if x != nil {
+		return x.Copy
+	}
+	return false
+}
+
+func (x *MirrorEntitiesIntent) GetKeepConstraints() bool {
+	if x != nil {
+		return x.KeepConstraints
+	}
+	return false
+}
+
+type LinearPatternIntent struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	FeatureId        string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
+	SourceEntityIds  []string               `protobuf:"bytes,2,rep,name=source_entity_ids,json=sourceEntityIds,proto3" json:"source_entity_ids,omitempty"`
+	Direction        *Vec2                  `protobuf:"bytes,3,opt,name=direction,proto3" json:"direction,omitempty"`
+	Spacing          float64                `protobuf:"fixed64,4,opt,name=spacing,proto3" json:"spacing,omitempty"`
+	Count            int32                  `protobuf:"varint,5,opt,name=count,proto3" json:"count,omitempty"`
+	CreatedEntityIds []string               `protobuf:"bytes,6,rep,name=created_entity_ids,json=createdEntityIds,proto3" json:"created_entity_ids,omitempty"`
+	KeepConstraints  bool                   `protobuf:"varint,7,opt,name=keep_constraints,json=keepConstraints,proto3" json:"keep_constraints,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *LinearPatternIntent) Reset() {
+	*x = LinearPatternIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LinearPatternIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LinearPatternIntent) ProtoMessage() {}
+
+func (x *LinearPatternIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LinearPatternIntent.ProtoReflect.Descriptor instead.
+func (*LinearPatternIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *LinearPatternIntent) GetFeatureId() string {
+	if x != nil {
+		return x.FeatureId
+	}
+	return ""
+}
+
+func (x *LinearPatternIntent) GetSourceEntityIds() []string {
+	if x != nil {
+		return x.SourceEntityIds
+	}
+	return nil
+}
+
+func (x *LinearPatternIntent) GetDirection() *Vec2 {
+	if x != nil {
+		return x.Direction
+	}
+	return nil
+}
+
+func (x *LinearPatternIntent) GetSpacing() float64 {
+	if x != nil {
+		return x.Spacing
+	}
+	return 0
+}
+
+func (x *LinearPatternIntent) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *LinearPatternIntent) GetCreatedEntityIds() []string {
+	if x != nil {
+		return x.CreatedEntityIds
+	}
+	return nil
+}
+
+func (x *LinearPatternIntent) GetKeepConstraints() bool {
+	if x != nil {
+		return x.KeepConstraints
+	}
+	return false
+}
+
+type CircularPatternIntent struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	FeatureId        string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
+	SourceEntityIds  []string               `protobuf:"bytes,2,rep,name=source_entity_ids,json=sourceEntityIds,proto3" json:"source_entity_ids,omitempty"`
+	CenterPointId    string                 `protobuf:"bytes,3,opt,name=center_point_id,json=centerPointId,proto3" json:"center_point_id,omitempty"`
+	TotalAngleRad    float64                `protobuf:"fixed64,4,opt,name=total_angle_rad,json=totalAngleRad,proto3" json:"total_angle_rad,omitempty"`
+	Count            int32                  `protobuf:"varint,5,opt,name=count,proto3" json:"count,omitempty"`
+	CreatedEntityIds []string               `protobuf:"bytes,6,rep,name=created_entity_ids,json=createdEntityIds,proto3" json:"created_entity_ids,omitempty"`
+	RotateInstances  bool                   `protobuf:"varint,7,opt,name=rotate_instances,json=rotateInstances,proto3" json:"rotate_instances,omitempty"`
+	KeepConstraints  bool                   `protobuf:"varint,8,opt,name=keep_constraints,json=keepConstraints,proto3" json:"keep_constraints,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CircularPatternIntent) Reset() {
+	*x = CircularPatternIntent{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CircularPatternIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CircularPatternIntent) ProtoMessage() {}
+
+func (x *CircularPatternIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CircularPatternIntent.ProtoReflect.Descriptor instead.
+func (*CircularPatternIntent) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *CircularPatternIntent) GetFeatureId() string {
+	if x != nil {
+		return x.FeatureId
+	}
+	return ""
+}
+
+func (x *CircularPatternIntent) GetSourceEntityIds() []string {
+	if x != nil {
+		return x.SourceEntityIds
+	}
+	return nil
+}
+
+func (x *CircularPatternIntent) GetCenterPointId() string {
+	if x != nil {
+		return x.CenterPointId
+	}
+	return ""
+}
+
+func (x *CircularPatternIntent) GetTotalAngleRad() float64 {
+	if x != nil {
+		return x.TotalAngleRad
+	}
+	return 0
+}
+
+func (x *CircularPatternIntent) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *CircularPatternIntent) GetCreatedEntityIds() []string {
+	if x != nil {
+		return x.CreatedEntityIds
+	}
+	return nil
+}
+
+func (x *CircularPatternIntent) GetRotateInstances() bool {
+	if x != nil {
+		return x.RotateInstances
+	}
+	return false
+}
+
+func (x *CircularPatternIntent) GetKeepConstraints() bool {
+	if x != nil {
+		return x.KeepConstraints
+	}
+	return false
+}
+
 type SketchSolution struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Entities      []*SolvedEntity        `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
@@ -3210,7 +4030,7 @@ type SketchSolution struct {
 
 func (x *SketchSolution) Reset() {
 	*x = SketchSolution{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[38]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3222,7 +4042,7 @@ func (x *SketchSolution) String() string {
 func (*SketchSolution) ProtoMessage() {}
 
 func (x *SketchSolution) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[38]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3235,7 +4055,7 @@ func (x *SketchSolution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SketchSolution.ProtoReflect.Descriptor instead.
 func (*SketchSolution) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{38}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *SketchSolution) GetEntities() []*SolvedEntity {
@@ -3261,7 +4081,7 @@ type SolvedEntity struct {
 
 func (x *SolvedEntity) Reset() {
 	*x = SolvedEntity{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[39]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3273,7 +4093,7 @@ func (x *SolvedEntity) String() string {
 func (*SolvedEntity) ProtoMessage() {}
 
 func (x *SolvedEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[39]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3286,7 +4106,7 @@ func (x *SolvedEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedEntity.ProtoReflect.Descriptor instead.
 func (*SolvedEntity) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{39}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *SolvedEntity) GetId() string {
@@ -3377,7 +4197,7 @@ type SolvedPoint struct {
 
 func (x *SolvedPoint) Reset() {
 	*x = SolvedPoint{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[40]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3389,7 +4209,7 @@ func (x *SolvedPoint) String() string {
 func (*SolvedPoint) ProtoMessage() {}
 
 func (x *SolvedPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[40]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3402,7 +4222,7 @@ func (x *SolvedPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedPoint.ProtoReflect.Descriptor instead.
 func (*SolvedPoint) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{40}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *SolvedPoint) GetX() float64 {
@@ -3429,7 +4249,7 @@ type SolvedLine struct {
 
 func (x *SolvedLine) Reset() {
 	*x = SolvedLine{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[41]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3441,7 +4261,7 @@ func (x *SolvedLine) String() string {
 func (*SolvedLine) ProtoMessage() {}
 
 func (x *SolvedLine) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[41]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3454,7 +4274,7 @@ func (x *SolvedLine) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedLine.ProtoReflect.Descriptor instead.
 func (*SolvedLine) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{41}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *SolvedLine) GetStartPointId() string {
@@ -3481,7 +4301,7 @@ type SolvedCircle struct {
 
 func (x *SolvedCircle) Reset() {
 	*x = SolvedCircle{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[42]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3493,7 +4313,7 @@ func (x *SolvedCircle) String() string {
 func (*SolvedCircle) ProtoMessage() {}
 
 func (x *SolvedCircle) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[42]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3506,7 +4326,7 @@ func (x *SolvedCircle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedCircle.ProtoReflect.Descriptor instead.
 func (*SolvedCircle) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{42}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *SolvedCircle) GetCenterPointId() string {
@@ -3536,7 +4356,7 @@ type SolvedArc struct {
 
 func (x *SolvedArc) Reset() {
 	*x = SolvedArc{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[43]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3548,7 +4368,7 @@ func (x *SolvedArc) String() string {
 func (*SolvedArc) ProtoMessage() {}
 
 func (x *SolvedArc) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[43]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3561,7 +4381,7 @@ func (x *SolvedArc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedArc.ProtoReflect.Descriptor instead.
 func (*SolvedArc) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{43}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *SolvedArc) GetCenterPointId() string {
@@ -3609,7 +4429,7 @@ type Vec2 struct {
 
 func (x *Vec2) Reset() {
 	*x = Vec2{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[44]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3621,7 +4441,7 @@ func (x *Vec2) String() string {
 func (*Vec2) ProtoMessage() {}
 
 func (x *Vec2) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[44]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3634,7 +4454,7 @@ func (x *Vec2) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vec2.ProtoReflect.Descriptor instead.
 func (*Vec2) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{44}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *Vec2) GetX() float64 {
@@ -3665,7 +4485,7 @@ type SolverOptions struct {
 
 func (x *SolverOptions) Reset() {
 	*x = SolverOptions{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[45]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3677,7 +4497,7 @@ func (x *SolverOptions) String() string {
 func (*SolverOptions) ProtoMessage() {}
 
 func (x *SolverOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[45]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3690,7 +4510,7 @@ func (x *SolverOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolverOptions.ProtoReflect.Descriptor instead.
 func (*SolverOptions) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{45}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *SolverOptions) GetTolerance() float64 {
@@ -3749,7 +4569,7 @@ type SolverDiagnostic struct {
 
 func (x *SolverDiagnostic) Reset() {
 	*x = SolverDiagnostic{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[46]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3761,7 +4581,7 @@ func (x *SolverDiagnostic) String() string {
 func (*SolverDiagnostic) ProtoMessage() {}
 
 func (x *SolverDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[46]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3774,7 +4594,7 @@ func (x *SolverDiagnostic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolverDiagnostic.ProtoReflect.Descriptor instead.
 func (*SolverDiagnostic) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{46}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *SolverDiagnostic) GetLevel() SolverDiagnosticLevel {
@@ -3833,7 +4653,7 @@ type ConstraintComponent struct {
 
 func (x *ConstraintComponent) Reset() {
 	*x = ConstraintComponent{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[47]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3845,7 +4665,7 @@ func (x *ConstraintComponent) String() string {
 func (*ConstraintComponent) ProtoMessage() {}
 
 func (x *ConstraintComponent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[47]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3858,7 +4678,7 @@ func (x *ConstraintComponent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConstraintComponent.ProtoReflect.Descriptor instead.
 func (*ConstraintComponent) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{47}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ConstraintComponent) GetId() string {
@@ -4066,7 +4886,7 @@ const file_proto_solver_v1_sketch_solver_proto_rawDesc = "" +
 	"\tParameter\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x01R\x05value\x122\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x1e.cccad.solver.v1.ParameterKindR\x04kind\"\xcd\x03\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x1e.cccad.solver.v1.ParameterKindR\x04kind\"\x99\t\n" +
 	"\n" +
 	"UserIntent\x12A\n" +
 	"\n" +
@@ -4076,7 +4896,18 @@ const file_proto_solver_v1_sketch_solver_proto_rawDesc = "" +
 	"\rset_dimension\x18\x03 \x01(\v2#.cccad.solver.v1.SetDimensionIntentH\x00R\fsetDimension\x12M\n" +
 	"\x0eadd_constraint\x18\x04 \x01(\v2$.cccad.solver.v1.AddConstraintIntentH\x00R\raddConstraint\x12G\n" +
 	"\fapply_fillet\x18\x05 \x01(\v2\".cccad.solver.v1.ApplyFilletIntentH\x00R\vapplyFillet\x12J\n" +
-	"\rapply_chamfer\x18\x06 \x01(\v2#.cccad.solver.v1.ApplyChamferIntentH\x00R\fapplyChamferB\x06\n" +
+	"\rapply_chamfer\x18\x06 \x01(\v2#.cccad.solver.v1.ApplyChamferIntentH\x00R\fapplyChamfer\x12J\n" +
+	"\rupdate_fillet\x18\a \x01(\v2#.cccad.solver.v1.UpdateFilletIntentH\x00R\fupdateFillet\x12M\n" +
+	"\x0eupdate_chamfer\x18\b \x01(\v2$.cccad.solver.v1.UpdateChamferIntentH\x00R\rupdateChamfer\x12G\n" +
+	"\fsplit_entity\x18\t \x01(\v2\".cccad.solver.v1.SplitEntityIntentH\x00R\vsplitEntity\x12^\n" +
+	"\x15break_entity_at_point\x18\n" +
+	" \x01(\v2).cccad.solver.v1.BreakEntityAtPointIntentH\x00R\x12breakEntityAtPoint\x12D\n" +
+	"\vtrim_entity\x18\v \x01(\v2!.cccad.solver.v1.TrimEntityIntentH\x00R\n" +
+	"trimEntity\x12J\n" +
+	"\rextend_entity\x18\f \x01(\v2#.cccad.solver.v1.ExtendEntityIntentH\x00R\fextendEntity\x12P\n" +
+	"\x0fmirror_entities\x18\r \x01(\v2%.cccad.solver.v1.MirrorEntitiesIntentH\x00R\x0emirrorEntities\x12M\n" +
+	"\x0elinear_pattern\x18\x0e \x01(\v2$.cccad.solver.v1.LinearPatternIntentH\x00R\rlinearPattern\x12S\n" +
+	"\x10circular_pattern\x18\x0f \x01(\v2&.cccad.solver.v1.CircularPatternIntentH\x00R\x0fcircularPatternB\x06\n" +
 	"\x04kind\"s\n" +
 	"\x0fMovePointIntent\x12\x19\n" +
 	"\bpoint_id\x18\x01 \x01(\tR\apointId\x12-\n" +
@@ -4118,7 +4949,68 @@ const file_proto_solver_v1_sketch_solver_proto_rawDesc = "" +
 	"\tdistance1\x18\b \x01(\x01R\tdistance1\x12\x1c\n" +
 	"\tdistance2\x18\t \x01(\x01R\tdistance2\x12\x12\n" +
 	"\x04trim\x18\n" +
-	" \x01(\bR\x04trim\"K\n" +
+	" \x01(\bR\x04trim\"}\n" +
+	"\x12UpdateFilletIntent\x12\x1d\n" +
+	"\n" +
+	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12\x16\n" +
+	"\x06radius\x18\x02 \x01(\x01R\x06radius\x12\x12\n" +
+	"\x04trim\x18\x03 \x01(\bR\x04trim\x12\x1c\n" +
+	"\tclockwise\x18\x04 \x01(\bR\tclockwise\"\x84\x01\n" +
+	"\x13UpdateChamferIntent\x12\x1d\n" +
+	"\n" +
+	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12\x1c\n" +
+	"\tdistance1\x18\x02 \x01(\x01R\tdistance1\x12\x1c\n" +
+	"\tdistance2\x18\x03 \x01(\x01R\tdistance2\x12\x12\n" +
+	"\x04trim\x18\x04 \x01(\bR\x04trim\"\xbe\x01\n" +
+	"\x11SplitEntityIntent\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x124\n" +
+	"\n" +
+	"pick_point\x18\x02 \x01(\v2\x15.cccad.solver.v1.Vec2R\tpickPoint\x12(\n" +
+	"\x10created_point_id\x18\x03 \x01(\tR\x0ecreatedPointId\x12,\n" +
+	"\x12created_entity_ids\x18\x04 \x03(\tR\x10createdEntityIds\"\xb6\x01\n" +
+	"\x18BreakEntityAtPointIntent\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x19\n" +
+	"\bpoint_id\x18\x02 \x01(\tR\apointId\x124\n" +
+	"\n" +
+	"pick_point\x18\x03 \x01(\v2\x15.cccad.solver.v1.Vec2R\tpickPoint\x12,\n" +
+	"\x12created_entity_ids\x18\x04 \x03(\tR\x10createdEntityIds\"\x95\x01\n" +
+	"\x10TrimEntityIntent\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x124\n" +
+	"\n" +
+	"pick_point\x18\x02 \x01(\v2\x15.cccad.solver.v1.Vec2R\tpickPoint\x12.\n" +
+	"\x13boundary_entity_ids\x18\x03 \x03(\tR\x11boundaryEntityIds\"\xa8\x01\n" +
+	"\x12ExtendEntityIntent\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x1a\n" +
+	"\bendpoint\x18\x02 \x01(\tR\bendpoint\x12-\n" +
+	"\x06target\x18\x03 \x01(\v2\x15.cccad.solver.v1.Vec2R\x06target\x12*\n" +
+	"\x11target_entity_ids\x18\x04 \x03(\tR\x0ftargetEntityIds\"\xf4\x01\n" +
+	"\x14MirrorEntitiesIntent\x12\x1d\n" +
+	"\n" +
+	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12*\n" +
+	"\x11source_entity_ids\x18\x02 \x03(\tR\x0fsourceEntityIds\x12$\n" +
+	"\x0emirror_line_id\x18\x03 \x01(\tR\fmirrorLineId\x12,\n" +
+	"\x12created_entity_ids\x18\x04 \x03(\tR\x10createdEntityIds\x12\x12\n" +
+	"\x04copy\x18\x05 \x01(\bR\x04copy\x12)\n" +
+	"\x10keep_constraints\x18\x06 \x01(\bR\x0fkeepConstraints\"\x9e\x02\n" +
+	"\x13LinearPatternIntent\x12\x1d\n" +
+	"\n" +
+	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12*\n" +
+	"\x11source_entity_ids\x18\x02 \x03(\tR\x0fsourceEntityIds\x123\n" +
+	"\tdirection\x18\x03 \x01(\v2\x15.cccad.solver.v1.Vec2R\tdirection\x12\x18\n" +
+	"\aspacing\x18\x04 \x01(\x01R\aspacing\x12\x14\n" +
+	"\x05count\x18\x05 \x01(\x05R\x05count\x12,\n" +
+	"\x12created_entity_ids\x18\x06 \x03(\tR\x10createdEntityIds\x12)\n" +
+	"\x10keep_constraints\x18\a \x01(\bR\x0fkeepConstraints\"\xcc\x02\n" +
+	"\x15CircularPatternIntent\x12\x1d\n" +
+	"\n" +
+	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12*\n" +
+	"\x11source_entity_ids\x18\x02 \x03(\tR\x0fsourceEntityIds\x12&\n" +
+	"\x0fcenter_point_id\x18\x03 \x01(\tR\rcenterPointId\x12&\n" +
+	"\x0ftotal_angle_rad\x18\x04 \x01(\x01R\rtotalAngleRad\x12\x14\n" +
+	"\x05count\x18\x05 \x01(\x05R\x05count\x12,\n" +
+	"\x12created_entity_ids\x18\x06 \x03(\tR\x10createdEntityIds\x12)\n" +
+	"\x10rotate_instances\x18\a \x01(\bR\x0frotateInstances\x12)\n" +
+	"\x10keep_constraints\x18\b \x01(\bR\x0fkeepConstraints\"K\n" +
 	"\x0eSketchSolution\x129\n" +
 	"\bentities\x18\x01 \x03(\v2\x1d.cccad.solver.v1.SolvedEntityR\bentities\"\xf8\x01\n" +
 	"\fSolvedEntity\x12\x0e\n" +
@@ -4237,87 +5129,96 @@ func file_proto_solver_v1_sketch_solver_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_solver_v1_sketch_solver_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
-var file_proto_solver_v1_sketch_solver_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
+var file_proto_solver_v1_sketch_solver_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
 var file_proto_solver_v1_sketch_solver_proto_goTypes = []any{
-	(SolveStatus)(0),                // 0: cccad.solver.v1.SolveStatus
-	(SolverDiagnosticLevel)(0),      // 1: cccad.solver.v1.SolverDiagnosticLevel
-	(ConstraintStatus)(0),           // 2: cccad.solver.v1.ConstraintStatus
-	(TangentBranch)(0),              // 3: cccad.solver.v1.TangentBranch
-	(ArcBranch)(0),                  // 4: cccad.solver.v1.ArcBranch
-	(AngleOrientation)(0),           // 5: cccad.solver.v1.AngleOrientation
-	(EqualKind)(0),                  // 6: cccad.solver.v1.EqualKind
-	(DistanceReferenceKind)(0),      // 7: cccad.solver.v1.DistanceReferenceKind
-	(ParameterKind)(0),              // 8: cccad.solver.v1.ParameterKind
-	(*SolveRequest)(nil),            // 9: cccad.solver.v1.SolveRequest
-	(*SolveResponse)(nil),           // 10: cccad.solver.v1.SolveResponse
-	(*CheckRequest)(nil),            // 11: cccad.solver.v1.CheckRequest
-	(*CheckResponse)(nil),           // 12: cccad.solver.v1.CheckResponse
-	(*ApplyIntentRequest)(nil),      // 13: cccad.solver.v1.ApplyIntentRequest
-	(*ApplyIntentResponse)(nil),     // 14: cccad.solver.v1.ApplyIntentResponse
-	(*AnalyzeRequest)(nil),          // 15: cccad.solver.v1.AnalyzeRequest
-	(*AnalyzeResponse)(nil),         // 16: cccad.solver.v1.AnalyzeResponse
-	(*SketchModel)(nil),             // 17: cccad.solver.v1.SketchModel
-	(*Entity)(nil),                  // 18: cccad.solver.v1.Entity
-	(*Point)(nil),                   // 19: cccad.solver.v1.Point
-	(*Line)(nil),                    // 20: cccad.solver.v1.Line
-	(*Circle)(nil),                  // 21: cccad.solver.v1.Circle
-	(*Arc)(nil),                     // 22: cccad.solver.v1.Arc
-	(*Constraint)(nil),              // 23: cccad.solver.v1.Constraint
-	(*CoincidentConstraint)(nil),    // 24: cccad.solver.v1.CoincidentConstraint
-	(*HorizontalConstraint)(nil),    // 25: cccad.solver.v1.HorizontalConstraint
-	(*VerticalConstraint)(nil),      // 26: cccad.solver.v1.VerticalConstraint
-	(*ParallelConstraint)(nil),      // 27: cccad.solver.v1.ParallelConstraint
-	(*PerpendicularConstraint)(nil), // 28: cccad.solver.v1.PerpendicularConstraint
-	(*TangentConstraint)(nil),       // 29: cccad.solver.v1.TangentConstraint
-	(*EqualConstraint)(nil),         // 30: cccad.solver.v1.EqualConstraint
-	(*FixedConstraint)(nil),         // 31: cccad.solver.v1.FixedConstraint
-	(*MidpointConstraint)(nil),      // 32: cccad.solver.v1.MidpointConstraint
-	(*ConcentricConstraint)(nil),    // 33: cccad.solver.v1.ConcentricConstraint
-	(*Dimension)(nil),               // 34: cccad.solver.v1.Dimension
-	(*DistanceDimension)(nil),       // 35: cccad.solver.v1.DistanceDimension
-	(*RadiusDimension)(nil),         // 36: cccad.solver.v1.RadiusDimension
-	(*DiameterDimension)(nil),       // 37: cccad.solver.v1.DiameterDimension
-	(*AngleDimension)(nil),          // 38: cccad.solver.v1.AngleDimension
-	(*Parameter)(nil),               // 39: cccad.solver.v1.Parameter
-	(*UserIntent)(nil),              // 40: cccad.solver.v1.UserIntent
-	(*MovePointIntent)(nil),         // 41: cccad.solver.v1.MovePointIntent
-	(*MoveEntityIntent)(nil),        // 42: cccad.solver.v1.MoveEntityIntent
-	(*SetDimensionIntent)(nil),      // 43: cccad.solver.v1.SetDimensionIntent
-	(*AddConstraintIntent)(nil),     // 44: cccad.solver.v1.AddConstraintIntent
-	(*ApplyFilletIntent)(nil),       // 45: cccad.solver.v1.ApplyFilletIntent
-	(*ApplyChamferIntent)(nil),      // 46: cccad.solver.v1.ApplyChamferIntent
-	(*SketchSolution)(nil),          // 47: cccad.solver.v1.SketchSolution
-	(*SolvedEntity)(nil),            // 48: cccad.solver.v1.SolvedEntity
-	(*SolvedPoint)(nil),             // 49: cccad.solver.v1.SolvedPoint
-	(*SolvedLine)(nil),              // 50: cccad.solver.v1.SolvedLine
-	(*SolvedCircle)(nil),            // 51: cccad.solver.v1.SolvedCircle
-	(*SolvedArc)(nil),               // 52: cccad.solver.v1.SolvedArc
-	(*Vec2)(nil),                    // 53: cccad.solver.v1.Vec2
-	(*SolverOptions)(nil),           // 54: cccad.solver.v1.SolverOptions
-	(*SolverDiagnostic)(nil),        // 55: cccad.solver.v1.SolverDiagnostic
-	(*ConstraintComponent)(nil),     // 56: cccad.solver.v1.ConstraintComponent
+	(SolveStatus)(0),                 // 0: cccad.solver.v1.SolveStatus
+	(SolverDiagnosticLevel)(0),       // 1: cccad.solver.v1.SolverDiagnosticLevel
+	(ConstraintStatus)(0),            // 2: cccad.solver.v1.ConstraintStatus
+	(TangentBranch)(0),               // 3: cccad.solver.v1.TangentBranch
+	(ArcBranch)(0),                   // 4: cccad.solver.v1.ArcBranch
+	(AngleOrientation)(0),            // 5: cccad.solver.v1.AngleOrientation
+	(EqualKind)(0),                   // 6: cccad.solver.v1.EqualKind
+	(DistanceReferenceKind)(0),       // 7: cccad.solver.v1.DistanceReferenceKind
+	(ParameterKind)(0),               // 8: cccad.solver.v1.ParameterKind
+	(*SolveRequest)(nil),             // 9: cccad.solver.v1.SolveRequest
+	(*SolveResponse)(nil),            // 10: cccad.solver.v1.SolveResponse
+	(*CheckRequest)(nil),             // 11: cccad.solver.v1.CheckRequest
+	(*CheckResponse)(nil),            // 12: cccad.solver.v1.CheckResponse
+	(*ApplyIntentRequest)(nil),       // 13: cccad.solver.v1.ApplyIntentRequest
+	(*ApplyIntentResponse)(nil),      // 14: cccad.solver.v1.ApplyIntentResponse
+	(*AnalyzeRequest)(nil),           // 15: cccad.solver.v1.AnalyzeRequest
+	(*AnalyzeResponse)(nil),          // 16: cccad.solver.v1.AnalyzeResponse
+	(*SketchModel)(nil),              // 17: cccad.solver.v1.SketchModel
+	(*Entity)(nil),                   // 18: cccad.solver.v1.Entity
+	(*Point)(nil),                    // 19: cccad.solver.v1.Point
+	(*Line)(nil),                     // 20: cccad.solver.v1.Line
+	(*Circle)(nil),                   // 21: cccad.solver.v1.Circle
+	(*Arc)(nil),                      // 22: cccad.solver.v1.Arc
+	(*Constraint)(nil),               // 23: cccad.solver.v1.Constraint
+	(*CoincidentConstraint)(nil),     // 24: cccad.solver.v1.CoincidentConstraint
+	(*HorizontalConstraint)(nil),     // 25: cccad.solver.v1.HorizontalConstraint
+	(*VerticalConstraint)(nil),       // 26: cccad.solver.v1.VerticalConstraint
+	(*ParallelConstraint)(nil),       // 27: cccad.solver.v1.ParallelConstraint
+	(*PerpendicularConstraint)(nil),  // 28: cccad.solver.v1.PerpendicularConstraint
+	(*TangentConstraint)(nil),        // 29: cccad.solver.v1.TangentConstraint
+	(*EqualConstraint)(nil),          // 30: cccad.solver.v1.EqualConstraint
+	(*FixedConstraint)(nil),          // 31: cccad.solver.v1.FixedConstraint
+	(*MidpointConstraint)(nil),       // 32: cccad.solver.v1.MidpointConstraint
+	(*ConcentricConstraint)(nil),     // 33: cccad.solver.v1.ConcentricConstraint
+	(*Dimension)(nil),                // 34: cccad.solver.v1.Dimension
+	(*DistanceDimension)(nil),        // 35: cccad.solver.v1.DistanceDimension
+	(*RadiusDimension)(nil),          // 36: cccad.solver.v1.RadiusDimension
+	(*DiameterDimension)(nil),        // 37: cccad.solver.v1.DiameterDimension
+	(*AngleDimension)(nil),           // 38: cccad.solver.v1.AngleDimension
+	(*Parameter)(nil),                // 39: cccad.solver.v1.Parameter
+	(*UserIntent)(nil),               // 40: cccad.solver.v1.UserIntent
+	(*MovePointIntent)(nil),          // 41: cccad.solver.v1.MovePointIntent
+	(*MoveEntityIntent)(nil),         // 42: cccad.solver.v1.MoveEntityIntent
+	(*SetDimensionIntent)(nil),       // 43: cccad.solver.v1.SetDimensionIntent
+	(*AddConstraintIntent)(nil),      // 44: cccad.solver.v1.AddConstraintIntent
+	(*ApplyFilletIntent)(nil),        // 45: cccad.solver.v1.ApplyFilletIntent
+	(*ApplyChamferIntent)(nil),       // 46: cccad.solver.v1.ApplyChamferIntent
+	(*UpdateFilletIntent)(nil),       // 47: cccad.solver.v1.UpdateFilletIntent
+	(*UpdateChamferIntent)(nil),      // 48: cccad.solver.v1.UpdateChamferIntent
+	(*SplitEntityIntent)(nil),        // 49: cccad.solver.v1.SplitEntityIntent
+	(*BreakEntityAtPointIntent)(nil), // 50: cccad.solver.v1.BreakEntityAtPointIntent
+	(*TrimEntityIntent)(nil),         // 51: cccad.solver.v1.TrimEntityIntent
+	(*ExtendEntityIntent)(nil),       // 52: cccad.solver.v1.ExtendEntityIntent
+	(*MirrorEntitiesIntent)(nil),     // 53: cccad.solver.v1.MirrorEntitiesIntent
+	(*LinearPatternIntent)(nil),      // 54: cccad.solver.v1.LinearPatternIntent
+	(*CircularPatternIntent)(nil),    // 55: cccad.solver.v1.CircularPatternIntent
+	(*SketchSolution)(nil),           // 56: cccad.solver.v1.SketchSolution
+	(*SolvedEntity)(nil),             // 57: cccad.solver.v1.SolvedEntity
+	(*SolvedPoint)(nil),              // 58: cccad.solver.v1.SolvedPoint
+	(*SolvedLine)(nil),               // 59: cccad.solver.v1.SolvedLine
+	(*SolvedCircle)(nil),             // 60: cccad.solver.v1.SolvedCircle
+	(*SolvedArc)(nil),                // 61: cccad.solver.v1.SolvedArc
+	(*Vec2)(nil),                     // 62: cccad.solver.v1.Vec2
+	(*SolverOptions)(nil),            // 63: cccad.solver.v1.SolverOptions
+	(*SolverDiagnostic)(nil),         // 64: cccad.solver.v1.SolverDiagnostic
+	(*ConstraintComponent)(nil),      // 65: cccad.solver.v1.ConstraintComponent
 }
 var file_proto_solver_v1_sketch_solver_proto_depIdxs = []int32{
 	17, // 0: cccad.solver.v1.SolveRequest.model:type_name -> cccad.solver.v1.SketchModel
-	54, // 1: cccad.solver.v1.SolveRequest.options:type_name -> cccad.solver.v1.SolverOptions
+	63, // 1: cccad.solver.v1.SolveRequest.options:type_name -> cccad.solver.v1.SolverOptions
 	0,  // 2: cccad.solver.v1.SolveResponse.status:type_name -> cccad.solver.v1.SolveStatus
-	47, // 3: cccad.solver.v1.SolveResponse.solution:type_name -> cccad.solver.v1.SketchSolution
-	55, // 4: cccad.solver.v1.SolveResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
+	56, // 3: cccad.solver.v1.SolveResponse.solution:type_name -> cccad.solver.v1.SketchSolution
+	64, // 4: cccad.solver.v1.SolveResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
 	17, // 5: cccad.solver.v1.CheckRequest.model:type_name -> cccad.solver.v1.SketchModel
-	54, // 6: cccad.solver.v1.CheckRequest.options:type_name -> cccad.solver.v1.SolverOptions
+	63, // 6: cccad.solver.v1.CheckRequest.options:type_name -> cccad.solver.v1.SolverOptions
 	0,  // 7: cccad.solver.v1.CheckResponse.status:type_name -> cccad.solver.v1.SolveStatus
-	55, // 8: cccad.solver.v1.CheckResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
+	64, // 8: cccad.solver.v1.CheckResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
 	17, // 9: cccad.solver.v1.ApplyIntentRequest.model:type_name -> cccad.solver.v1.SketchModel
 	40, // 10: cccad.solver.v1.ApplyIntentRequest.intent:type_name -> cccad.solver.v1.UserIntent
-	54, // 11: cccad.solver.v1.ApplyIntentRequest.options:type_name -> cccad.solver.v1.SolverOptions
+	63, // 11: cccad.solver.v1.ApplyIntentRequest.options:type_name -> cccad.solver.v1.SolverOptions
 	0,  // 12: cccad.solver.v1.ApplyIntentResponse.status:type_name -> cccad.solver.v1.SolveStatus
-	47, // 13: cccad.solver.v1.ApplyIntentResponse.solution:type_name -> cccad.solver.v1.SketchSolution
-	55, // 14: cccad.solver.v1.ApplyIntentResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
+	56, // 13: cccad.solver.v1.ApplyIntentResponse.solution:type_name -> cccad.solver.v1.SketchSolution
+	64, // 14: cccad.solver.v1.ApplyIntentResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
 	17, // 15: cccad.solver.v1.AnalyzeRequest.model:type_name -> cccad.solver.v1.SketchModel
-	54, // 16: cccad.solver.v1.AnalyzeRequest.options:type_name -> cccad.solver.v1.SolverOptions
+	63, // 16: cccad.solver.v1.AnalyzeRequest.options:type_name -> cccad.solver.v1.SolverOptions
 	0,  // 17: cccad.solver.v1.AnalyzeResponse.status:type_name -> cccad.solver.v1.SolveStatus
-	56, // 18: cccad.solver.v1.AnalyzeResponse.components:type_name -> cccad.solver.v1.ConstraintComponent
-	55, // 19: cccad.solver.v1.AnalyzeResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
+	65, // 18: cccad.solver.v1.AnalyzeResponse.components:type_name -> cccad.solver.v1.ConstraintComponent
+	64, // 19: cccad.solver.v1.AnalyzeResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
 	18, // 20: cccad.solver.v1.SketchModel.entities:type_name -> cccad.solver.v1.Entity
 	23, // 21: cccad.solver.v1.SketchModel.constraints:type_name -> cccad.solver.v1.Constraint
 	34, // 22: cccad.solver.v1.SketchModel.dimensions:type_name -> cccad.solver.v1.Dimension
@@ -4354,30 +5255,44 @@ var file_proto_solver_v1_sketch_solver_proto_depIdxs = []int32{
 	44, // 53: cccad.solver.v1.UserIntent.add_constraint:type_name -> cccad.solver.v1.AddConstraintIntent
 	45, // 54: cccad.solver.v1.UserIntent.apply_fillet:type_name -> cccad.solver.v1.ApplyFilletIntent
 	46, // 55: cccad.solver.v1.UserIntent.apply_chamfer:type_name -> cccad.solver.v1.ApplyChamferIntent
-	53, // 56: cccad.solver.v1.MovePointIntent.target:type_name -> cccad.solver.v1.Vec2
-	53, // 57: cccad.solver.v1.MoveEntityIntent.delta:type_name -> cccad.solver.v1.Vec2
-	23, // 58: cccad.solver.v1.AddConstraintIntent.constraint:type_name -> cccad.solver.v1.Constraint
-	48, // 59: cccad.solver.v1.SketchSolution.entities:type_name -> cccad.solver.v1.SolvedEntity
-	49, // 60: cccad.solver.v1.SolvedEntity.point:type_name -> cccad.solver.v1.SolvedPoint
-	51, // 61: cccad.solver.v1.SolvedEntity.circle:type_name -> cccad.solver.v1.SolvedCircle
-	52, // 62: cccad.solver.v1.SolvedEntity.arc:type_name -> cccad.solver.v1.SolvedArc
-	50, // 63: cccad.solver.v1.SolvedEntity.line:type_name -> cccad.solver.v1.SolvedLine
-	4,  // 64: cccad.solver.v1.SolvedArc.branch:type_name -> cccad.solver.v1.ArcBranch
-	1,  // 65: cccad.solver.v1.SolverDiagnostic.level:type_name -> cccad.solver.v1.SolverDiagnosticLevel
-	0,  // 66: cccad.solver.v1.ConstraintComponent.status:type_name -> cccad.solver.v1.SolveStatus
-	9,  // 67: cccad.solver.v1.SketchSolver.Solve:input_type -> cccad.solver.v1.SolveRequest
-	11, // 68: cccad.solver.v1.SketchSolver.Check:input_type -> cccad.solver.v1.CheckRequest
-	13, // 69: cccad.solver.v1.SketchSolver.ApplyIntent:input_type -> cccad.solver.v1.ApplyIntentRequest
-	15, // 70: cccad.solver.v1.SketchSolver.Analyze:input_type -> cccad.solver.v1.AnalyzeRequest
-	10, // 71: cccad.solver.v1.SketchSolver.Solve:output_type -> cccad.solver.v1.SolveResponse
-	12, // 72: cccad.solver.v1.SketchSolver.Check:output_type -> cccad.solver.v1.CheckResponse
-	14, // 73: cccad.solver.v1.SketchSolver.ApplyIntent:output_type -> cccad.solver.v1.ApplyIntentResponse
-	16, // 74: cccad.solver.v1.SketchSolver.Analyze:output_type -> cccad.solver.v1.AnalyzeResponse
-	71, // [71:75] is the sub-list for method output_type
-	67, // [67:71] is the sub-list for method input_type
-	67, // [67:67] is the sub-list for extension type_name
-	67, // [67:67] is the sub-list for extension extendee
-	0,  // [0:67] is the sub-list for field type_name
+	47, // 56: cccad.solver.v1.UserIntent.update_fillet:type_name -> cccad.solver.v1.UpdateFilletIntent
+	48, // 57: cccad.solver.v1.UserIntent.update_chamfer:type_name -> cccad.solver.v1.UpdateChamferIntent
+	49, // 58: cccad.solver.v1.UserIntent.split_entity:type_name -> cccad.solver.v1.SplitEntityIntent
+	50, // 59: cccad.solver.v1.UserIntent.break_entity_at_point:type_name -> cccad.solver.v1.BreakEntityAtPointIntent
+	51, // 60: cccad.solver.v1.UserIntent.trim_entity:type_name -> cccad.solver.v1.TrimEntityIntent
+	52, // 61: cccad.solver.v1.UserIntent.extend_entity:type_name -> cccad.solver.v1.ExtendEntityIntent
+	53, // 62: cccad.solver.v1.UserIntent.mirror_entities:type_name -> cccad.solver.v1.MirrorEntitiesIntent
+	54, // 63: cccad.solver.v1.UserIntent.linear_pattern:type_name -> cccad.solver.v1.LinearPatternIntent
+	55, // 64: cccad.solver.v1.UserIntent.circular_pattern:type_name -> cccad.solver.v1.CircularPatternIntent
+	62, // 65: cccad.solver.v1.MovePointIntent.target:type_name -> cccad.solver.v1.Vec2
+	62, // 66: cccad.solver.v1.MoveEntityIntent.delta:type_name -> cccad.solver.v1.Vec2
+	23, // 67: cccad.solver.v1.AddConstraintIntent.constraint:type_name -> cccad.solver.v1.Constraint
+	62, // 68: cccad.solver.v1.SplitEntityIntent.pick_point:type_name -> cccad.solver.v1.Vec2
+	62, // 69: cccad.solver.v1.BreakEntityAtPointIntent.pick_point:type_name -> cccad.solver.v1.Vec2
+	62, // 70: cccad.solver.v1.TrimEntityIntent.pick_point:type_name -> cccad.solver.v1.Vec2
+	62, // 71: cccad.solver.v1.ExtendEntityIntent.target:type_name -> cccad.solver.v1.Vec2
+	62, // 72: cccad.solver.v1.LinearPatternIntent.direction:type_name -> cccad.solver.v1.Vec2
+	57, // 73: cccad.solver.v1.SketchSolution.entities:type_name -> cccad.solver.v1.SolvedEntity
+	58, // 74: cccad.solver.v1.SolvedEntity.point:type_name -> cccad.solver.v1.SolvedPoint
+	60, // 75: cccad.solver.v1.SolvedEntity.circle:type_name -> cccad.solver.v1.SolvedCircle
+	61, // 76: cccad.solver.v1.SolvedEntity.arc:type_name -> cccad.solver.v1.SolvedArc
+	59, // 77: cccad.solver.v1.SolvedEntity.line:type_name -> cccad.solver.v1.SolvedLine
+	4,  // 78: cccad.solver.v1.SolvedArc.branch:type_name -> cccad.solver.v1.ArcBranch
+	1,  // 79: cccad.solver.v1.SolverDiagnostic.level:type_name -> cccad.solver.v1.SolverDiagnosticLevel
+	0,  // 80: cccad.solver.v1.ConstraintComponent.status:type_name -> cccad.solver.v1.SolveStatus
+	9,  // 81: cccad.solver.v1.SketchSolver.Solve:input_type -> cccad.solver.v1.SolveRequest
+	11, // 82: cccad.solver.v1.SketchSolver.Check:input_type -> cccad.solver.v1.CheckRequest
+	13, // 83: cccad.solver.v1.SketchSolver.ApplyIntent:input_type -> cccad.solver.v1.ApplyIntentRequest
+	15, // 84: cccad.solver.v1.SketchSolver.Analyze:input_type -> cccad.solver.v1.AnalyzeRequest
+	10, // 85: cccad.solver.v1.SketchSolver.Solve:output_type -> cccad.solver.v1.SolveResponse
+	12, // 86: cccad.solver.v1.SketchSolver.Check:output_type -> cccad.solver.v1.CheckResponse
+	14, // 87: cccad.solver.v1.SketchSolver.ApplyIntent:output_type -> cccad.solver.v1.ApplyIntentResponse
+	16, // 88: cccad.solver.v1.SketchSolver.Analyze:output_type -> cccad.solver.v1.AnalyzeResponse
+	85, // [85:89] is the sub-list for method output_type
+	81, // [81:85] is the sub-list for method input_type
+	81, // [81:81] is the sub-list for extension type_name
+	81, // [81:81] is the sub-list for extension extendee
+	0,  // [0:81] is the sub-list for field type_name
 }
 
 func init() { file_proto_solver_v1_sketch_solver_proto_init() }
@@ -4416,8 +5331,17 @@ func file_proto_solver_v1_sketch_solver_proto_init() {
 		(*UserIntent_AddConstraint)(nil),
 		(*UserIntent_ApplyFillet)(nil),
 		(*UserIntent_ApplyChamfer)(nil),
+		(*UserIntent_UpdateFillet)(nil),
+		(*UserIntent_UpdateChamfer)(nil),
+		(*UserIntent_SplitEntity)(nil),
+		(*UserIntent_BreakEntityAtPoint)(nil),
+		(*UserIntent_TrimEntity)(nil),
+		(*UserIntent_ExtendEntity)(nil),
+		(*UserIntent_MirrorEntities)(nil),
+		(*UserIntent_LinearPattern)(nil),
+		(*UserIntent_CircularPattern)(nil),
 	}
-	file_proto_solver_v1_sketch_solver_proto_msgTypes[39].OneofWrappers = []any{
+	file_proto_solver_v1_sketch_solver_proto_msgTypes[48].OneofWrappers = []any{
 		(*SolvedEntity_Point)(nil),
 		(*SolvedEntity_Circle)(nil),
 		(*SolvedEntity_Arc)(nil),
@@ -4429,7 +5353,7 @@ func file_proto_solver_v1_sketch_solver_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_solver_v1_sketch_solver_proto_rawDesc), len(file_proto_solver_v1_sketch_solver_proto_rawDesc)),
 			NumEnums:      9,
-			NumMessages:   48,
+			NumMessages:   57,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
