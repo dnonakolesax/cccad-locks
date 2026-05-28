@@ -46,16 +46,50 @@ new_state AS (
               "fixed": true,
               "isConstruction": true
             },
+            "x-axis-start": {
+              "id": "x-axis-start",
+              "type": "point",
+              "x": -9999,
+              "y": 0,
+              "fixed": true,
+              "isConstruction": true
+            },
+            "x-axis-end": {
+              "id": "x-axis-end",
+              "type": "point",
+              "x": 9999,
+              "y": 0,
+              "fixed": true,
+              "isConstruction": true
+            },
             "x-axis": {
               "id": "x-axis",
               "type": "line",
-              "axis": "x",
+              "startPointId": "x-axis-start",
+              "endPointId": "x-axis-end",
+              "isConstruction": true
+            },
+            "y-axis-start": {
+              "id": "y-axis-start",
+              "type": "point",
+              "x": 0,
+              "y": -9999,
+              "fixed": true,
+              "isConstruction": true
+            },
+            "y-axis-end": {
+              "id": "y-axis-end",
+              "type": "point",
+              "x": 0,
+              "y": 9999,
+              "fixed": true,
               "isConstruction": true
             },
             "y-axis": {
               "id": "y-axis",
               "type": "line",
-              "axis": "y",
+              "startPointId": "y-axis-start",
+              "endPointId": "y-axis-end",
               "isConstruction": true
             }
           },

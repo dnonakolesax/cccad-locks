@@ -198,7 +198,6 @@ func entity(raw easyjson.RawMessage) (*solverv1.Entity, error) {
 		Type           string  `json:"type"`
 		DeletedAtOpID  *string `json:"deletedAtOpId"`
 		IsConstruction bool    `json:"isConstruction"`
-		Axis           string  `json:"axis"`
 		X              float64 `json:"x"`
 		Y              float64 `json:"y"`
 		Fixed          bool    `json:"fixed"`
@@ -213,9 +212,6 @@ func entity(raw easyjson.RawMessage) (*solverv1.Entity, error) {
 		return nil, fmt.Errorf("decode entity: %w", err)
 	}
 	if data.DeletedAtOpID != nil {
-		return nil, errSkippedModelItem
-	}
-	if data.IsConstruction && data.Type == "line" && data.Axis != "" && data.StartPointID == "" && data.EndPointID == "" {
 		return nil, errSkippedModelItem
 	}
 

@@ -84,11 +84,15 @@ func TestPreviewBuildsApplyIntentRequest(t *testing.T) {
 	}
 }
 
-func TestPreviewSkipsDefaultConstructionAxes(t *testing.T) {
+func TestPreviewIncludesDefaultConstructionAxesAsLines(t *testing.T) {
 	document := testSketchDocument()
 	document.Entities["zero-point"] = easyjson.RawMessage(`{"id":"zero-point","type":"point","x":0,"y":0,"fixed":true,"isConstruction":true}`)
-	document.Entities["x-axis"] = easyjson.RawMessage(`{"id":"x-axis","type":"line","axis":"x","isConstruction":true}`)
-	document.Entities["y-axis"] = easyjson.RawMessage(`{"id":"y-axis","type":"line","axis":"y","isConstruction":true}`)
+	document.Entities["x-axis-start"] = easyjson.RawMessage(`{"id":"x-axis-start","type":"point","x":-9999,"y":0,"fixed":true,"isConstruction":true}`)
+	document.Entities["x-axis-end"] = easyjson.RawMessage(`{"id":"x-axis-end","type":"point","x":9999,"y":0,"fixed":true,"isConstruction":true}`)
+	document.Entities["x-axis"] = easyjson.RawMessage(`{"id":"x-axis","type":"line","startPointId":"x-axis-start","endPointId":"x-axis-end","isConstruction":true}`)
+	document.Entities["y-axis-start"] = easyjson.RawMessage(`{"id":"y-axis-start","type":"point","x":0,"y":-9999,"fixed":true,"isConstruction":true}`)
+	document.Entities["y-axis-end"] = easyjson.RawMessage(`{"id":"y-axis-end","type":"point","x":0,"y":9999,"fixed":true,"isConstruction":true}`)
+	document.Entities["y-axis"] = easyjson.RawMessage(`{"id":"y-axis","type":"line","startPointId":"y-axis-start","endPointId":"y-axis-end","isConstruction":true}`)
 	client := &clientStub{}
 	service := NewService(&sketchRepositoryStub{document: document}, client)
 
@@ -100,13 +104,14 @@ func TestPreviewSkipsDefaultConstructionAxes(t *testing.T) {
 		t.Fatalf("Preview returned error: %v", err)
 	}
 	entities := client.applyIntentRequest.GetModel().GetEntities()
+	seen := map[string]bool{}
 	for _, entity := range entities {
-		if entity.GetId() == "x-axis" || entity.GetId() == "y-axis" {
-			t.Fatalf("solver model included default axis: %#v", entity)
-		}
+		seen[entity.GetId()] = true
 	}
-	if len(entities) != 3 {
-		t.Fatalf("entity count = %d, want 3 including zero-point", len(entities))
+	for _, id := range []string{"zero-point", "x-axis-start", "x-axis-end", "x-axis", "y-axis-start", "y-axis-end", "y-axis"} {
+		if !seen[id] {
+			t.Fatalf("solver model missing default construction entity %q; got %#v", id, entities)
+		}
 	}
 }
 
