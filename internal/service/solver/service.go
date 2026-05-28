@@ -194,23 +194,28 @@ func entities(raw map[string]easyjson.RawMessage) []*solverv1.Entity {
 
 func entity(raw easyjson.RawMessage) (*solverv1.Entity, error) {
 	var data struct {
-		ID            string  `json:"id"`
-		Type          string  `json:"type"`
-		DeletedAtOpID *string `json:"deletedAtOpId"`
-		X             float64 `json:"x"`
-		Y             float64 `json:"y"`
-		Fixed         bool    `json:"fixed"`
-		StartPointID  string  `json:"startPointId"`
-		EndPointID    string  `json:"endPointId"`
-		CenterPointID string  `json:"centerPointId"`
-		Radius        float64 `json:"radius"`
-		Clockwise     bool    `json:"clockwise"`
-		Branch        string  `json:"branch"`
+		ID             string  `json:"id"`
+		Type           string  `json:"type"`
+		DeletedAtOpID  *string `json:"deletedAtOpId"`
+		IsConstruction bool    `json:"isConstruction"`
+		Axis           string  `json:"axis"`
+		X              float64 `json:"x"`
+		Y              float64 `json:"y"`
+		Fixed          bool    `json:"fixed"`
+		StartPointID   string  `json:"startPointId"`
+		EndPointID     string  `json:"endPointId"`
+		CenterPointID  string  `json:"centerPointId"`
+		Radius         float64 `json:"radius"`
+		Clockwise      bool    `json:"clockwise"`
+		Branch         string  `json:"branch"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return nil, fmt.Errorf("decode entity: %w", err)
 	}
 	if data.DeletedAtOpID != nil {
+		return nil, errSkippedModelItem
+	}
+	if data.IsConstruction && data.Type == "line" && data.Axis != "" && data.StartPointID == "" && data.EndPointID == "" {
 		return nil, errSkippedModelItem
 	}
 

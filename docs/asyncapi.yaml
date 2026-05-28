@@ -1999,7 +1999,7 @@ components:
           type: boolean
         isConstruction:
           type: boolean
-          description: Marks created line, circle, or arc geometry as construction/reference geometry.
+          description: Marks created line, circle, arc, or default reference geometry as construction/reference geometry that can be referenced but is not materialized as regular sketch geometry.
           default: false
         endpoint:
           type: string

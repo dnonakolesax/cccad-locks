@@ -658,9 +658,10 @@ type pointRefOrNew struct {
 
 func applyCreateLine(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
 	var op struct {
-		EntityID string        `json:"entityId"`
-		Start    pointRefOrNew `json:"start"`
-		End      pointRefOrNew `json:"end"`
+		EntityID       string        `json:"entityId"`
+		Start          pointRefOrNew `json:"start"`
+		End            pointRefOrNew `json:"end"`
+		IsConstruction bool          `json:"isConstruction"`
 	}
 	if err := json.Unmarshal(raw, &op); err != nil {
 		return nil, affectedIDs{}, fmt.Errorf("decode create_line: %w", err)
@@ -696,10 +697,11 @@ func applyCreateLine(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, 
 	}
 
 	line := mustJSON(map[string]any{
-		"id":           op.EntityID,
-		"type":         "line",
-		"startPointId": startID,
-		"endPointId":   endID,
+		"id":             op.EntityID,
+		"type":           "line",
+		"startPointId":   startID,
+		"endPointId":     endID,
+		"isConstruction": op.IsConstruction,
 	})
 	graph.Entities[op.EntityID] = line
 	patch.Entities[op.EntityID] = line
@@ -709,9 +711,10 @@ func applyCreateLine(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, 
 
 func applyCreateCircle(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
 	var op struct {
-		EntityID string        `json:"entityId"`
-		Center   pointRefOrNew `json:"center"`
-		Radius   float64       `json:"radius"`
+		EntityID       string        `json:"entityId"`
+		Center         pointRefOrNew `json:"center"`
+		Radius         float64       `json:"radius"`
+		IsConstruction bool          `json:"isConstruction"`
 	}
 	if err := json.Unmarshal(raw, &op); err != nil {
 		return nil, affectedIDs{}, fmt.Errorf("decode create_circle: %w", err)
@@ -742,10 +745,11 @@ func applyCreateCircle(graph *graphState, raw easyjson.RawMessage) (*sketchPatch
 	}
 
 	circle := mustJSON(map[string]any{
-		"id":            op.EntityID,
-		"type":          "circle",
-		"centerPointId": centerID,
-		"radius":        op.Radius,
+		"id":             op.EntityID,
+		"type":           "circle",
+		"centerPointId":  centerID,
+		"radius":         op.Radius,
+		"isConstruction": op.IsConstruction,
 	})
 	graph.Entities[op.EntityID] = circle
 	patch.Entities[op.EntityID] = circle
@@ -755,12 +759,13 @@ func applyCreateCircle(graph *graphState, raw easyjson.RawMessage) (*sketchPatch
 
 func applyCreateArc(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
 	var op struct {
-		EntityID  string        `json:"entityId"`
-		Center    pointRefOrNew `json:"center"`
-		Start     pointRefOrNew `json:"start"`
-		End       pointRefOrNew `json:"end"`
-		Clockwise bool          `json:"clockwise"`
-		Branch    string        `json:"branch"`
+		EntityID       string        `json:"entityId"`
+		Center         pointRefOrNew `json:"center"`
+		Start          pointRefOrNew `json:"start"`
+		End            pointRefOrNew `json:"end"`
+		Clockwise      bool          `json:"clockwise"`
+		Branch         string        `json:"branch"`
+		IsConstruction bool          `json:"isConstruction"`
 	}
 	if err := json.Unmarshal(raw, &op); err != nil {
 		return nil, affectedIDs{}, fmt.Errorf("decode create_arc: %w", err)
@@ -808,13 +813,14 @@ func applyCreateArc(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, a
 	}
 
 	arc := mustJSON(map[string]any{
-		"id":            op.EntityID,
-		"type":          "arc",
-		"centerPointId": centerID,
-		"startPointId":  startID,
-		"endPointId":    endID,
-		"clockwise":     op.Clockwise,
-		"branch":        op.Branch,
+		"id":             op.EntityID,
+		"type":           "arc",
+		"centerPointId":  centerID,
+		"startPointId":   startID,
+		"endPointId":     endID,
+		"clockwise":      op.Clockwise,
+		"branch":         op.Branch,
+		"isConstruction": op.IsConstruction,
 	})
 	graph.Entities[op.EntityID] = arc
 	patch.Entities[op.EntityID] = arc
@@ -829,8 +835,9 @@ type vec2Op struct {
 
 func applyCreateRectangle(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
 	var op struct {
-		CornerA vec2Op `json:"cornerA"`
-		CornerB vec2Op `json:"cornerB"`
+		CornerA        vec2Op `json:"cornerA"`
+		CornerB        vec2Op `json:"cornerB"`
+		IsConstruction bool   `json:"isConstruction"`
 	}
 	if err := json.Unmarshal(raw, &op); err != nil {
 		return nil, affectedIDs{}, fmt.Errorf("decode create_rectangle: %w", err)
@@ -842,13 +849,14 @@ func applyCreateRectangle(graph *graphState, raw easyjson.RawMessage) (*sketchPa
 		op.CornerB,
 		{X: op.CornerA.X, Y: op.CornerB.Y},
 	}
-	return createPolylineEntities(graph, raw, points, true, "rectangle")
+	return createPolylineEntities(graph, raw, points, true, "rectangle", op.IsConstruction)
 }
 
 func applyCreatePolyline(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
 	var op struct {
-		Points []vec2Op `json:"points"`
-		Closed bool     `json:"closed"`
+		Points         []vec2Op `json:"points"`
+		Closed         bool     `json:"closed"`
+		IsConstruction bool     `json:"isConstruction"`
 	}
 	if err := json.Unmarshal(raw, &op); err != nil {
 		return nil, affectedIDs{}, fmt.Errorf("decode create_polyline: %w", err)
@@ -856,7 +864,7 @@ func applyCreatePolyline(graph *graphState, raw easyjson.RawMessage) (*sketchPat
 	if len(op.Points) < 2 {
 		return nil, affectedIDs{}, errors.New("points must contain at least 2 items")
 	}
-	return createPolylineEntities(graph, raw, op.Points, op.Closed, "polyline")
+	return createPolylineEntities(graph, raw, op.Points, op.Closed, "polyline", op.IsConstruction)
 }
 
 func createPolylineEntities(
@@ -865,6 +873,7 @@ func createPolylineEntities(
 	points []vec2Op,
 	closed bool,
 	prefix string,
+	isConstruction bool,
 ) (*sketchPatch, affectedIDs, error) {
 	patch := &sketchPatch{Entities: make(map[string]json.RawMessage)}
 	changed := make([]string, 0, len(points)*2)
@@ -895,10 +904,11 @@ func createPolylineEntities(
 			endIndex = 0
 		}
 		line := mustJSON(map[string]any{
-			"id":           id,
-			"type":         "line",
-			"startPointId": pointIDs[i],
-			"endPointId":   pointIDs[endIndex],
+			"id":             id,
+			"type":           "line",
+			"startPointId":   pointIDs[i],
+			"endPointId":     pointIDs[endIndex],
+			"isConstruction": isConstruction,
 		})
 		graph.Entities[id] = line
 		patch.Entities[id] = line

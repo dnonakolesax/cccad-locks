@@ -237,6 +237,40 @@ func TestServiceSubmitCreateLineCommitsGraphState(t *testing.T) {
 	}
 }
 
+func TestServiceSubmitCreateLineCanBeConstruction(t *testing.T) {
+	repo := &repositoryStub{}
+	service := NewServiceWithSolver(repo, &solverStub{})
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 0,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"create_line",
+			"entityId":"line-1",
+			"isConstruction":true,
+			"start":{"kind":"new_point","pointId":"point-1","x":0,"y":0},
+			"end":{"kind":"new_point","pointId":"point-2","x":1,"y":0}
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+
+	var graph struct {
+		Entities map[string]map[string]any `json:"entities"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	if graph.Entities["line-1"]["isConstruction"] != true {
+		t.Fatalf("line entity = %#v, want construction flag", graph.Entities["line-1"])
+	}
+}
+
 func TestServiceSubmitRejectsStaleVersion(t *testing.T) {
 	repo := &repositoryStub{
 		submitState: &model.SubmitState{

@@ -37,7 +37,28 @@ new_state AS (
         id,
         0,
         '{
-          "entities": {},
+          "entities": {
+            "zero-point": {
+              "id": "zero-point",
+              "type": "point",
+              "x": 0,
+              "y": 0,
+              "fixed": true,
+              "isConstruction": true
+            },
+            "x-axis": {
+              "id": "x-axis",
+              "type": "line",
+              "axis": "x",
+              "isConstruction": true
+            },
+            "y-axis": {
+              "id": "y-axis",
+              "type": "line",
+              "axis": "y",
+              "isConstruction": true
+            }
+          },
           "constraints": {},
           "dimensions": {},
           "groups": {}

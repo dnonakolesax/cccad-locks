@@ -84,6 +84,32 @@ func TestPreviewBuildsApplyIntentRequest(t *testing.T) {
 	}
 }
 
+func TestPreviewSkipsDefaultConstructionAxes(t *testing.T) {
+	document := testSketchDocument()
+	document.Entities["zero-point"] = easyjson.RawMessage(`{"id":"zero-point","type":"point","x":0,"y":0,"fixed":true,"isConstruction":true}`)
+	document.Entities["x-axis"] = easyjson.RawMessage(`{"id":"x-axis","type":"line","axis":"x","isConstruction":true}`)
+	document.Entities["y-axis"] = easyjson.RawMessage(`{"id":"y-axis","type":"line","axis":"y","isConstruction":true}`)
+	client := &clientStub{}
+	service := NewService(&sketchRepositoryStub{document: document}, client)
+
+	_, err := service.Preview(context.Background(), "sketch-id", &model.SolvePreviewRequest{
+		BaseVersion: 7,
+		Intent:      easyjson.RawMessage(`{"type":"move_point","pointId":"p1","target":{"x":3,"y":4}}`),
+	})
+	if err != nil {
+		t.Fatalf("Preview returned error: %v", err)
+	}
+	entities := client.applyIntentRequest.GetModel().GetEntities()
+	for _, entity := range entities {
+		if entity.GetId() == "x-axis" || entity.GetId() == "y-axis" {
+			t.Fatalf("solver model included default axis: %#v", entity)
+		}
+	}
+	if len(entities) != 3 {
+		t.Fatalf("entity count = %d, want 3 including zero-point", len(entities))
+	}
+}
+
 func TestPreviewBuildsApplyFilletIntentRequest(t *testing.T) {
 	client := &clientStub{}
 	service := NewService(&sketchRepositoryStub{document: testSketchDocument()}, client)
