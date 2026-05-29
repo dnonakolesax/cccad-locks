@@ -69,6 +69,7 @@ func (c *Client) Solve(ctx context.Context, req *solverv1.SolveRequest) (*solver
 	defer cancel()
 
 	resp, err := c.client.Solve(ctx, req)
+	c.logger.DebugContext(ctx, "about to debug solve")
 	if err == nil {
 		c.debugProtoResponse(ctx, "Solve", resp)
 	}
@@ -90,6 +91,7 @@ func (c *Client) ApplyIntent(
 	defer cancel()
 
 	resp, err := c.client.ApplyIntent(ctx, req)
+	c.logger.DebugContext(ctx, "about to debug apply intent")
 	if err == nil {
 		c.debugProtoResponse(ctx, "ApplyIntent", resp)
 	}
