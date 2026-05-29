@@ -305,7 +305,57 @@ func decodeGraphState(raw easyjson.RawMessage) (*graphState, error) {
 	if graph.Groups == nil {
 		graph.Groups = make(map[string]json.RawMessage)
 	}
+	repairDefaultConstructionEntities(graph)
 	return graph, nil
+}
+
+func repairDefaultConstructionEntities(graph *graphState) {
+	if graph == nil || graph.Entities == nil {
+		return
+	}
+	if _, ok := graph.Entities["x-axis"]; ok {
+		ensureDefaultConstructionEntity(graph, "x-axis-start", map[string]any{
+			"id":             "x-axis-start",
+			"type":           "point",
+			"x":              -9999,
+			"y":              0,
+			"fixed":          true,
+			"isConstruction": true,
+		})
+		ensureDefaultConstructionEntity(graph, "x-axis-end", map[string]any{
+			"id":             "x-axis-end",
+			"type":           "point",
+			"x":              9999,
+			"y":              0,
+			"fixed":          true,
+			"isConstruction": true,
+		})
+	}
+	if _, ok := graph.Entities["y-axis"]; ok {
+		ensureDefaultConstructionEntity(graph, "y-axis-start", map[string]any{
+			"id":             "y-axis-start",
+			"type":           "point",
+			"x":              0,
+			"y":              -9999,
+			"fixed":          true,
+			"isConstruction": true,
+		})
+		ensureDefaultConstructionEntity(graph, "y-axis-end", map[string]any{
+			"id":             "y-axis-end",
+			"type":           "point",
+			"x":              0,
+			"y":              9999,
+			"fixed":          true,
+			"isConstruction": true,
+		})
+	}
+}
+
+func ensureDefaultConstructionEntity(graph *graphState, id string, entity map[string]any) {
+	if _, ok := graph.Entities[id]; ok {
+		return
+	}
+	graph.Entities[id] = mustJSON(entity)
 }
 
 func applyOperation(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {

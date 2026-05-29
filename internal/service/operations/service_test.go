@@ -963,3 +963,24 @@ func TestApplySolverPatchIncludesProfiles(t *testing.T) {
 		t.Fatalf("profile = %#v, want profile-1 valid for extrude", profile)
 	}
 }
+
+func TestDecodeGraphStateRepairsDefaultAxisEndpoints(t *testing.T) {
+	graph, err := decodeGraphState(easyjson.RawMessage(`{
+		"entities":{
+			"x-axis":{"id":"x-axis","type":"line","startPointId":"x-axis-start","endPointId":"x-axis-end","isConstruction":true},
+			"y-axis":{"id":"y-axis","type":"line","startPointId":"y-axis-start","endPointId":"y-axis-end","isConstruction":true}
+		},
+		"constraints":{},
+		"dimensions":{},
+		"groups":{}
+	}`))
+	if err != nil {
+		t.Fatalf("decodeGraphState returned error: %v", err)
+	}
+
+	for _, id := range []string{"x-axis-start", "x-axis-end", "y-axis-start", "y-axis-end"} {
+		if _, ok := graph.Entities[id]; !ok {
+			t.Fatalf("missing repaired default construction entity %q", id)
+		}
+	}
+}
