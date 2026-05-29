@@ -326,6 +326,27 @@ func TestSolutionPatchIncludesSolvedLine(t *testing.T) {
 	}
 }
 
+func TestSolutionPatchIncludesProfiles(t *testing.T) {
+	patch, err := SolutionPatch(&solverv1.SketchSolution{
+		Profiles: []*solverv1.Profile{
+			{
+				Id:              "profile-1",
+				OuterLoop:       &solverv1.ProfileLoop{EntityIds: []string{"l1", "l2", "l3", "l4"}},
+				InnerLoops:      []*solverv1.ProfileLoop{{EntityIds: []string{"c1"}}},
+				Area:            42.5,
+				ValidForExtrude: true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SolutionPatch returned error: %v", err)
+	}
+	want := `{"entities":{},"profiles":[{"id":"profile-1","outerLoop":{"entityIds":["l1","l2","l3","l4"]},"innerLoops":[{"entityIds":["c1"]}],"area":42.5,"validForExtrude":true}]}`
+	if string(patch) != want {
+		t.Fatalf("patch = %s, want %s", patch, want)
+	}
+}
+
 func TestAnalyzeCallsSolverAnalyze(t *testing.T) {
 	client := &clientStub{}
 	service := NewService(&sketchRepositoryStub{document: testSketchDocument()}, client)

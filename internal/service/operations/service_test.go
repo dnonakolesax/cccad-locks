@@ -8,6 +8,7 @@ import (
 	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/model"
 	solverv1 "github.com/dnonakolesax/cccad-locks/internal/proto/solver/v1"
+	"github.com/mailru/easyjson"
 )
 
 type repositoryStub struct {
@@ -924,4 +925,41 @@ func containsAll(values []string, want ...string) bool {
 		}
 	}
 	return true
+}
+
+func TestApplySolverPatchIncludesProfiles(t *testing.T) {
+	graph := &graphState{
+		Entities:    map[string]json.RawMessage{},
+		Constraints: map[string]json.RawMessage{},
+		Dimensions:  map[string]json.RawMessage{},
+		Groups:      map[string]json.RawMessage{},
+	}
+
+	patch, _, err := applySolverPatch(graph, easyjson.RawMessage(`{
+		"entities":{},
+		"profiles":[
+			{
+				"id":"profile-1",
+				"outerLoop":{"entityIds":["l1","l2"]},
+				"area":12,
+				"validForExtrude":true
+			}
+		]
+	}`))
+	if err != nil {
+		t.Fatalf("applySolverPatch returned error: %v", err)
+	}
+	if len(patch.Profiles) != 1 {
+		t.Fatalf("profiles = %#v, want one profile", patch.Profiles)
+	}
+	var profile struct {
+		ID              string `json:"id"`
+		ValidForExtrude bool   `json:"validForExtrude"`
+	}
+	if err := json.Unmarshal(patch.Profiles[0], &profile); err != nil {
+		t.Fatalf("decode profile: %v", err)
+	}
+	if profile.ID != "profile-1" || !profile.ValidForExtrude {
+		t.Fatalf("profile = %#v, want profile-1 valid for extrude", profile)
+	}
 }

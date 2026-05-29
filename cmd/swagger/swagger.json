@@ -2779,6 +2779,12 @@
               "$ref": "#/components/schemas/SketchDimension"
             }
           },
+          "profiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Profile"
+            }
+          },
           "deletedEntityIds": {
             "type": "array",
             "items": {
@@ -2792,6 +2798,52 @@
             }
           },
           "deletedDimensionIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Profile": {
+        "type": "object",
+        "required": [
+          "id",
+          "outerLoop",
+          "area",
+          "validForExtrude"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "outerLoop": {
+            "$ref": "#/components/schemas/ProfileLoop"
+          },
+          "innerLoops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileLoop"
+            }
+          },
+          "area": {
+            "type": "number",
+            "format": "double"
+          },
+          "validForExtrude": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProfileLoop": {
+        "type": "object",
+        "required": [
+          "entityIds"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "entityIds": {
             "type": "array",
             "items": {
               "type": "string"

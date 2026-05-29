@@ -273,6 +273,7 @@ type sketchPatch struct {
 	Constraints          map[string]json.RawMessage `json:"constraints,omitempty"`
 	Dimensions           map[string]json.RawMessage `json:"dimensions,omitempty"`
 	MaterializedGeometry map[string]json.RawMessage `json:"materializedGeometry,omitempty"`
+	Profiles             []json.RawMessage          `json:"profiles,omitempty"`
 	DeletedEntityIDs     []string                   `json:"deletedEntityIds,omitempty"`
 	DeletedConstraintIDs []string                   `json:"deletedConstraintIds,omitempty"`
 	DeletedDimensionIDs  []string                   `json:"deletedDimensionIds,omitempty"`
@@ -492,6 +493,7 @@ func (s *Service) applySolverIntent(
 func applySolverPatch(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, []string, error) {
 	var patch struct {
 		Entities map[string]json.RawMessage `json:"entities"`
+		Profiles []json.RawMessage          `json:"profiles"`
 	}
 	if err := json.Unmarshal(raw, &patch); err != nil {
 		return nil, nil, fmt.Errorf("decode solver patch: %w", err)
@@ -515,6 +517,12 @@ func applySolverPatch(graph *graphState, raw easyjson.RawMessage) (*sketchPatch,
 	}
 	if len(result.MaterializedGeometry) == 0 {
 		result.MaterializedGeometry = nil
+	}
+	if len(patch.Profiles) > 0 {
+		result.Profiles = make([]json.RawMessage, 0, len(patch.Profiles))
+		for _, profile := range patch.Profiles {
+			result.Profiles = append(result.Profiles, append(json.RawMessage(nil), profile...))
+		}
 	}
 
 	return result, entityIDs, nil
@@ -580,6 +588,9 @@ func mergePatch(base *sketchPatch, next *sketchPatch) {
 	}
 	base.Dimensions = mergeRawMessageMaps(base.Dimensions, next.Dimensions)
 	base.MaterializedGeometry = mergeRawMessageMaps(base.MaterializedGeometry, next.MaterializedGeometry)
+	if len(next.Profiles) > 0 {
+		base.Profiles = append([]json.RawMessage(nil), next.Profiles...)
+	}
 	base.DeletedEntityIDs = mergeIDs(base.DeletedEntityIDs, next.DeletedEntityIDs)
 	base.DeletedConstraintIDs = mergeIDs(base.DeletedConstraintIDs, next.DeletedConstraintIDs)
 	base.DeletedDimensionIDs = mergeIDs(base.DeletedDimensionIDs, next.DeletedDimensionIDs)

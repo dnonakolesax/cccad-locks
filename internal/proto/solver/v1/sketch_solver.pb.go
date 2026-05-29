@@ -4024,6 +4024,7 @@ func (x *CircularPatternIntent) GetKeepConstraints() bool {
 type SketchSolution struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Entities      []*SolvedEntity        `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
+	Profiles      []*Profile             `protobuf:"bytes,2,rep,name=profiles,proto3" json:"profiles,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4065,6 +4066,133 @@ func (x *SketchSolution) GetEntities() []*SolvedEntity {
 	return nil
 }
 
+func (x *SketchSolution) GetProfiles() []*Profile {
+	if x != nil {
+		return x.Profiles
+	}
+	return nil
+}
+
+type Profile struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	OuterLoop       *ProfileLoop           `protobuf:"bytes,2,opt,name=outer_loop,json=outerLoop,proto3" json:"outer_loop,omitempty"`
+	InnerLoops      []*ProfileLoop         `protobuf:"bytes,3,rep,name=inner_loops,json=innerLoops,proto3" json:"inner_loops,omitempty"`
+	Area            float64                `protobuf:"fixed64,4,opt,name=area,proto3" json:"area,omitempty"`
+	ValidForExtrude bool                   `protobuf:"varint,5,opt,name=valid_for_extrude,json=validForExtrude,proto3" json:"valid_for_extrude,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *Profile) Reset() {
+	*x = Profile{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Profile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Profile) ProtoMessage() {}
+
+func (x *Profile) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Profile.ProtoReflect.Descriptor instead.
+func (*Profile) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *Profile) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Profile) GetOuterLoop() *ProfileLoop {
+	if x != nil {
+		return x.OuterLoop
+	}
+	return nil
+}
+
+func (x *Profile) GetInnerLoops() []*ProfileLoop {
+	if x != nil {
+		return x.InnerLoops
+	}
+	return nil
+}
+
+func (x *Profile) GetArea() float64 {
+	if x != nil {
+		return x.Area
+	}
+	return 0
+}
+
+func (x *Profile) GetValidForExtrude() bool {
+	if x != nil {
+		return x.ValidForExtrude
+	}
+	return false
+}
+
+type ProfileLoop struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EntityIds     []string               `protobuf:"bytes,1,rep,name=entity_ids,json=entityIds,proto3" json:"entity_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProfileLoop) Reset() {
+	*x = ProfileLoop{}
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProfileLoop) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProfileLoop) ProtoMessage() {}
+
+func (x *ProfileLoop) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProfileLoop.ProtoReflect.Descriptor instead.
+func (*ProfileLoop) Descriptor() ([]byte, []int) {
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *ProfileLoop) GetEntityIds() []string {
+	if x != nil {
+		return x.EntityIds
+	}
+	return nil
+}
+
 type SolvedEntity struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -4081,7 +4209,7 @@ type SolvedEntity struct {
 
 func (x *SolvedEntity) Reset() {
 	*x = SolvedEntity{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[48]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4093,7 +4221,7 @@ func (x *SolvedEntity) String() string {
 func (*SolvedEntity) ProtoMessage() {}
 
 func (x *SolvedEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[48]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4106,7 +4234,7 @@ func (x *SolvedEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedEntity.ProtoReflect.Descriptor instead.
 func (*SolvedEntity) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{48}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *SolvedEntity) GetId() string {
@@ -4197,7 +4325,7 @@ type SolvedPoint struct {
 
 func (x *SolvedPoint) Reset() {
 	*x = SolvedPoint{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[49]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4209,7 +4337,7 @@ func (x *SolvedPoint) String() string {
 func (*SolvedPoint) ProtoMessage() {}
 
 func (x *SolvedPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[49]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4222,7 +4350,7 @@ func (x *SolvedPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedPoint.ProtoReflect.Descriptor instead.
 func (*SolvedPoint) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{49}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *SolvedPoint) GetX() float64 {
@@ -4249,7 +4377,7 @@ type SolvedLine struct {
 
 func (x *SolvedLine) Reset() {
 	*x = SolvedLine{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[50]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4261,7 +4389,7 @@ func (x *SolvedLine) String() string {
 func (*SolvedLine) ProtoMessage() {}
 
 func (x *SolvedLine) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[50]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4274,7 +4402,7 @@ func (x *SolvedLine) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedLine.ProtoReflect.Descriptor instead.
 func (*SolvedLine) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{50}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *SolvedLine) GetStartPointId() string {
@@ -4301,7 +4429,7 @@ type SolvedCircle struct {
 
 func (x *SolvedCircle) Reset() {
 	*x = SolvedCircle{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[51]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4313,7 +4441,7 @@ func (x *SolvedCircle) String() string {
 func (*SolvedCircle) ProtoMessage() {}
 
 func (x *SolvedCircle) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[51]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4326,7 +4454,7 @@ func (x *SolvedCircle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedCircle.ProtoReflect.Descriptor instead.
 func (*SolvedCircle) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{51}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *SolvedCircle) GetCenterPointId() string {
@@ -4356,7 +4484,7 @@ type SolvedArc struct {
 
 func (x *SolvedArc) Reset() {
 	*x = SolvedArc{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[52]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4368,7 +4496,7 @@ func (x *SolvedArc) String() string {
 func (*SolvedArc) ProtoMessage() {}
 
 func (x *SolvedArc) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[52]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4381,7 +4509,7 @@ func (x *SolvedArc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolvedArc.ProtoReflect.Descriptor instead.
 func (*SolvedArc) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{52}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *SolvedArc) GetCenterPointId() string {
@@ -4429,7 +4557,7 @@ type Vec2 struct {
 
 func (x *Vec2) Reset() {
 	*x = Vec2{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[53]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4441,7 +4569,7 @@ func (x *Vec2) String() string {
 func (*Vec2) ProtoMessage() {}
 
 func (x *Vec2) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[53]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4454,7 +4582,7 @@ func (x *Vec2) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Vec2.ProtoReflect.Descriptor instead.
 func (*Vec2) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{53}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *Vec2) GetX() float64 {
@@ -4485,7 +4613,7 @@ type SolverOptions struct {
 
 func (x *SolverOptions) Reset() {
 	*x = SolverOptions{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[54]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4497,7 +4625,7 @@ func (x *SolverOptions) String() string {
 func (*SolverOptions) ProtoMessage() {}
 
 func (x *SolverOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[54]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4510,7 +4638,7 @@ func (x *SolverOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolverOptions.ProtoReflect.Descriptor instead.
 func (*SolverOptions) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{54}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *SolverOptions) GetTolerance() float64 {
@@ -4569,7 +4697,7 @@ type SolverDiagnostic struct {
 
 func (x *SolverDiagnostic) Reset() {
 	*x = SolverDiagnostic{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[55]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4581,7 +4709,7 @@ func (x *SolverDiagnostic) String() string {
 func (*SolverDiagnostic) ProtoMessage() {}
 
 func (x *SolverDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[55]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4594,7 +4722,7 @@ func (x *SolverDiagnostic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SolverDiagnostic.ProtoReflect.Descriptor instead.
 func (*SolverDiagnostic) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{55}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *SolverDiagnostic) GetLevel() SolverDiagnosticLevel {
@@ -4653,7 +4781,7 @@ type ConstraintComponent struct {
 
 func (x *ConstraintComponent) Reset() {
 	*x = ConstraintComponent{}
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[56]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4665,7 +4793,7 @@ func (x *ConstraintComponent) String() string {
 func (*ConstraintComponent) ProtoMessage() {}
 
 func (x *ConstraintComponent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[56]
+	mi := &file_proto_solver_v1_sketch_solver_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4678,7 +4806,7 @@ func (x *ConstraintComponent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConstraintComponent.ProtoReflect.Descriptor instead.
 func (*ConstraintComponent) Descriptor() ([]byte, []int) {
-	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{56}
+	return file_proto_solver_v1_sketch_solver_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ConstraintComponent) GetId() string {
@@ -5010,9 +5138,21 @@ const file_proto_solver_v1_sketch_solver_proto_rawDesc = "" +
 	"\x05count\x18\x05 \x01(\x05R\x05count\x12,\n" +
 	"\x12created_entity_ids\x18\x06 \x03(\tR\x10createdEntityIds\x12)\n" +
 	"\x10rotate_instances\x18\a \x01(\bR\x0frotateInstances\x12)\n" +
-	"\x10keep_constraints\x18\b \x01(\bR\x0fkeepConstraints\"K\n" +
+	"\x10keep_constraints\x18\b \x01(\bR\x0fkeepConstraints\"\x81\x01\n" +
 	"\x0eSketchSolution\x129\n" +
-	"\bentities\x18\x01 \x03(\v2\x1d.cccad.solver.v1.SolvedEntityR\bentities\"\xf8\x01\n" +
+	"\bentities\x18\x01 \x03(\v2\x1d.cccad.solver.v1.SolvedEntityR\bentities\x124\n" +
+	"\bprofiles\x18\x02 \x03(\v2\x18.cccad.solver.v1.ProfileR\bprofiles\"\xd5\x01\n" +
+	"\aProfile\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12;\n" +
+	"\n" +
+	"outer_loop\x18\x02 \x01(\v2\x1c.cccad.solver.v1.ProfileLoopR\touterLoop\x12=\n" +
+	"\vinner_loops\x18\x03 \x03(\v2\x1c.cccad.solver.v1.ProfileLoopR\n" +
+	"innerLoops\x12\x12\n" +
+	"\x04area\x18\x04 \x01(\x01R\x04area\x12*\n" +
+	"\x11valid_for_extrude\x18\x05 \x01(\bR\x0fvalidForExtrude\",\n" +
+	"\vProfileLoop\x12\x1d\n" +
+	"\n" +
+	"entity_ids\x18\x01 \x03(\tR\tentityIds\"\xf8\x01\n" +
 	"\fSolvedEntity\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x124\n" +
 	"\x05point\x18\n" +
@@ -5129,7 +5269,7 @@ func file_proto_solver_v1_sketch_solver_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_solver_v1_sketch_solver_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
-var file_proto_solver_v1_sketch_solver_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
+var file_proto_solver_v1_sketch_solver_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_proto_solver_v1_sketch_solver_proto_goTypes = []any{
 	(SolveStatus)(0),                 // 0: cccad.solver.v1.SolveStatus
 	(SolverDiagnosticLevel)(0),       // 1: cccad.solver.v1.SolverDiagnosticLevel
@@ -5188,37 +5328,39 @@ var file_proto_solver_v1_sketch_solver_proto_goTypes = []any{
 	(*LinearPatternIntent)(nil),      // 54: cccad.solver.v1.LinearPatternIntent
 	(*CircularPatternIntent)(nil),    // 55: cccad.solver.v1.CircularPatternIntent
 	(*SketchSolution)(nil),           // 56: cccad.solver.v1.SketchSolution
-	(*SolvedEntity)(nil),             // 57: cccad.solver.v1.SolvedEntity
-	(*SolvedPoint)(nil),              // 58: cccad.solver.v1.SolvedPoint
-	(*SolvedLine)(nil),               // 59: cccad.solver.v1.SolvedLine
-	(*SolvedCircle)(nil),             // 60: cccad.solver.v1.SolvedCircle
-	(*SolvedArc)(nil),                // 61: cccad.solver.v1.SolvedArc
-	(*Vec2)(nil),                     // 62: cccad.solver.v1.Vec2
-	(*SolverOptions)(nil),            // 63: cccad.solver.v1.SolverOptions
-	(*SolverDiagnostic)(nil),         // 64: cccad.solver.v1.SolverDiagnostic
-	(*ConstraintComponent)(nil),      // 65: cccad.solver.v1.ConstraintComponent
+	(*Profile)(nil),                  // 57: cccad.solver.v1.Profile
+	(*ProfileLoop)(nil),              // 58: cccad.solver.v1.ProfileLoop
+	(*SolvedEntity)(nil),             // 59: cccad.solver.v1.SolvedEntity
+	(*SolvedPoint)(nil),              // 60: cccad.solver.v1.SolvedPoint
+	(*SolvedLine)(nil),               // 61: cccad.solver.v1.SolvedLine
+	(*SolvedCircle)(nil),             // 62: cccad.solver.v1.SolvedCircle
+	(*SolvedArc)(nil),                // 63: cccad.solver.v1.SolvedArc
+	(*Vec2)(nil),                     // 64: cccad.solver.v1.Vec2
+	(*SolverOptions)(nil),            // 65: cccad.solver.v1.SolverOptions
+	(*SolverDiagnostic)(nil),         // 66: cccad.solver.v1.SolverDiagnostic
+	(*ConstraintComponent)(nil),      // 67: cccad.solver.v1.ConstraintComponent
 }
 var file_proto_solver_v1_sketch_solver_proto_depIdxs = []int32{
 	17, // 0: cccad.solver.v1.SolveRequest.model:type_name -> cccad.solver.v1.SketchModel
-	63, // 1: cccad.solver.v1.SolveRequest.options:type_name -> cccad.solver.v1.SolverOptions
+	65, // 1: cccad.solver.v1.SolveRequest.options:type_name -> cccad.solver.v1.SolverOptions
 	0,  // 2: cccad.solver.v1.SolveResponse.status:type_name -> cccad.solver.v1.SolveStatus
 	56, // 3: cccad.solver.v1.SolveResponse.solution:type_name -> cccad.solver.v1.SketchSolution
-	64, // 4: cccad.solver.v1.SolveResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
+	66, // 4: cccad.solver.v1.SolveResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
 	17, // 5: cccad.solver.v1.CheckRequest.model:type_name -> cccad.solver.v1.SketchModel
-	63, // 6: cccad.solver.v1.CheckRequest.options:type_name -> cccad.solver.v1.SolverOptions
+	65, // 6: cccad.solver.v1.CheckRequest.options:type_name -> cccad.solver.v1.SolverOptions
 	0,  // 7: cccad.solver.v1.CheckResponse.status:type_name -> cccad.solver.v1.SolveStatus
-	64, // 8: cccad.solver.v1.CheckResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
+	66, // 8: cccad.solver.v1.CheckResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
 	17, // 9: cccad.solver.v1.ApplyIntentRequest.model:type_name -> cccad.solver.v1.SketchModel
 	40, // 10: cccad.solver.v1.ApplyIntentRequest.intent:type_name -> cccad.solver.v1.UserIntent
-	63, // 11: cccad.solver.v1.ApplyIntentRequest.options:type_name -> cccad.solver.v1.SolverOptions
+	65, // 11: cccad.solver.v1.ApplyIntentRequest.options:type_name -> cccad.solver.v1.SolverOptions
 	0,  // 12: cccad.solver.v1.ApplyIntentResponse.status:type_name -> cccad.solver.v1.SolveStatus
 	56, // 13: cccad.solver.v1.ApplyIntentResponse.solution:type_name -> cccad.solver.v1.SketchSolution
-	64, // 14: cccad.solver.v1.ApplyIntentResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
+	66, // 14: cccad.solver.v1.ApplyIntentResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
 	17, // 15: cccad.solver.v1.AnalyzeRequest.model:type_name -> cccad.solver.v1.SketchModel
-	63, // 16: cccad.solver.v1.AnalyzeRequest.options:type_name -> cccad.solver.v1.SolverOptions
+	65, // 16: cccad.solver.v1.AnalyzeRequest.options:type_name -> cccad.solver.v1.SolverOptions
 	0,  // 17: cccad.solver.v1.AnalyzeResponse.status:type_name -> cccad.solver.v1.SolveStatus
-	65, // 18: cccad.solver.v1.AnalyzeResponse.components:type_name -> cccad.solver.v1.ConstraintComponent
-	64, // 19: cccad.solver.v1.AnalyzeResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
+	67, // 18: cccad.solver.v1.AnalyzeResponse.components:type_name -> cccad.solver.v1.ConstraintComponent
+	66, // 19: cccad.solver.v1.AnalyzeResponse.diagnostics:type_name -> cccad.solver.v1.SolverDiagnostic
 	18, // 20: cccad.solver.v1.SketchModel.entities:type_name -> cccad.solver.v1.Entity
 	23, // 21: cccad.solver.v1.SketchModel.constraints:type_name -> cccad.solver.v1.Constraint
 	34, // 22: cccad.solver.v1.SketchModel.dimensions:type_name -> cccad.solver.v1.Dimension
@@ -5264,35 +5406,38 @@ var file_proto_solver_v1_sketch_solver_proto_depIdxs = []int32{
 	53, // 62: cccad.solver.v1.UserIntent.mirror_entities:type_name -> cccad.solver.v1.MirrorEntitiesIntent
 	54, // 63: cccad.solver.v1.UserIntent.linear_pattern:type_name -> cccad.solver.v1.LinearPatternIntent
 	55, // 64: cccad.solver.v1.UserIntent.circular_pattern:type_name -> cccad.solver.v1.CircularPatternIntent
-	62, // 65: cccad.solver.v1.MovePointIntent.target:type_name -> cccad.solver.v1.Vec2
-	62, // 66: cccad.solver.v1.MoveEntityIntent.delta:type_name -> cccad.solver.v1.Vec2
+	64, // 65: cccad.solver.v1.MovePointIntent.target:type_name -> cccad.solver.v1.Vec2
+	64, // 66: cccad.solver.v1.MoveEntityIntent.delta:type_name -> cccad.solver.v1.Vec2
 	23, // 67: cccad.solver.v1.AddConstraintIntent.constraint:type_name -> cccad.solver.v1.Constraint
-	62, // 68: cccad.solver.v1.SplitEntityIntent.pick_point:type_name -> cccad.solver.v1.Vec2
-	62, // 69: cccad.solver.v1.BreakEntityAtPointIntent.pick_point:type_name -> cccad.solver.v1.Vec2
-	62, // 70: cccad.solver.v1.TrimEntityIntent.pick_point:type_name -> cccad.solver.v1.Vec2
-	62, // 71: cccad.solver.v1.ExtendEntityIntent.target:type_name -> cccad.solver.v1.Vec2
-	62, // 72: cccad.solver.v1.LinearPatternIntent.direction:type_name -> cccad.solver.v1.Vec2
-	57, // 73: cccad.solver.v1.SketchSolution.entities:type_name -> cccad.solver.v1.SolvedEntity
-	58, // 74: cccad.solver.v1.SolvedEntity.point:type_name -> cccad.solver.v1.SolvedPoint
-	60, // 75: cccad.solver.v1.SolvedEntity.circle:type_name -> cccad.solver.v1.SolvedCircle
-	61, // 76: cccad.solver.v1.SolvedEntity.arc:type_name -> cccad.solver.v1.SolvedArc
-	59, // 77: cccad.solver.v1.SolvedEntity.line:type_name -> cccad.solver.v1.SolvedLine
-	4,  // 78: cccad.solver.v1.SolvedArc.branch:type_name -> cccad.solver.v1.ArcBranch
-	1,  // 79: cccad.solver.v1.SolverDiagnostic.level:type_name -> cccad.solver.v1.SolverDiagnosticLevel
-	0,  // 80: cccad.solver.v1.ConstraintComponent.status:type_name -> cccad.solver.v1.SolveStatus
-	9,  // 81: cccad.solver.v1.SketchSolver.Solve:input_type -> cccad.solver.v1.SolveRequest
-	11, // 82: cccad.solver.v1.SketchSolver.Check:input_type -> cccad.solver.v1.CheckRequest
-	13, // 83: cccad.solver.v1.SketchSolver.ApplyIntent:input_type -> cccad.solver.v1.ApplyIntentRequest
-	15, // 84: cccad.solver.v1.SketchSolver.Analyze:input_type -> cccad.solver.v1.AnalyzeRequest
-	10, // 85: cccad.solver.v1.SketchSolver.Solve:output_type -> cccad.solver.v1.SolveResponse
-	12, // 86: cccad.solver.v1.SketchSolver.Check:output_type -> cccad.solver.v1.CheckResponse
-	14, // 87: cccad.solver.v1.SketchSolver.ApplyIntent:output_type -> cccad.solver.v1.ApplyIntentResponse
-	16, // 88: cccad.solver.v1.SketchSolver.Analyze:output_type -> cccad.solver.v1.AnalyzeResponse
-	85, // [85:89] is the sub-list for method output_type
-	81, // [81:85] is the sub-list for method input_type
-	81, // [81:81] is the sub-list for extension type_name
-	81, // [81:81] is the sub-list for extension extendee
-	0,  // [0:81] is the sub-list for field type_name
+	64, // 68: cccad.solver.v1.SplitEntityIntent.pick_point:type_name -> cccad.solver.v1.Vec2
+	64, // 69: cccad.solver.v1.BreakEntityAtPointIntent.pick_point:type_name -> cccad.solver.v1.Vec2
+	64, // 70: cccad.solver.v1.TrimEntityIntent.pick_point:type_name -> cccad.solver.v1.Vec2
+	64, // 71: cccad.solver.v1.ExtendEntityIntent.target:type_name -> cccad.solver.v1.Vec2
+	64, // 72: cccad.solver.v1.LinearPatternIntent.direction:type_name -> cccad.solver.v1.Vec2
+	59, // 73: cccad.solver.v1.SketchSolution.entities:type_name -> cccad.solver.v1.SolvedEntity
+	57, // 74: cccad.solver.v1.SketchSolution.profiles:type_name -> cccad.solver.v1.Profile
+	58, // 75: cccad.solver.v1.Profile.outer_loop:type_name -> cccad.solver.v1.ProfileLoop
+	58, // 76: cccad.solver.v1.Profile.inner_loops:type_name -> cccad.solver.v1.ProfileLoop
+	60, // 77: cccad.solver.v1.SolvedEntity.point:type_name -> cccad.solver.v1.SolvedPoint
+	62, // 78: cccad.solver.v1.SolvedEntity.circle:type_name -> cccad.solver.v1.SolvedCircle
+	63, // 79: cccad.solver.v1.SolvedEntity.arc:type_name -> cccad.solver.v1.SolvedArc
+	61, // 80: cccad.solver.v1.SolvedEntity.line:type_name -> cccad.solver.v1.SolvedLine
+	4,  // 81: cccad.solver.v1.SolvedArc.branch:type_name -> cccad.solver.v1.ArcBranch
+	1,  // 82: cccad.solver.v1.SolverDiagnostic.level:type_name -> cccad.solver.v1.SolverDiagnosticLevel
+	0,  // 83: cccad.solver.v1.ConstraintComponent.status:type_name -> cccad.solver.v1.SolveStatus
+	9,  // 84: cccad.solver.v1.SketchSolver.Solve:input_type -> cccad.solver.v1.SolveRequest
+	11, // 85: cccad.solver.v1.SketchSolver.Check:input_type -> cccad.solver.v1.CheckRequest
+	13, // 86: cccad.solver.v1.SketchSolver.ApplyIntent:input_type -> cccad.solver.v1.ApplyIntentRequest
+	15, // 87: cccad.solver.v1.SketchSolver.Analyze:input_type -> cccad.solver.v1.AnalyzeRequest
+	10, // 88: cccad.solver.v1.SketchSolver.Solve:output_type -> cccad.solver.v1.SolveResponse
+	12, // 89: cccad.solver.v1.SketchSolver.Check:output_type -> cccad.solver.v1.CheckResponse
+	14, // 90: cccad.solver.v1.SketchSolver.ApplyIntent:output_type -> cccad.solver.v1.ApplyIntentResponse
+	16, // 91: cccad.solver.v1.SketchSolver.Analyze:output_type -> cccad.solver.v1.AnalyzeResponse
+	88, // [88:92] is the sub-list for method output_type
+	84, // [84:88] is the sub-list for method input_type
+	84, // [84:84] is the sub-list for extension type_name
+	84, // [84:84] is the sub-list for extension extendee
+	0,  // [0:84] is the sub-list for field type_name
 }
 
 func init() { file_proto_solver_v1_sketch_solver_proto_init() }
@@ -5341,7 +5486,7 @@ func file_proto_solver_v1_sketch_solver_proto_init() {
 		(*UserIntent_LinearPattern)(nil),
 		(*UserIntent_CircularPattern)(nil),
 	}
-	file_proto_solver_v1_sketch_solver_proto_msgTypes[48].OneofWrappers = []any{
+	file_proto_solver_v1_sketch_solver_proto_msgTypes[50].OneofWrappers = []any{
 		(*SolvedEntity_Point)(nil),
 		(*SolvedEntity_Circle)(nil),
 		(*SolvedEntity_Arc)(nil),
@@ -5353,7 +5498,7 @@ func file_proto_solver_v1_sketch_solver_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_solver_v1_sketch_solver_proto_rawDesc), len(file_proto_solver_v1_sketch_solver_proto_rawDesc)),
 			NumEnums:      9,
-			NumMessages:   57,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

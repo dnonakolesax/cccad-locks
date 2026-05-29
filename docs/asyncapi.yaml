@@ -553,6 +553,17 @@ components:
                   end:
                     x: 130.0
                     y: 0.0
+              profiles:
+              - id: profile_1
+                outerLoop:
+                  entityIds:
+                  - l1
+                  - l2
+                  - l3
+                  - l4
+                innerLoops: []
+                area: 5200.0
+                validForExtrude: true
             solveStatus:
               status: under_constrained
               degreesOfFreedom: 3
@@ -2199,6 +2210,11 @@ components:
           type: object
           description: Optional solver-produced render/geometry cache for affected entities, keyed by entity id.
           additionalProperties: true
+        profiles:
+          type: array
+          description: Solver-detected closed sketch profiles available to frontend tools such as extrusion selection.
+          items:
+            $ref: '#/components/schemas/Profile'
         deletedEntityIds:
           type: array
           items:
@@ -2208,6 +2224,36 @@ components:
           items:
             type: string
         deletedDimensionIds:
+          type: array
+          items:
+            type: string
+    Profile:
+      type: object
+      required:
+      - id
+      - outerLoop
+      - area
+      - validForExtrude
+      properties:
+        id:
+          type: string
+        outerLoop:
+          $ref: '#/components/schemas/ProfileLoop'
+        innerLoops:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileLoop'
+        area:
+          type: number
+          format: double
+        validForExtrude:
+          type: boolean
+    ProfileLoop:
+      type: object
+      required:
+      - entityIds
+      properties:
+        entityIds:
           type: array
           items:
             type: string

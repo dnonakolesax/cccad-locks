@@ -653,6 +653,18 @@ func defaultSolverOptions() *solverv1.SolverOptions {
 	}
 }
 
+type solverPatchProfileLoop struct {
+	EntityIDs []string `json:"entityIds"`
+}
+
+type solverPatchProfile struct {
+	ID              string                   `json:"id"`
+	OuterLoop       solverPatchProfileLoop   `json:"outerLoop"`
+	InnerLoops      []solverPatchProfileLoop `json:"innerLoops,omitempty"`
+	Area            float64                  `json:"area"`
+	ValidForExtrude bool                     `json:"validForExtrude"`
+}
+
 func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, error) {
 	type patchEntity struct {
 		ID            string  `json:"id"`
@@ -668,6 +680,7 @@ func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, erro
 	}
 	patch := struct {
 		Entities map[string]patchEntity `json:"entities"`
+		Profiles []solverPatchProfile   `json:"profiles,omitempty"`
 	}{
 		Entities: make(map[string]patchEntity),
 	}
@@ -708,6 +721,16 @@ func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, erro
 		}
 	}
 
+	for _, profile := range solution.GetProfiles() {
+		patch.Profiles = append(patch.Profiles, solverPatchProfile{
+			ID:              profile.GetId(),
+			OuterLoop:       profileLoop(profile.GetOuterLoop()),
+			InnerLoops:      profileLoops(profile.GetInnerLoops()),
+			Area:            profile.GetArea(),
+			ValidForExtrude: profile.GetValidForExtrude(),
+		})
+	}
+
 	body, err := json.Marshal(patch)
 	if err != nil {
 		return nil, fmt.Errorf("encode solver patch: %w", err)
@@ -718,6 +741,24 @@ func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, erro
 
 func SolutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, error) {
 	return solutionPatch(solution)
+}
+
+func profileLoop(loop *solverv1.ProfileLoop) solverPatchProfileLoop {
+	entityIDs := append([]string(nil), loop.GetEntityIds()...)
+	if entityIDs == nil {
+		entityIDs = []string{}
+	}
+	return solverPatchProfileLoop{
+		EntityIDs: entityIDs,
+	}
+}
+
+func profileLoops(loops []*solverv1.ProfileLoop) []solverPatchProfileLoop {
+	result := make([]solverPatchProfileLoop, 0, len(loops))
+	for _, loop := range loops {
+		result = append(result, profileLoop(loop))
+	}
+	return result
 }
 
 func solveStatusInfo(status solverv1.SolveStatus, degreesOfFreedom int32) model.SolveStatusInfo {
