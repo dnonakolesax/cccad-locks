@@ -12,6 +12,8 @@ import (
 	solverv1 "github.com/dnonakolesax/cccad-locks/internal/proto/solver/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 type Client struct {
@@ -66,7 +68,11 @@ func (c *Client) Solve(ctx context.Context, req *solverv1.SolveRequest) (*solver
 	ctx, cancel := c.contextWithTimeout(ctx)
 	defer cancel()
 
-	return c.client.Solve(ctx, req)
+	resp, err := c.client.Solve(ctx, req)
+	if err == nil {
+		c.debugProtoResponse(ctx, "Solve", resp)
+	}
+	return resp, err
 }
 
 func (c *Client) Check(ctx context.Context, req *solverv1.CheckRequest) (*solverv1.CheckResponse, error) {
@@ -83,7 +89,11 @@ func (c *Client) ApplyIntent(
 	ctx, cancel := c.contextWithTimeout(ctx)
 	defer cancel()
 
-	return c.client.ApplyIntent(ctx, req)
+	resp, err := c.client.ApplyIntent(ctx, req)
+	if err == nil {
+		c.debugProtoResponse(ctx, "ApplyIntent", resp)
+	}
+	return resp, err
 }
 
 func (c *Client) Analyze(ctx context.Context, req *solverv1.AnalyzeRequest) (*solverv1.AnalyzeResponse, error) {
@@ -110,4 +120,25 @@ func (c *Client) contextWithTimeout(ctx context.Context) (context.Context, conte
 	}
 
 	return context.WithTimeout(ctx, c.requestTimeout)
+}
+
+func (c *Client) debugProtoResponse(ctx context.Context, method string, resp proto.Message) {
+	if c.logger == nil || !c.logger.Enabled(ctx, slog.LevelDebug) {
+		return
+	}
+
+	body, err := protojson.MarshalOptions{
+		UseProtoNames:   true,
+		EmitUnpopulated: false,
+	}.Marshal(resp)
+	if err != nil {
+		c.logger.DebugContext(ctx, "Solver protobuf response marshal failed",
+			slog.String("method", method),
+			slog.String("error", err.Error()))
+		return
+	}
+
+	c.logger.DebugContext(ctx, "Solver protobuf response",
+		slog.String("method", method),
+		slog.String("response", string(body)))
 }
