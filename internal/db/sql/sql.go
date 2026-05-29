@@ -198,7 +198,7 @@ func (pw *PGXWorker) Exec(ctx context.Context, sql string, args ...interface{}) 
 	timeCtx, cancel := context.WithTimeout(ctx, pw.Conn.requestTimeout)
 	defer cancel()
 
-	pw.Conn.logger.DebugContext(ctx, "executing sql", slog.String(sqlLoggerKey, sql))
+	// pw.Conn.logger.DebugContext(ctx, "executing sql", slog.String(sqlLoggerKey, sql))
 	if pw.ConnUpdating.Load() {
 		for pw.ConnUpdating.Load() {
 		}
@@ -220,14 +220,14 @@ func (pw *PGXWorker) Exec(ctx context.Context, sql string, args ...interface{}) 
 		}
 		return rdbErr
 	}
-	pw.Conn.logger.DebugContext(ctx, "done executing sql", slog.String(sqlLoggerKey, sql))
+	// pw.Conn.logger.DebugContext(ctx, "done executing sql", slog.String(sqlLoggerKey, sql))
 
 	return nil
 }
 
 func (pw *PGXWorker) Query(ctx context.Context, sql string, args ...interface{}) (*PGXResponse, error) {
 	timeCtx, cancel := context.WithTimeout(ctx, pw.Conn.requestTimeout)
-	pw.Conn.logger.DebugContext(ctx, "executing sql", slog.String(sqlLoggerKey, sql))
+	// pw.Conn.logger.DebugContext(ctx, "executing sql", slog.String(sqlLoggerKey, sql))
 	if pw.ConnUpdating.Load() {
 		for pw.ConnUpdating.Load() {
 		}
@@ -250,7 +250,7 @@ func (pw *PGXWorker) Query(ctx context.Context, sql string, args ...interface{})
 		}
 		return nil, rdbErr
 	}
-	pw.Conn.logger.DebugContext(ctx, "done executing sql", slog.String(sqlLoggerKey, sql))
+	// pw.Conn.logger.DebugContext(ctx, "done executing sql", slog.String(sqlLoggerKey, sql))
 
 	return &PGXResponse{rows: result, cancel: cancel}, nil
 }
