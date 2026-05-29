@@ -68,11 +68,13 @@ func (c *Client) Solve(ctx context.Context, req *solverv1.SolveRequest) (*solver
 	ctx, cancel := c.contextWithTimeout(ctx)
 	defer cancel()
 
+	c.debugProtoRequest(ctx, "Solve", req)
 	resp, err := c.client.Solve(ctx, req)
-	c.logger.DebugContext(ctx, "about to debug solve")
-	if err == nil {
-		c.debugProtoResponse(ctx, "Solve", resp)
+	if err != nil {
+		c.debugProtoError(ctx, "Solve", err)
+		return resp, err
 	}
+	c.debugSolveResponse(ctx, resp)
 	return resp, err
 }
 
@@ -90,11 +92,13 @@ func (c *Client) ApplyIntent(
 	ctx, cancel := c.contextWithTimeout(ctx)
 	defer cancel()
 
+	c.debugProtoRequest(ctx, "ApplyIntent", req)
 	resp, err := c.client.ApplyIntent(ctx, req)
-	c.logger.DebugContext(ctx, "about to debug apply intent")
-	if err == nil {
-		c.debugProtoResponse(ctx, "ApplyIntent", resp)
+	if err != nil {
+		c.debugProtoError(ctx, "ApplyIntent", err)
+		return resp, err
 	}
+	c.debugApplyIntentResponse(ctx, resp)
 	return resp, err
 }
 
@@ -124,7 +128,35 @@ func (c *Client) contextWithTimeout(ctx context.Context) (context.Context, conte
 	return context.WithTimeout(ctx, c.requestTimeout)
 }
 
-func (c *Client) debugProtoResponse(ctx context.Context, method string, resp proto.Message) {
+func (c *Client) debugProtoRequest(ctx context.Context, method string, req proto.Message) {
+	if c.logger == nil || !c.logger.Enabled(ctx, slog.LevelDebug) {
+		return
+	}
+
+	c.logger.DebugContext(ctx, "Solver protobuf request",
+		slog.String("method", method),
+		slog.String("summary", protoSummary(req)))
+}
+
+func (c *Client) debugProtoError(ctx context.Context, method string, err error) {
+	if c.logger == nil || !c.logger.Enabled(ctx, slog.LevelDebug) {
+		return
+	}
+
+	c.logger.DebugContext(ctx, "Solver protobuf response error",
+		slog.String("method", method),
+		slog.String("error", err.Error()))
+}
+
+func (c *Client) debugSolveResponse(ctx context.Context, resp *solverv1.SolveResponse) {
+	c.debugProtoResponse(ctx, "Solve", resp, solveResponseAttrs(resp)...)
+}
+
+func (c *Client) debugApplyIntentResponse(ctx context.Context, resp *solverv1.ApplyIntentResponse) {
+	c.debugProtoResponse(ctx, "ApplyIntent", resp, applyIntentResponseAttrs(resp)...)
+}
+
+func (c *Client) debugProtoResponse(ctx context.Context, method string, resp proto.Message, attrs ...slog.Attr) {
 	if c.logger == nil || !c.logger.Enabled(ctx, slog.LevelDebug) {
 		return
 	}
@@ -140,7 +172,46 @@ func (c *Client) debugProtoResponse(ctx context.Context, method string, resp pro
 		return
 	}
 
-	c.logger.DebugContext(ctx, "Solver protobuf response",
-		slog.String("method", method),
-		slog.String("response", string(body)))
+	c.logger.LogAttrs(ctx, slog.LevelDebug, "Solver protobuf response",
+		append([]slog.Attr{
+			slog.String("method", method),
+			slog.String("summary", protoSummary(resp)),
+			slog.String("response", string(body)),
+		}, attrs...)...)
+}
+
+func protoSummary(msg proto.Message) string {
+	if msg == nil {
+		return "<nil>"
+	}
+	return string(msg.ProtoReflect().Descriptor().FullName())
+}
+
+func solveResponseAttrs(resp *solverv1.SolveResponse) []slog.Attr {
+	if resp == nil {
+		return nil
+	}
+	solution := resp.GetSolution()
+	return []slog.Attr{
+		slog.String("status", resp.GetStatus().String()),
+		slog.Int("degrees_of_freedom", int(resp.GetDegreesOfFreedom())),
+		slog.Int("entity_count", len(solution.GetEntities())),
+		slog.Int("profile_count", len(solution.GetProfiles())),
+		slog.Int("diagnostic_count", len(resp.GetDiagnostics())),
+	}
+}
+
+func applyIntentResponseAttrs(resp *solverv1.ApplyIntentResponse) []slog.Attr {
+	if resp == nil {
+		return nil
+	}
+	solution := resp.GetSolution()
+	return []slog.Attr{
+		slog.String("status", resp.GetStatus().String()),
+		slog.Int("degrees_of_freedom", int(resp.GetDegreesOfFreedom())),
+		slog.Int("entity_count", len(solution.GetEntities())),
+		slog.Int("profile_count", len(solution.GetProfiles())),
+		slog.Int("affected_entity_count", len(resp.GetAffectedEntityIds())),
+		slog.Int("diagnostic_count", len(resp.GetDiagnostics())),
+	}
 }
