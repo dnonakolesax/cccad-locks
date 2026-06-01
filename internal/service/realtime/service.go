@@ -576,6 +576,14 @@ func (c *Connection) handlePresence(msg model.ClientRealtimeMessage) error {
 	if err != nil {
 		return err
 	}
+	if actorUserID := strings.TrimSpace(stringValue(payload["actorUserId"])); actorUserID != "" && actorUserID != c.userID {
+		return errors.New("actorUserId must match authenticated user")
+	}
+	if userID := strings.TrimSpace(stringValue(payload["userId"])); userID != "" && userID != c.userID {
+		return errors.New("userId must match authenticated user")
+	}
+	payload["actorUserId"] = c.userID
+	payload["actorUserName"] = c.displayName
 	payload["userId"] = c.userID
 	payload["userName"] = c.displayName
 	payload["clientId"] = c.clientID
@@ -1462,11 +1470,32 @@ func presencePayload(messageType string, raw json.RawMessage) (map[string]any, e
 }
 
 func validateCursorPresence(payload map[string]any) error {
-	if _, ok := numericValue(payload["x"]); !ok {
-		return errors.New("presence.cursor requires numeric x")
-	}
-	if _, ok := numericValue(payload["y"]); !ok {
-		return errors.New("presence.cursor requires numeric y")
+	cursorWorld, hasCursorWorld := payload["cursorWorld"].(map[string]any)
+	if hasCursorWorld && cursorWorld != nil {
+		x, xOK := numericValue(cursorWorld["x"])
+		y, yOK := numericValue(cursorWorld["y"])
+		if !xOK {
+			return errors.New("presence.cursor cursorWorld requires numeric x")
+		}
+		if !yOK {
+			return errors.New("presence.cursor cursorWorld requires numeric y")
+		}
+		if _, hasX := payload["x"]; !hasX {
+			payload["x"] = x
+		}
+		if _, hasY := payload["y"]; !hasY {
+			payload["y"] = y
+		}
+	} else {
+		x, xOK := numericValue(payload["x"])
+		y, yOK := numericValue(payload["y"])
+		if !xOK {
+			return errors.New("presence.cursor requires cursorWorld or numeric x")
+		}
+		if !yOK {
+			return errors.New("presence.cursor requires cursorWorld or numeric y")
+		}
+		payload["cursorWorld"] = map[string]any{"x": x, "y": y}
 	}
 
 	viewport, ok := payload["viewport"].(map[string]any)

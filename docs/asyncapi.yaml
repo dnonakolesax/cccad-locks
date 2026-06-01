@@ -364,6 +364,8 @@ components:
     PresenceCursor:
       name: presence.cursor
       title: Cursor presence
+      summary: Transient mouse cursor position broadcast so collaborators can render another user's cursor and display name in
+        the sketch canvas.
       payload:
         $ref: '#/components/schemas/PresenceCursorMessage'
     PresenceSelection:
@@ -1052,23 +1054,46 @@ components:
     PresenceCursorPayload:
       type: object
       required:
-      - x
-      - y
+      - actorUserId
+      - clientId
+      - cursorWorld
       properties:
+        actorUserId:
+          type: string
+          description: Authenticated user id that owns the moving cursor.
+        actorUserName:
+          type: string
+          description: Display/login name to render near the cursor when available.
         userId:
           type: string
+          deprecated: true
+          description: Legacy alias for actorUserId.
         userName:
           type: string
+          deprecated: true
+          description: Legacy alias for actorUserName.
         clientId:
           type: string
+          description: Browser tab/session id. Consumers use it to ignore their own cursor and de-duplicate multiple sessions.
+        cursorWorld:
+          $ref: '#/components/schemas/Vec2'
         x:
           type: number
           format: double
+          deprecated: true
+          description: Legacy world X coordinate. Prefer cursorWorld.x.
         y:
           type: number
           format: double
+          deprecated: true
+          description: Legacy world Y coordinate. Prefer cursorWorld.y.
         viewport:
           $ref: '#/components/schemas/Viewport'
+        ttlMs:
+          type: integer
+          minimum: 100
+          default: 3000
+          description: Client-side expiry for hiding stale cursors if no newer mouse move arrives.
     Viewport:
       type: object
       required:

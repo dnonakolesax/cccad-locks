@@ -300,10 +300,70 @@ func TestPresenceCursorBroadcastsToOtherJoinedClients(t *testing.T) {
 	}
 	var payload map[string]any
 	decodePayload(t, msg, &payload)
-	if payload["userId"] != "user-1" || payload["clientId"] != "client-1" || payload["x"] != 12.5 {
-		t.Fatalf("presence payload = %#v, want user-1/client-1 x=12.5", payload)
+	cursorWorld, _ := payload["cursorWorld"].(map[string]any)
+	if payload["actorUserId"] != "user-1" ||
+		payload["userId"] != "user-1" ||
+		payload["clientId"] != "client-1" ||
+		payload["x"] != 12.5 ||
+		cursorWorld["x"] != 12.5 ||
+		cursorWorld["y"] != -3.0 {
+		t.Fatalf("presence payload = %#v, want user-1/client-1 cursor at 12.5,-3", payload)
 	}
 	assertNoMessage(t, first)
+}
+
+func TestPresenceCursorAcceptsCursorWorld(t *testing.T) {
+	service := testService()
+	ctx := context.Background()
+	first, err := service.OpenConnection(ctx, model.OpenRealtimeSessionRequest{
+		SketchID: "sketch-id",
+		UserID:   "user-1",
+	})
+	if err != nil {
+		t.Fatalf("OpenConnection first returned error: %v", err)
+	}
+	if err := first.HandleClientMessage(ctx, joinMessage("req-1", "client-1", 7)); err != nil {
+		t.Fatalf("first join returned error: %v", err)
+	}
+	_ = nextMessage(t, first)
+
+	second, err := service.OpenConnection(ctx, model.OpenRealtimeSessionRequest{
+		SketchID: "sketch-id",
+		UserID:   "user-2",
+	})
+	if err != nil {
+		t.Fatalf("OpenConnection second returned error: %v", err)
+	}
+	if err := second.HandleClientMessage(ctx, joinMessage("req-2", "client-2", 7)); err != nil {
+		t.Fatalf("second join returned error: %v", err)
+	}
+	_ = nextMessage(t, second)
+	_ = nextMessage(t, first)
+
+	err = first.HandleClientMessage(ctx, model.ClientRealtimeMessage{
+		Type:      msgPresenceCursor,
+		RequestID: "req-cursor",
+		SketchID:  "sketch-id",
+		Payload: json.RawMessage(
+			`{"cursorWorld":{"x":0,"y":0},"ttlMs":3000}`,
+		),
+	})
+	if err != nil {
+		t.Fatalf("presence.cursor returned error: %v", err)
+	}
+
+	msg := nextMessage(t, second)
+	var payload map[string]any
+	decodePayload(t, msg, &payload)
+	cursorWorld, _ := payload["cursorWorld"].(map[string]any)
+	if payload["actorUserId"] != "user-1" ||
+		payload["clientId"] != "client-1" ||
+		payload["x"] != 0.0 ||
+		payload["y"] != 0.0 ||
+		cursorWorld["x"] != 0.0 ||
+		cursorWorld["y"] != 0.0 {
+		t.Fatalf("presence payload = %#v, want cursorWorld and legacy coordinates at 0,0", payload)
+	}
 }
 
 func TestPresenceGenericMessagesBroadcast(t *testing.T) {

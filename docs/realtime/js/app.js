@@ -520,6 +520,7 @@
         "PresenceCursor": {
           "name": "presence.cursor",
           "title": "Cursor presence",
+          "summary": "Transient mouse cursor position broadcast so collaborators can render another user's cursor and display name in the sketch canvas.",
           "payload": {
             "type": "object",
             "required": [
@@ -560,27 +561,69 @@
               "payload": {
                 "type": "object",
                 "required": [
-                  "x",
-                  "y"
+                  "actorUserId",
+                  "clientId",
+                  "cursorWorld"
                 ],
                 "properties": {
+                  "actorUserId": {
+                    "type": "string",
+                    "description": "Authenticated user id that owns the moving cursor.",
+                    "x-parser-schema-id": "<anonymous-schema-58>"
+                  },
+                  "actorUserName": {
+                    "type": "string",
+                    "description": "Display/login name to render near the cursor when available.",
+                    "x-parser-schema-id": "<anonymous-schema-59>"
+                  },
                   "userId": {
                     "type": "string",
-                    "x-parser-schema-id": "<anonymous-schema-58>"
+                    "deprecated": true,
+                    "description": "Legacy alias for actorUserId.",
+                    "x-parser-schema-id": "<anonymous-schema-60>"
+                  },
+                  "userName": {
+                    "type": "string",
+                    "deprecated": true,
+                    "description": "Legacy alias for actorUserName.",
+                    "x-parser-schema-id": "<anonymous-schema-61>"
                   },
                   "clientId": {
                     "type": "string",
-                    "x-parser-schema-id": "<anonymous-schema-59>"
+                    "description": "Browser tab/session id. Consumers use it to ignore their own cursor and de-duplicate multiple sessions.",
+                    "x-parser-schema-id": "<anonymous-schema-62>"
+                  },
+                  "cursorWorld": {
+                    "type": "object",
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "format": "double"
+                      },
+                      "y": {
+                        "type": "number",
+                        "format": "double"
+                      }
+                    },
+                    "x-parser-schema-id": "Vec2"
                   },
                   "x": {
                     "type": "number",
                     "format": "double",
-                    "x-parser-schema-id": "<anonymous-schema-60>"
+                    "deprecated": true,
+                    "description": "Legacy world X coordinate. Prefer cursorWorld.x.",
+                    "x-parser-schema-id": "<anonymous-schema-63>"
                   },
                   "y": {
                     "type": "number",
                     "format": "double",
-                    "x-parser-schema-id": "<anonymous-schema-61>"
+                    "deprecated": true,
+                    "description": "Legacy world Y coordinate. Prefer cursorWorld.y.",
+                    "x-parser-schema-id": "<anonymous-schema-64>"
                   },
                   "viewport": {
                     "type": "object",
@@ -594,20 +637,27 @@
                         "type": "number",
                         "format": "double",
                         "exclusiveMinimum": 0,
-                        "x-parser-schema-id": "<anonymous-schema-62>"
+                        "x-parser-schema-id": "<anonymous-schema-65>"
                       },
                       "offsetX": {
                         "type": "number",
                         "format": "double",
-                        "x-parser-schema-id": "<anonymous-schema-63>"
+                        "x-parser-schema-id": "<anonymous-schema-66>"
                       },
                       "offsetY": {
                         "type": "number",
                         "format": "double",
-                        "x-parser-schema-id": "<anonymous-schema-64>"
+                        "x-parser-schema-id": "<anonymous-schema-67>"
                       }
                     },
                     "x-parser-schema-id": "Viewport"
+                  },
+                  "ttlMs": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "default": 3000,
+                    "description": "Client-side expiry for hiding stale cursors if no newer mouse move arrives.",
+                    "x-parser-schema-id": "<anonymous-schema-68>"
                   }
                 },
                 "x-parser-schema-id": "PresenceCursorPayload"

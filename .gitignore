@@ -34,3 +34,4 @@ go.work.sum
 .svace-dir/
 
 bin/
+restart.sh
