@@ -667,16 +667,16 @@ type solverPatchProfile struct {
 
 func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, error) {
 	type patchEntity struct {
-		ID            string  `json:"id"`
-		Type          string  `json:"type"`
-		X             float64 `json:"x,omitempty"`
-		Y             float64 `json:"y,omitempty"`
-		CenterPointID string  `json:"centerPointId,omitempty"`
-		Radius        float64 `json:"radius,omitempty"`
-		StartPointID  string  `json:"startPointId,omitempty"`
-		EndPointID    string  `json:"endPointId,omitempty"`
-		Clockwise     bool    `json:"clockwise,omitempty"`
-		Branch        string  `json:"branch,omitempty"`
+		ID            string   `json:"id"`
+		Type          string   `json:"type"`
+		X             *float64 `json:"x,omitempty"`
+		Y             *float64 `json:"y,omitempty"`
+		CenterPointID string   `json:"centerPointId,omitempty"`
+		Radius        float64  `json:"radius,omitempty"`
+		StartPointID  string   `json:"startPointId,omitempty"`
+		EndPointID    string   `json:"endPointId,omitempty"`
+		Clockwise     bool     `json:"clockwise,omitempty"`
+		Branch        string   `json:"branch,omitempty"`
 	}
 	patch := struct {
 		Entities map[string]patchEntity `json:"entities"`
@@ -688,11 +688,13 @@ func solutionPatch(solution *solverv1.SketchSolution) (easyjson.RawMessage, erro
 	for _, entity := range solution.GetEntities() {
 		switch kind := entity.GetKind().(type) {
 		case *solverv1.SolvedEntity_Point:
+			x := kind.Point.GetX()
+			y := kind.Point.GetY()
 			patch.Entities[entity.GetId()] = patchEntity{
 				ID:   entity.GetId(),
 				Type: "point",
-				X:    kind.Point.GetX(),
-				Y:    kind.Point.GetY(),
+				X:    &x,
+				Y:    &y,
 			}
 		case *solverv1.SolvedEntity_Line:
 			patch.Entities[entity.GetId()] = patchEntity{

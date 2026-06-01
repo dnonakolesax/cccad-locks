@@ -326,6 +326,25 @@ func TestSolutionPatchIncludesSolvedLine(t *testing.T) {
 	}
 }
 
+func TestSolutionPatchIncludesZeroPointCoordinates(t *testing.T) {
+	patch, err := SolutionPatch(&solverv1.SketchSolution{
+		Entities: []*solverv1.SolvedEntity{
+			{
+				Id: "point-1",
+				Kind: &solverv1.SolvedEntity_Point{
+					Point: &solverv1.SolvedPoint{X: 0, Y: 0},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SolutionPatch returned error: %v", err)
+	}
+	if string(patch) != `{"entities":{"point-1":{"id":"point-1","type":"point","x":0,"y":0}}}` {
+		t.Fatalf("patch = %s", patch)
+	}
+}
+
 func TestSolutionPatchIncludesProfiles(t *testing.T) {
 	patch, err := SolutionPatch(&solverv1.SketchSolution{
 		Profiles: []*solverv1.Profile{
