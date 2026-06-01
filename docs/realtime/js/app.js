@@ -2357,7 +2357,87 @@
                   },
                   "document": {
                     "type": "object",
+                    "required": [
+                      "plane"
+                    ],
                     "properties": {
+                      "plane": {
+                        "type": "object",
+                        "required": [
+                          "origin",
+                          "normal",
+                          "xAxis"
+                        ],
+                        "properties": {
+                          "origin": {
+                            "type": "object",
+                            "required": [
+                              "x",
+                              "y",
+                              "z"
+                            ],
+                            "properties": {
+                              "x": {
+                                "type": "number",
+                                "format": "double"
+                              },
+                              "y": {
+                                "type": "number",
+                                "format": "double"
+                              },
+                              "z": {
+                                "type": "number",
+                                "format": "double"
+                              }
+                            }
+                          },
+                          "normal": {
+                            "type": "object",
+                            "required": [
+                              "x",
+                              "y",
+                              "z"
+                            ],
+                            "properties": {
+                              "x": {
+                                "type": "number",
+                                "format": "double"
+                              },
+                              "y": {
+                                "type": "number",
+                                "format": "double"
+                              },
+                              "z": {
+                                "type": "number",
+                                "format": "double"
+                              }
+                            }
+                          },
+                          "xAxis": {
+                            "type": "object",
+                            "required": [
+                              "x",
+                              "y",
+                              "z"
+                            ],
+                            "properties": {
+                              "x": {
+                                "type": "number",
+                                "format": "double"
+                              },
+                              "y": {
+                                "type": "number",
+                                "format": "double"
+                              },
+                              "z": {
+                                "type": "number",
+                                "format": "double"
+                              }
+                            }
+                          }
+                        },
+                        "description": "Sketch plane in model coordinates. normal and xAxis must be non-zero vectors."
+                      },
                       "entities": {
                         "type": "object",
                         "additionalProperties": true,

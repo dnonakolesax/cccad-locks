@@ -11,6 +11,7 @@ import (
 type repositoryStub struct {
 	listAvailableUserID string
 	listAvailableResult []model.AvailableSketch
+	createCalled        bool
 }
 
 func (r *repositoryStub) Create(
@@ -19,6 +20,7 @@ func (r *repositoryStub) Create(
 	*model.CreateSketchRequest,
 	string,
 ) (*model.SketchMetadata, error) {
+	r.createCalled = true
 	return &model.SketchMetadata{}, nil
 }
 
@@ -70,5 +72,45 @@ func TestServiceListAvailableRequiresAuthenticatedUser(t *testing.T) {
 
 	if _, err := service.ListAvailable(context.Background()); err == nil {
 		t.Fatal("ListAvailable returned nil error without authenticated user")
+	}
+}
+
+func TestServiceCreateRequiresPlane(t *testing.T) {
+	repo := &repositoryStub{}
+	service := NewService(repo)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	_, err := service.Create(ctx, "workspace-id", &model.CreateSketchRequest{Name: "Sketch", Unit: "mm"})
+	if err == nil {
+		t.Fatal("Create returned nil error without plane")
+	}
+	if repo.createCalled {
+		t.Fatal("repository Create was called without plane")
+	}
+}
+
+func TestServiceCreateAcceptsPlane(t *testing.T) {
+	repo := &repositoryStub{}
+	service := NewService(repo)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	_, err := service.Create(ctx, "workspace-id", &model.CreateSketchRequest{
+		Name:  "Sketch",
+		Unit:  "mm",
+		Plane: testPlane(),
+	})
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if !repo.createCalled {
+		t.Fatal("repository Create was not called")
+	}
+}
+
+func testPlane() *model.SketchPlane {
+	return &model.SketchPlane{
+		Origin: model.Vector3{X: 0, Y: 0, Z: 0},
+		Normal: model.Vector3{X: 0, Y: 0, Z: 1},
+		XAxis:  model.Vector3{X: 1, Y: 0, Z: 0},
 	}
 }

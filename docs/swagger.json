@@ -863,7 +863,8 @@
       "CreateSketchRequest": {
         "type": "object",
         "required": [
-          "name"
+          "name",
+          "plane"
         ],
         "additionalProperties": false,
         "properties": {
@@ -875,6 +876,9 @@
           "unit": {
             "$ref": "#/components/schemas/LengthUnit",
             "default": "mm"
+          },
+          "plane": {
+            "$ref": "#/components/schemas/SketchPlane"
           }
         }
       },
@@ -900,6 +904,7 @@
           "name",
           "createdByUserId",
           "unit",
+          "plane",
           "version",
           "createdAt",
           "updatedAt"
@@ -917,6 +922,9 @@
           },
           "unit": {
             "$ref": "#/components/schemas/LengthUnit"
+          },
+          "plane": {
+            "$ref": "#/components/schemas/SketchPlane"
           },
           "version": {
             "type": "integer",
@@ -945,6 +953,7 @@
           "name",
           "createdByUserId",
           "unit",
+          "plane",
           "version",
           "role",
           "createdAt",
@@ -963,6 +972,9 @@
           },
           "unit": {
             "$ref": "#/components/schemas/LengthUnit"
+          },
+          "plane": {
+            "$ref": "#/components/schemas/SketchPlane"
           },
           "version": {
             "type": "integer",
@@ -1010,6 +1022,50 @@
           "inch"
         ]
       },
+      "SketchPlane": {
+        "type": "object",
+        "required": [
+          "origin",
+          "normal",
+          "xAxis"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "origin": {
+            "$ref": "#/components/schemas/Vector3"
+          },
+          "normal": {
+            "$ref": "#/components/schemas/Vector3"
+          },
+          "xAxis": {
+            "$ref": "#/components/schemas/Vector3"
+          }
+        },
+        "description": "Sketch plane in model coordinates. normal and xAxis must be non-zero vectors."
+      },
+      "Vector3": {
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "z"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          },
+          "z": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "SketchDocument": {
         "type": "object",
         "required": [
@@ -1018,6 +1074,7 @@
           "name",
           "createdByUserId",
           "unit",
+          "plane",
           "version",
           "entities",
           "constraints",
@@ -1038,6 +1095,9 @@
           },
           "unit": {
             "$ref": "#/components/schemas/LengthUnit"
+          },
+          "plane": {
+            "$ref": "#/components/schemas/SketchPlane"
           },
           "version": {
             "type": "integer",

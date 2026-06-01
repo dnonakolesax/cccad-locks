@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS sketches (
     workspace_id        UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     name                TEXT NOT NULL,
     unit                sketch_unit NOT NULL DEFAULT 'mm',
+    plane               JSONB NOT NULL,
     created_by_user_id  TEXT NOT NULL,
     version             BIGINT NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS sketches (
     metadata            JSONB NOT NULL DEFAULT '{}'::jsonb,
 
     CONSTRAINT sketches_name_not_blank CHECK (length(trim(name)) > 0),
+    CONSTRAINT sketches_plane_object CHECK (jsonb_typeof(plane) = 'object'),
     CONSTRAINT sketches_version_non_negative CHECK (version >= 0)
 );
 

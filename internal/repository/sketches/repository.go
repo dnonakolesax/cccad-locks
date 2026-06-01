@@ -38,7 +38,12 @@ func (r *Repository) Create(
 		return nil, fmt.Errorf("create sketch request: %w", err)
 	}
 
-	rows, err := r.db.Query(ctx, sqlRequest, workspaceID, request.Name, request.Unit, createdByUserID)
+	plane, err := json.Marshal(request.Plane)
+	if err != nil {
+		return nil, fmt.Errorf("marshal sketch plane: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, workspaceID, request.Name, request.Unit, string(plane), createdByUserID)
 	if err != nil {
 		return nil, fmt.Errorf("create sketch: %w", err)
 	}
@@ -182,6 +187,7 @@ func scanDocument(rows *dbsql.PGXResponse) (*model.SketchDocument, error) {
 	var groups []byte
 	var solveStatus []byte
 	var conflicts []byte
+	var plane []byte
 
 	if err := rows.Scan(
 		&document.ID,
@@ -189,6 +195,7 @@ func scanDocument(rows *dbsql.PGXResponse) (*model.SketchDocument, error) {
 		&document.Name,
 		&document.CreatedByUserID,
 		&document.Unit,
+		&plane,
 		&document.Version,
 		&entities,
 		&constraints,
@@ -212,6 +219,9 @@ func scanDocument(rows *dbsql.PGXResponse) (*model.SketchDocument, error) {
 	if err := json.Unmarshal(groups, &document.Groups); err != nil {
 		return nil, fmt.Errorf("scan sketch groups: %w", err)
 	}
+	if err := json.Unmarshal(plane, &document.Plane); err != nil {
+		return nil, fmt.Errorf("scan sketch plane: %w", err)
+	}
 	document.SolveStatus = append(document.SolveStatus, solveStatus...)
 	if err := json.Unmarshal(conflicts, &document.Conflicts); err != nil {
 		return nil, fmt.Errorf("scan sketch conflicts: %w", err)
@@ -224,6 +234,7 @@ func scanAvailableSketch(rows *dbsql.PGXResponse) (*model.AvailableSketch, error
 	var sketch model.AvailableSketch
 	var createdAt time.Time
 	var updatedAt time.Time
+	var plane []byte
 
 	if err := rows.Scan(
 		&sketch.ID,
@@ -231,6 +242,7 @@ func scanAvailableSketch(rows *dbsql.PGXResponse) (*model.AvailableSketch, error
 		&sketch.Name,
 		&sketch.CreatedByUserID,
 		&sketch.Unit,
+		&plane,
 		&sketch.Version,
 		&sketch.Role,
 		&createdAt,
@@ -241,6 +253,9 @@ func scanAvailableSketch(rows *dbsql.PGXResponse) (*model.AvailableSketch, error
 
 	sketch.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
 	sketch.UpdatedAt = updatedAt.UTC().Format(time.RFC3339Nano)
+	if err := json.Unmarshal(plane, &sketch.Plane); err != nil {
+		return nil, fmt.Errorf("scan available sketch plane: %w", err)
+	}
 
 	return &sketch, nil
 }
@@ -249,6 +264,7 @@ func scanMetadata(rows *dbsql.PGXResponse) (*model.SketchMetadata, error) {
 	var metadata model.SketchMetadata
 	var createdAt time.Time
 	var updatedAt time.Time
+	var plane []byte
 
 	if err := rows.Scan(
 		&metadata.ID,
@@ -256,6 +272,7 @@ func scanMetadata(rows *dbsql.PGXResponse) (*model.SketchMetadata, error) {
 		&metadata.Name,
 		&metadata.CreatedByUserID,
 		&metadata.Unit,
+		&plane,
 		&metadata.Version,
 		&createdAt,
 		&updatedAt,
@@ -265,6 +282,9 @@ func scanMetadata(rows *dbsql.PGXResponse) (*model.SketchMetadata, error) {
 
 	metadata.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
 	metadata.UpdatedAt = updatedAt.UTC().Format(time.RFC3339Nano)
+	if err := json.Unmarshal(plane, &metadata.Plane); err != nil {
+		return nil, fmt.Errorf("scan sketch metadata plane: %w", err)
+	}
 
 	return &metadata, nil
 }

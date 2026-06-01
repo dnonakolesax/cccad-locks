@@ -2666,7 +2666,11 @@ components:
               $ref: '#/components/schemas/SketchPatch'
     SketchDocument:
       type: object
+      required:
+      - plane
       properties:
+        plane:
+          $ref: '#/components/schemas/SketchPlane'
         entities:
           type: object
           additionalProperties: true
@@ -2684,6 +2688,36 @@ components:
           additionalProperties: true
         solveStatus:
           $ref: '#/components/schemas/SolveStatus'
+    SketchPlane:
+      type: object
+      required:
+      - origin
+      - normal
+      - xAxis
+      properties:
+        origin:
+          $ref: '#/components/schemas/Vector3'
+        normal:
+          $ref: '#/components/schemas/Vector3'
+        xAxis:
+          $ref: '#/components/schemas/Vector3'
+      description: Sketch plane in model coordinates. normal and xAxis must be non-zero vectors.
+    Vector3:
+      type: object
+      required:
+      - x
+      - y
+      - z
+      properties:
+        x:
+          type: number
+          format: double
+        y:
+          type: number
+          format: double
+        z:
+          type: number
+          format: double
     PermissionUpdatedMessage:
       type: object
       required:

@@ -74,6 +74,10 @@ func (h *SketchesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "unit must be mm, cm, m, or inch")
 		return
 	}
+	if request.Plane == nil {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "plane is required")
+		return
+	}
 
 	metadata, err := h.service.Create(r.Context(), workspaceID, &request)
 	if err != nil {

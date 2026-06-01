@@ -10,6 +10,7 @@ RETURNING
     name,
     created_by_user_id,
     unit::text,
+    plane,
     version,
     created_at,
     updated_at

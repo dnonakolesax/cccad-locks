@@ -4,6 +4,7 @@ SELECT
     s.name,
     s.created_by_user_id,
     s.unit::text,
+    s.plane,
     s.version,
     COALESCE(st.graph_state->'entities', '{}'::jsonb),
     COALESCE(st.graph_state->'constraints', '{}'::jsonb),
@@ -27,6 +28,7 @@ GROUP BY
     s.name,
     s.created_by_user_id,
     s.unit,
+    s.plane,
     s.version,
     st.graph_state,
     st.solve_status

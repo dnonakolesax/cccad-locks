@@ -3,6 +3,7 @@ package sketches
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 
 	"github.com/dnonakolesax/cccad-locks/internal/auth"
@@ -59,6 +60,12 @@ func (s *Service) Create(
 	}
 	if !isValidUnit(request.Unit) {
 		return nil, errors.New("unit must be mm, cm, m, or inch")
+	}
+	if request.Plane == nil {
+		return nil, errors.New("plane is required")
+	}
+	if !isValidPlane(*request.Plane) {
+		return nil, errors.New("plane origin, normal, and xAxis must contain finite coordinates with non-zero normal and xAxis")
 	}
 
 	userID, ok := auth.UserIDFromContext(ctx)
@@ -136,4 +143,24 @@ func isValidUnit(unit string) bool {
 	default:
 		return false
 	}
+}
+
+func isValidPlane(plane model.SketchPlane) bool {
+	return isFiniteVector(plane.Origin) &&
+		isFiniteVector(plane.Normal) &&
+		isFiniteVector(plane.XAxis) &&
+		vectorLengthSquared(plane.Normal) > 0 &&
+		vectorLengthSquared(plane.XAxis) > 0
+}
+
+func isFiniteVector(vector model.Vector3) bool {
+	return isFinite(vector.X) && isFinite(vector.Y) && isFinite(vector.Z)
+}
+
+func isFinite(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func vectorLengthSquared(vector model.Vector3) float64 {
+	return vector.X*vector.X + vector.Y*vector.Y + vector.Z*vector.Z
 }

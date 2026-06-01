@@ -4,6 +4,7 @@ SELECT
     s.name,
     s.created_by_user_id,
     s.unit::text,
+    s.plane,
     s.version,
     sp.role::text,
     s.created_at,

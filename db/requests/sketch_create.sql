@@ -4,6 +4,7 @@ WITH new_sketch AS (
         workspace_id,
         name,
         unit,
+        plane,
         created_by_user_id,
         version
     )
@@ -12,7 +13,8 @@ WITH new_sketch AS (
         $1::uuid,
         $2,
         COALESCE(NULLIF($3, ''), 'mm')::sketch_unit,
-        $4,
+        $4::jsonb,
+        $5,
         0
     )
     RETURNING
@@ -20,6 +22,7 @@ WITH new_sketch AS (
         workspace_id,
         name,
         unit,
+        plane,
         created_by_user_id,
         version,
         created_at,
@@ -114,6 +117,7 @@ SELECT
     ns.name,
     ns.created_by_user_id,
     ns.unit::text,
+    ns.plane,
     ns.version,
     ns.created_at,
     ns.updated_at
