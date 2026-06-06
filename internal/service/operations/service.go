@@ -2085,9 +2085,9 @@ func inferDimensionRefs(dimension *dimensionPayload) {
 	case "distance":
 		entityRefs := make([]string, 0, len(dimension.Refs))
 		for _, candidate := range dimension.Refs {
-			if isDistanceRefKind(candidate) {
+			if normalized := normalizeDistanceRefKind(candidate); normalized != "" {
 				if dimension.RefKind == "" {
-					dimension.RefKind = candidate
+					dimension.RefKind = normalized
 				}
 				continue
 			}
@@ -2117,11 +2117,17 @@ func inferDimensionRefs(dimension *dimensionPayload) {
 }
 
 func isDistanceRefKind(value string) bool {
+	return normalizeDistanceRefKind(value) != ""
+}
+
+func normalizeDistanceRefKind(value string) string {
 	switch strings.TrimSpace(value) {
 	case "point_point", "point_line", "line_line":
-		return true
+		return strings.TrimSpace(value)
+	case "parallel_lines":
+		return "line_line"
 	default:
-		return false
+		return ""
 	}
 }
 

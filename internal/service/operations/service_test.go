@@ -570,6 +570,72 @@ func TestServiceSubmitAddDistanceDimensionPointLineRefs(t *testing.T) {
 	}
 }
 
+func TestServiceSubmitAddDistanceDimensionParallelLinesRefs(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 10,
+			GraphState: []byte(`{
+				"entities":{
+					"rectangle-line-3-e0322a26f0b1189d":{"id":"rectangle-line-3-e0322a26f0b1189d","type":"line","startPointId":"point-1","endPointId":"point-2"},
+					"rectangle-line-1-4f1855754fed0454":{"id":"rectangle-line-1-4f1855754fed0454","type":"line","startPointId":"point-3","endPointId":"point-4"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{}}`),
+			SolveStatus:          []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	service := NewServiceWithSolver(repo, &solverStub{response: &solverv1.SolveResponse{
+		Status:           solverv1.SolveStatus_SOLVE_STATUS_OK,
+		DegreesOfFreedom: 2,
+		Solution:         &solverv1.SketchSolution{},
+	}})
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 10,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"add_dimension",
+			"dimension":{
+				"id":"dimension-1",
+				"type":"distance",
+				"refs":["parallel_lines","rectangle-line-3-e0322a26f0b1189d","rectangle-line-1-4f1855754fed0454"],
+				"value":10,
+				"driving":true
+			}
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+
+	var graph struct {
+		Dimensions map[string]map[string]any `json:"dimensions"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	dimension := graph.Dimensions["dimension-1"]
+	if dimension["refAId"] != "rectangle-line-3-e0322a26f0b1189d" ||
+		dimension["refBId"] != "rectangle-line-1-4f1855754fed0454" ||
+		dimension["refKind"] != "line_line" {
+		t.Fatalf("dimension = %#v, want normalized parallel line refs", dimension)
+	}
+	if !containsAll(
+		response.ChangedEntityIDs,
+		"rectangle-line-3-e0322a26f0b1189d",
+		"rectangle-line-1-4f1855754fed0454",
+	) {
+		t.Fatalf("ChangedEntityIDs = %#v, want both line refs", response.ChangedEntityIDs)
+	}
+}
+
 func TestServiceSubmitApplyFilletCommitsFeatureIntent(t *testing.T) {
 	repo := &repositoryStub{
 		submitState: &model.SubmitState{
