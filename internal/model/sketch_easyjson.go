@@ -584,6 +584,33 @@ func easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel4(in *jle
 			} else {
 				(out.SolveStatus).UnmarshalEasyJSON(in)
 			}
+		case "profiles":
+			if in.IsNull() {
+				in.Skip()
+				out.Profiles = nil
+			} else {
+				in.Delim('[')
+				if out.Profiles == nil {
+					if !in.IsDelim(']') {
+						out.Profiles = make([]easyjson.RawMessage, 0, 2)
+					} else {
+						out.Profiles = []easyjson.RawMessage{}
+					}
+				} else {
+					out.Profiles = (out.Profiles)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v5 easyjson.RawMessage
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						(v5).UnmarshalEasyJSON(in)
+					}
+					out.Profiles = append(out.Profiles, v5)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
 		case "conflicts":
 			if in.IsNull() {
 				in.Skip()
@@ -600,13 +627,13 @@ func easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel4(in *jle
 					out.Conflicts = (out.Conflicts)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v5 easyjson.RawMessage
+					var v6 easyjson.RawMessage
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						(v5).UnmarshalEasyJSON(in)
+						(v6).UnmarshalEasyJSON(in)
 					}
-					out.Conflicts = append(out.Conflicts, v5)
+					out.Conflicts = append(out.Conflicts, v6)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -667,29 +694,8 @@ func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jw
 			out.RawString(`null`)
 		} else {
 			out.RawByte('{')
-			v6First := true
-			for v6Name, v6Value := range in.Entities {
-				if v6First {
-					v6First = false
-				} else {
-					out.RawByte(',')
-				}
-				out.String(string(v6Name))
-				out.RawByte(':')
-				(v6Value).MarshalEasyJSON(out)
-			}
-			out.RawByte('}')
-		}
-	}
-	{
-		const prefix string = ",\"constraints\":"
-		out.RawString(prefix)
-		if in.Constraints == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
-			out.RawString(`null`)
-		} else {
-			out.RawByte('{')
 			v7First := true
-			for v7Name, v7Value := range in.Constraints {
+			for v7Name, v7Value := range in.Entities {
 				if v7First {
 					v7First = false
 				} else {
@@ -703,14 +709,14 @@ func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jw
 		}
 	}
 	{
-		const prefix string = ",\"dimensions\":"
+		const prefix string = ",\"constraints\":"
 		out.RawString(prefix)
-		if in.Dimensions == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
+		if in.Constraints == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
 			out.RawString(`null`)
 		} else {
 			out.RawByte('{')
 			v8First := true
-			for v8Name, v8Value := range in.Dimensions {
+			for v8Name, v8Value := range in.Constraints {
 				if v8First {
 					v8First = false
 				} else {
@@ -724,14 +730,14 @@ func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jw
 		}
 	}
 	{
-		const prefix string = ",\"groups\":"
+		const prefix string = ",\"dimensions\":"
 		out.RawString(prefix)
-		if in.Groups == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
+		if in.Dimensions == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
 			out.RawString(`null`)
 		} else {
 			out.RawByte('{')
 			v9First := true
-			for v9Name, v9Value := range in.Groups {
+			for v9Name, v9Value := range in.Dimensions {
 				if v9First {
 					v9First = false
 				} else {
@@ -745,20 +751,57 @@ func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jw
 		}
 	}
 	{
+		const prefix string = ",\"groups\":"
+		out.RawString(prefix)
+		if in.Groups == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
+			out.RawString(`null`)
+		} else {
+			out.RawByte('{')
+			v10First := true
+			for v10Name, v10Value := range in.Groups {
+				if v10First {
+					v10First = false
+				} else {
+					out.RawByte(',')
+				}
+				out.String(string(v10Name))
+				out.RawByte(':')
+				(v10Value).MarshalEasyJSON(out)
+			}
+			out.RawByte('}')
+		}
+	}
+	{
 		const prefix string = ",\"solveStatus\":"
 		out.RawString(prefix)
 		(in.SolveStatus).MarshalEasyJSON(out)
+	}
+	{
+		const prefix string = ",\"profiles\":"
+		out.RawString(prefix)
+		if in.Profiles == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+			out.RawString("null")
+		} else {
+			out.RawByte('[')
+			for v11, v12 := range in.Profiles {
+				if v11 > 0 {
+					out.RawByte(',')
+				}
+				(v12).MarshalEasyJSON(out)
+			}
+			out.RawByte(']')
+		}
 	}
 	if len(in.Conflicts) != 0 {
 		const prefix string = ",\"conflicts\":"
 		out.RawString(prefix)
 		{
 			out.RawByte('[')
-			for v10, v11 := range in.Conflicts {
-				if v10 > 0 {
+			for v13, v14 := range in.Conflicts {
+				if v13 > 0 {
 					out.RawByte(',')
 				}
-				(v11).MarshalEasyJSON(out)
+				(v14).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -918,13 +961,13 @@ func easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel6(in *jle
 					out.Sketches = (out.Sketches)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v12 AvailableSketch
+					var v15 AvailableSketch
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						(v12).UnmarshalEasyJSON(in)
+						(v15).UnmarshalEasyJSON(in)
 					}
-					out.Sketches = append(out.Sketches, v12)
+					out.Sketches = append(out.Sketches, v15)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -950,11 +993,11 @@ func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel6(out *jw
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v13, v14 := range in.Sketches {
-				if v13 > 0 {
+			for v16, v17 := range in.Sketches {
+				if v16 > 0 {
 					out.RawByte(',')
 				}
-				(v14).MarshalEasyJSON(out)
+				(v17).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}

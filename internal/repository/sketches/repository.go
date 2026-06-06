@@ -186,6 +186,7 @@ func scanDocument(rows *dbsql.PGXResponse) (*model.SketchDocument, error) {
 	var dimensions []byte
 	var groups []byte
 	var solveStatus []byte
+	var profiles []byte
 	var conflicts []byte
 	var plane []byte
 
@@ -202,6 +203,7 @@ func scanDocument(rows *dbsql.PGXResponse) (*model.SketchDocument, error) {
 		&dimensions,
 		&groups,
 		&solveStatus,
+		&profiles,
 		&conflicts,
 	); err != nil {
 		return nil, fmt.Errorf("scan sketch document: %w", err)
@@ -223,6 +225,9 @@ func scanDocument(rows *dbsql.PGXResponse) (*model.SketchDocument, error) {
 		return nil, fmt.Errorf("scan sketch plane: %w", err)
 	}
 	document.SolveStatus = append(document.SolveStatus, solveStatus...)
+	if err := json.Unmarshal(profiles, &document.Profiles); err != nil {
+		return nil, fmt.Errorf("scan sketch profiles: %w", err)
+	}
 	if err := json.Unmarshal(conflicts, &document.Conflicts); err != nil {
 		return nil, fmt.Errorf("scan sketch conflicts: %w", err)
 	}

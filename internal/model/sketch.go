@@ -78,5 +78,6 @@ type SketchDocument struct {
 	Dimensions      map[string]easyjson.RawMessage `json:"dimensions"`
 	Groups          map[string]easyjson.RawMessage `json:"groups"`
 	SolveStatus     easyjson.RawMessage            `json:"solveStatus"`
+	Profiles        []easyjson.RawMessage          `json:"profiles"`
 	Conflicts       []easyjson.RawMessage          `json:"conflicts,omitempty"`
 }

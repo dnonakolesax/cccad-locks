@@ -272,6 +272,54 @@ func TestServiceSubmitCreateLineCanBeConstruction(t *testing.T) {
 	}
 }
 
+func TestServiceSubmitStoresSolverProfiles(t *testing.T) {
+	repo := &repositoryStub{}
+	service := NewServiceWithSolver(repo, &solverStub{response: &solverv1.SolveResponse{
+		Status:           solverv1.SolveStatus_SOLVE_STATUS_OK,
+		DegreesOfFreedom: 1,
+		Solution: &solverv1.SketchSolution{
+			Profiles: []*solverv1.Profile{
+				{
+					Id:              "profile-1",
+					OuterLoop:       &solverv1.ProfileLoop{EntityIds: []string{"line-1"}},
+					Area:            12,
+					ValidForExtrude: true,
+				},
+			},
+		},
+	}})
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 0,
+		ClientOpID:  "client-op-id",
+		Op: []byte(`{
+			"type":"create_line",
+			"entityId":"line-1",
+			"start":{"kind":"new_point","pointId":"point-1","x":0,"y":0},
+			"end":{"kind":"new_point","pointId":"point-2","x":1,"y":0}
+		}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+
+	var profiles []struct {
+		ID              string  `json:"id"`
+		Area            float64 `json:"area"`
+		ValidForExtrude bool    `json:"validForExtrude"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.Profiles, &profiles); err != nil {
+		t.Fatalf("decode stored profiles: %v", err)
+	}
+	if len(profiles) != 1 || profiles[0].ID != "profile-1" || profiles[0].Area != 12 || !profiles[0].ValidForExtrude {
+		t.Fatalf("profiles = %#v, want stored solver profile", profiles)
+	}
+}
+
 func TestServiceSubmitRejectsStaleVersion(t *testing.T) {
 	repo := &repositoryStub{
 		submitState: &model.SubmitState{

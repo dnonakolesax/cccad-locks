@@ -2,7 +2,8 @@ SELECT
     st.version,
     st.graph_state,
     st.materialized_geometry,
-    st.solve_status
+    st.solve_status,
+    st.profiles
 FROM sketches s
 JOIN sketch_current_states st ON st.sketch_id = s.id
 JOIN sketch_permissions sp ON sp.sketch_id = s.id

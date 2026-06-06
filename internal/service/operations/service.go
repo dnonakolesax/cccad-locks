@@ -131,6 +131,7 @@ func (s *Service) Submit(
 			GraphState:           state.GraphState,
 			MaterializedGeometry: state.MaterializedGeometry,
 			SolveStatus:          state.SolveStatus,
+			Profiles:             state.Profiles,
 		})
 		if err != nil {
 			return nil, err
@@ -151,6 +152,7 @@ func (s *Service) Submit(
 	}
 	materializedGeometry := state.MaterializedGeometry
 	solveStatus := state.SolveStatus
+	profiles := state.Profiles
 	if operationRequiresSolve(opType) {
 		if s.solver == nil {
 			return nil, fmt.Errorf("solver client is required for operation type %q", opType)
@@ -158,10 +160,11 @@ func (s *Service) Submit(
 		var solvePatch *sketchPatch
 		var solvedGeometry easyjson.RawMessage
 		var solvedStatus easyjson.RawMessage
+		var solvedProfiles easyjson.RawMessage
 		var solvedAffected affectedIDs
 		var err error
 		if operationRequiresSolverIntent(opType) {
-			solvePatch, solvedGeometry, solvedStatus, solvedAffected, err = s.applySolverIntent(
+			solvePatch, solvedGeometry, solvedStatus, solvedProfiles, solvedAffected, err = s.applySolverIntent(
 				ctx,
 				sketchID,
 				request.BaseVersion+1,
@@ -169,7 +172,7 @@ func (s *Service) Submit(
 				request.Op,
 			)
 		} else {
-			solvePatch, solvedGeometry, solvedStatus, solvedAffected, err = s.solveGraph(
+			solvePatch, solvedGeometry, solvedStatus, solvedProfiles, solvedAffected, err = s.solveGraph(
 				ctx,
 				sketchID,
 				request.BaseVersion+1,
@@ -186,6 +189,7 @@ func (s *Service) Submit(
 		affected.ComponentIDs = mergeIDs(affected.ComponentIDs, solvedAffected.ComponentIDs)
 		materializedGeometry = solvedGeometry
 		solveStatus = solvedStatus
+		profiles = solvedProfiles
 	}
 
 	graphState, err := json.Marshal(graph)
@@ -206,6 +210,7 @@ func (s *Service) Submit(
 		GraphState:           graphState,
 		MaterializedGeometry: materializedGeometry,
 		SolveStatus:          solveStatus,
+		Profiles:             profiles,
 		ChangedEntityIDs:     affected.EntityIDs,
 	})
 	if err != nil {
@@ -450,7 +455,7 @@ func (s *Service) solveGraph(
 	sketchID string,
 	version int64,
 	graph *graphState,
-) (*sketchPatch, easyjson.RawMessage, easyjson.RawMessage, affectedIDs, error) {
+) (*sketchPatch, easyjson.RawMessage, easyjson.RawMessage, easyjson.RawMessage, affectedIDs, error) {
 	result, err := s.solver.Solve(ctx, &solverv1.SolveRequest{
 		SketchId: sketchID,
 		Version:  version,
@@ -465,29 +470,33 @@ func (s *Service) solveGraph(
 		Options: defaultSolverOptions(),
 	})
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, fmt.Errorf("solve sketch: %w", err)
+		return nil, nil, nil, nil, affectedIDs{}, fmt.Errorf("solve sketch: %w", err)
 	}
 	if result == nil {
-		return nil, nil, nil, affectedIDs{}, errors.New("solver returned nil solve response")
+		return nil, nil, nil, nil, affectedIDs{}, errors.New("solver returned nil solve response")
 	}
 
 	patchBody, err := solverService.SolutionPatch(result.GetSolution())
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, err
+		return nil, nil, nil, nil, affectedIDs{}, err
 	}
 	patch, entityIDs, err := applySolverPatch(graph, patchBody)
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, err
+		return nil, nil, nil, nil, affectedIDs{}, err
 	}
 
 	solveStatus, err := encodeSolveStatus(result.GetStatus(), result.GetDegreesOfFreedom(), result.GetDiagnostics())
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, err
+		return nil, nil, nil, nil, affectedIDs{}, err
+	}
+	profiles, err := profilesFromSolverPatch(patchBody)
+	if err != nil {
+		return nil, nil, nil, nil, affectedIDs{}, err
 	}
 
 	affected := affectedFromDiagnostics(result.GetDiagnostics())
 	affected.EntityIDs = mergeIDs(affected.EntityIDs, entityIDs)
-	return patch, patchBody, solveStatus, affected, nil
+	return patch, patchBody, solveStatus, profiles, affected, nil
 }
 
 func (s *Service) applySolverIntent(
@@ -496,10 +505,10 @@ func (s *Service) applySolverIntent(
 	version int64,
 	graph *graphState,
 	raw easyjson.RawMessage,
-) (*sketchPatch, easyjson.RawMessage, easyjson.RawMessage, affectedIDs, error) {
+) (*sketchPatch, easyjson.RawMessage, easyjson.RawMessage, easyjson.RawMessage, affectedIDs, error) {
 	intent, err := solverService.UserIntent(raw)
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, err
+		return nil, nil, nil, nil, affectedIDs{}, err
 	}
 	result, err := s.solver.ApplyIntent(ctx, &solverv1.ApplyIntentRequest{
 		Model: solverService.BuildSketchModel(&model.SketchDocument{
@@ -514,30 +523,34 @@ func (s *Service) applySolverIntent(
 		Options: defaultSolverOptions(),
 	})
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, fmt.Errorf("apply solver intent: %w", err)
+		return nil, nil, nil, nil, affectedIDs{}, fmt.Errorf("apply solver intent: %w", err)
 	}
 	if result == nil {
-		return nil, nil, nil, affectedIDs{}, errors.New("solver returned nil apply intent response")
+		return nil, nil, nil, nil, affectedIDs{}, errors.New("solver returned nil apply intent response")
 	}
 
 	patchBody, err := solverService.SolutionPatch(result.GetSolution())
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, err
+		return nil, nil, nil, nil, affectedIDs{}, err
 	}
 	patch, entityIDs, err := applySolverPatch(graph, patchBody)
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, err
+		return nil, nil, nil, nil, affectedIDs{}, err
 	}
 
 	solveStatus, err := encodeSolveStatus(result.GetStatus(), result.GetDegreesOfFreedom(), result.GetDiagnostics())
 	if err != nil {
-		return nil, nil, nil, affectedIDs{}, err
+		return nil, nil, nil, nil, affectedIDs{}, err
+	}
+	profiles, err := profilesFromSolverPatch(patchBody)
+	if err != nil {
+		return nil, nil, nil, nil, affectedIDs{}, err
 	}
 
 	affected := affectedFromDiagnostics(result.GetDiagnostics())
 	affected.EntityIDs = mergeIDs(affected.EntityIDs, result.GetAffectedEntityIds())
 	affected.EntityIDs = mergeIDs(affected.EntityIDs, entityIDs)
-	return patch, patchBody, solveStatus, affected, nil
+	return patch, patchBody, solveStatus, profiles, affected, nil
 }
 
 func applySolverPatch(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, []string, error) {
@@ -576,6 +589,25 @@ func applySolverPatch(graph *graphState, raw easyjson.RawMessage) (*sketchPatch,
 	}
 
 	return result, entityIDs, nil
+}
+
+func profilesFromSolverPatch(raw easyjson.RawMessage) (easyjson.RawMessage, error) {
+	var patch struct {
+		Profiles []json.RawMessage `json:"profiles"`
+	}
+	if err := json.Unmarshal(raw, &patch); err != nil {
+		return nil, fmt.Errorf("decode solver profiles: %w", err)
+	}
+	if patch.Profiles == nil {
+		return easyjson.RawMessage(`[]`), nil
+	}
+
+	body, err := json.Marshal(patch.Profiles)
+	if err != nil {
+		return nil, fmt.Errorf("encode solver profiles: %w", err)
+	}
+
+	return easyjson.RawMessage(body), nil
 }
 
 func encodeSolveStatus(

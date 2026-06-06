@@ -34,7 +34,8 @@ new_state AS (
         version,
         graph_state,
         materialized_geometry,
-        solve_status
+        solve_status,
+        profiles
     )
     SELECT
         id,
@@ -107,7 +108,8 @@ new_state AS (
           "status": "ok",
           "degreesOfFreedom": 0,
           "diagnostics": []
-        }'::jsonb
+        }'::jsonb,
+        '[]'::jsonb
     FROM new_sketch
     RETURNING sketch_id
 )

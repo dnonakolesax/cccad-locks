@@ -33,6 +33,7 @@ type SubmitState struct {
 	GraphState           easyjson.RawMessage
 	MaterializedGeometry easyjson.RawMessage
 	SolveStatus          easyjson.RawMessage
+	Profiles             easyjson.RawMessage
 }
 
 type SubmitCommitRequest struct {
@@ -44,6 +45,7 @@ type SubmitCommitRequest struct {
 	GraphState           easyjson.RawMessage
 	MaterializedGeometry easyjson.RawMessage
 	SolveStatus          easyjson.RawMessage
+	Profiles             easyjson.RawMessage
 	ChangedEntityIDs     []string
 }
 

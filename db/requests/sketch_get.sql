@@ -11,6 +11,7 @@ SELECT
     COALESCE(st.graph_state->'dimensions', '{}'::jsonb),
     COALESCE(st.graph_state->'groups', '{}'::jsonb),
     st.solve_status,
+    st.profiles,
     COALESCE(
         jsonb_agg(c.payload ORDER BY c.created_at DESC) FILTER (WHERE c.id IS NOT NULL),
         '[]'::jsonb
@@ -31,4 +32,5 @@ GROUP BY
     s.plane,
     s.version,
     st.graph_state,
+    st.profiles,
     st.solve_status

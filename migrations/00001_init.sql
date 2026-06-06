@@ -263,12 +263,14 @@ CREATE TABLE IF NOT EXISTS sketch_current_states (
     graph_state             JSONB NOT NULL,
     materialized_geometry   JSONB NOT NULL,
     solve_status            JSONB NOT NULL,
+    profiles                JSONB NOT NULL DEFAULT '[]'::jsonb,
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT sketch_current_states_version_non_negative CHECK (version >= 0),
     CONSTRAINT sketch_current_states_graph_state_object CHECK (jsonb_typeof(graph_state) = 'object'),
     CONSTRAINT sketch_current_states_materialized_geometry_object CHECK (jsonb_typeof(materialized_geometry) = 'object'),
-    CONSTRAINT sketch_current_states_solve_status_object CHECK (jsonb_typeof(solve_status) = 'object')
+    CONSTRAINT sketch_current_states_solve_status_object CHECK (jsonb_typeof(solve_status) = 'object'),
+    CONSTRAINT sketch_current_states_profiles_array CHECK (jsonb_typeof(profiles) = 'array')
 );
 
 CREATE INDEX IF NOT EXISTS idx_sketch_current_states_version

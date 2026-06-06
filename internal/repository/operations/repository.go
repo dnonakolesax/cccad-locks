@@ -119,6 +119,7 @@ func (r *Repository) Submit(
 		request.GraphState,
 		request.MaterializedGeometry,
 		request.SolveStatus,
+		request.Profiles,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("submit operation: %w", err)
@@ -177,12 +178,14 @@ func scanSubmitState(rows *dbsql.PGXResponse) (*model.SubmitState, error) {
 	var graphState []byte
 	var materializedGeometry []byte
 	var solveStatus []byte
+	var profiles []byte
 
 	if err := rows.Scan(
 		&state.Version,
 		&graphState,
 		&materializedGeometry,
 		&solveStatus,
+		&profiles,
 	); err != nil {
 		return nil, fmt.Errorf("scan submit state: %w", err)
 	}
@@ -190,6 +193,7 @@ func scanSubmitState(rows *dbsql.PGXResponse) (*model.SubmitState, error) {
 	state.GraphState = easyjson.RawMessage(append([]byte(nil), graphState...))
 	state.MaterializedGeometry = easyjson.RawMessage(append([]byte(nil), materializedGeometry...))
 	state.SolveStatus = easyjson.RawMessage(append([]byte(nil), solveStatus...))
+	state.Profiles = easyjson.RawMessage(append([]byte(nil), profiles...))
 
 	return &state, nil
 }

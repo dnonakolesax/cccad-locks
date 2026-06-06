@@ -55,7 +55,8 @@ state_update AS (
         version = i.version,
         graph_state = $8::jsonb,
         materialized_geometry = $9::jsonb,
-        solve_status = $10::jsonb
+        solve_status = $10::jsonb,
+        profiles = $11::jsonb
     FROM inserted i
     WHERE st.sketch_id = i.sketch_id
     RETURNING st.sketch_id
