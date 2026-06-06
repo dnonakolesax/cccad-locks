@@ -1,6 +1,63 @@
 -- +goose Up
--- +goose StatementBegin
+-- 3D modeling domain migration for cccAD.
+-- This version is self-contained for MVP databases where parts(id) does not exist yet.
+-- `parts` is treated as a core table, so the Down migration intentionally does not drop it.
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Core Part entity required by 3D feature history.
+-- If you already have a richer parts table, replace this block with your real schema
+-- or move the table creation into an earlier migration.
+CREATE TABLE IF NOT EXISTS parts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id UUID,
+    name TEXT NOT NULL DEFAULT 'Part 1',
+    created_by UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+
+    CONSTRAINT parts_name_not_empty CHECK (length(trim(name)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_parts_document
+    ON parts(document_id)
+    WHERE document_id IS NOT NULL AND deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_parts_created_by
+    ON parts(created_by)
+    WHERE created_by IS NOT NULL AND deleted_at IS NULL;
+
+-- Add optional FKs only when the referenced core tables exist.
+-- This keeps the migration runnable in services where users are externalized via Keycloak
+-- and/or the document table is created by another service.
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF to_regclass('public.documents') IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM pg_constraint
+           WHERE conname = 'parts_document_id_fkey'
+             AND conrelid = 'parts'::regclass
+       ) THEN
+        ALTER TABLE parts
+            ADD CONSTRAINT parts_document_id_fkey
+            FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE;
+    END IF;
+
+    IF to_regclass('public.users') IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM pg_constraint
+           WHERE conname = 'parts_created_by_fkey'
+             AND conrelid = 'parts'::regclass
+       ) THEN
+        ALTER TABLE parts
+            ADD CONSTRAINT parts_created_by_fkey
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 -- +goose StatementEnd
 
 -- +goose StatementBegin
@@ -50,7 +107,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS features_3d (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     part_id UUID NOT NULL REFERENCES parts(id) ON DELETE CASCADE,
-    sketch_id UUID REFERENCES sketches(id) ON DELETE RESTRICT,
+    sketch_id UUID,
 
     type feature_3d_type NOT NULL,
     payload JSONB NOT NULL,
@@ -59,14 +116,17 @@ CREATE TABLE IF NOT EXISTS features_3d (
     suppressed BOOLEAN NOT NULL DEFAULT FALSE,
     deleted_at TIMESTAMPTZ,
 
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    created_by UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT features_3d_order_index_nonnegative CHECK (order_index >= 0),
-    CONSTRAINT features_3d_payload_object CHECK (jsonb_typeof(payload) = 'object'),
-    CONSTRAINT features_3d_unique_order_active UNIQUE (part_id, order_index)
+    CONSTRAINT features_3d_payload_object CHECK (jsonb_typeof(payload) = 'object')
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_features_3d_order_active
+    ON features_3d(part_id, order_index)
+    WHERE deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_features_3d_part_order
     ON features_3d(part_id, order_index)
@@ -82,6 +142,37 @@ CREATE INDEX IF NOT EXISTS idx_features_3d_sketch
 
 CREATE INDEX IF NOT EXISTS idx_features_3d_payload_gin
     ON features_3d USING GIN(payload);
+
+-- Add optional FKs after table creation so the migration does not fail when users/sketches
+-- are managed by another service or not created yet in a local MVP database.
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF to_regclass('public.sketches') IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM pg_constraint
+           WHERE conname = 'features_3d_sketch_id_fkey'
+             AND conrelid = 'features_3d'::regclass
+       ) THEN
+        ALTER TABLE features_3d
+            ADD CONSTRAINT features_3d_sketch_id_fkey
+            FOREIGN KEY (sketch_id) REFERENCES sketches(id) ON DELETE RESTRICT;
+    END IF;
+
+    IF to_regclass('public.users') IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM pg_constraint
+           WHERE conname = 'features_3d_created_by_fkey'
+             AND conrelid = 'features_3d'::regclass
+       ) THEN
+        ALTER TABLE features_3d
+            ADD CONSTRAINT features_3d_created_by_fkey
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT;
+    END IF;
+END $$;
+-- +goose StatementEnd
 
 -- Current/generated solid bodies. Bodies are derived from feature history but cached as addressable entities.
 CREATE TABLE IF NOT EXISTS part_bodies_3d (
@@ -150,7 +241,7 @@ CREATE TABLE IF NOT EXISTS part_rebuilds_3d (
     failed_feature_id UUID REFERENCES features_3d(id) ON DELETE SET NULL,
     diagnostics JSONB NOT NULL DEFAULT '[]'::jsonb,
 
-    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_by UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT part_rebuilds_3d_version_nonnegative CHECK (document_version >= 0),
@@ -163,6 +254,23 @@ CREATE INDEX IF NOT EXISTS idx_part_rebuilds_3d_part_version
 
 CREATE INDEX IF NOT EXISTS idx_part_rebuilds_3d_status
     ON part_rebuilds_3d(status);
+
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF to_regclass('public.users') IS NOT NULL
+       AND NOT EXISTS (
+           SELECT 1
+           FROM pg_constraint
+           WHERE conname = 'part_rebuilds_3d_created_by_fkey'
+             AND conrelid = 'part_rebuilds_3d'::regclass
+       ) THEN
+        ALTER TABLE part_rebuilds_3d
+            ADD CONSTRAINT part_rebuilds_3d_created_by_fkey
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+    END IF;
+END $$;
+-- +goose StatementEnd
 
 -- Per-feature build status. Useful for feature tree diagnostics.
 CREATE TABLE IF NOT EXISTS feature_build_results_3d (
@@ -217,6 +325,7 @@ CREATE INDEX IF NOT EXISTS idx_topology_refs_3d_body_kind
 CREATE UNIQUE INDEX IF NOT EXISTS uq_topology_refs_3d_version_ref
     ON topology_refs_3d(part_id, document_version, body_id, ref_kind, ref_id);
 
+-- Helper trigger for updated_at.
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION set_updated_at_3d()
 RETURNS TRIGGER AS $$
@@ -226,6 +335,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
+
 
 DROP TRIGGER IF EXISTS trg_features_3d_updated_at ON features_3d;
 CREATE TRIGGER trg_features_3d_updated_at
@@ -240,7 +350,6 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at_3d();
 -- +goose Down
 DROP TRIGGER IF EXISTS trg_part_bodies_3d_updated_at ON part_bodies_3d;
 DROP TRIGGER IF EXISTS trg_features_3d_updated_at ON features_3d;
-DROP FUNCTION IF EXISTS set_updated_at_3d();
 
 DROP TABLE IF EXISTS topology_refs_3d;
 DROP TABLE IF EXISTS feature_build_results_3d;
@@ -252,3 +361,10 @@ DROP TABLE IF EXISTS features_3d;
 DROP TYPE IF EXISTS body_3d_representation_kind;
 DROP TYPE IF EXISTS feature_3d_build_status;
 DROP TYPE IF EXISTS feature_3d_type;
+
+-- Do not drop `parts` here: it is a core Part Studio table, not a derived 3D cache table.
+-- If this migration is only used for a disposable local MVP database and you want a strict full rollback,
+-- uncomment the next line manually:
+-- DROP TABLE IF EXISTS parts;
+
+DROP FUNCTION IF EXISTS set_updated_at_3d();
