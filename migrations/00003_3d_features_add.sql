@@ -1,12 +1,9 @@
--- 3D modeling domain migration for cccAD.
--- Scope: only 3D features, bodies, representations, topology cache and rebuild results.
--- Assumes existing tables: parts(id), sketches(id), users(id).
--- If your user table has another name, replace REFERENCES users(id) accordingly.
-
-BEGIN;
-
+-- +goose Up
+-- +goose StatementBegin
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- +goose StatementEnd
 
+-- +goose StatementBegin
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'feature_3d_type') THEN
@@ -40,6 +37,7 @@ BEGIN
         );
     END IF;
 END $$;
+-- +goose StatementEnd
 
 -- Ordered parametric 3D feature history.
 -- payload examples:
@@ -219,7 +217,7 @@ CREATE INDEX IF NOT EXISTS idx_topology_refs_3d_body_kind
 CREATE UNIQUE INDEX IF NOT EXISTS uq_topology_refs_3d_version_ref
     ON topology_refs_3d(part_id, document_version, body_id, ref_kind, ref_id);
 
--- Optional helper trigger for updated_at.
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION set_updated_at_3d()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -227,6 +225,7 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 DROP TRIGGER IF EXISTS trg_features_3d_updated_at ON features_3d;
 CREATE TRIGGER trg_features_3d_updated_at
@@ -238,4 +237,18 @@ CREATE TRIGGER trg_part_bodies_3d_updated_at
 BEFORE UPDATE ON part_bodies_3d
 FOR EACH ROW EXECUTE FUNCTION set_updated_at_3d();
 
-COMMIT;
+-- +goose Down
+DROP TRIGGER IF EXISTS trg_part_bodies_3d_updated_at ON part_bodies_3d;
+DROP TRIGGER IF EXISTS trg_features_3d_updated_at ON features_3d;
+DROP FUNCTION IF EXISTS set_updated_at_3d();
+
+DROP TABLE IF EXISTS topology_refs_3d;
+DROP TABLE IF EXISTS feature_build_results_3d;
+DROP TABLE IF EXISTS part_representations_3d;
+DROP TABLE IF EXISTS part_rebuilds_3d;
+DROP TABLE IF EXISTS part_bodies_3d;
+DROP TABLE IF EXISTS features_3d;
+
+DROP TYPE IF EXISTS body_3d_representation_kind;
+DROP TYPE IF EXISTS feature_3d_build_status;
+DROP TYPE IF EXISTS feature_3d_type;
