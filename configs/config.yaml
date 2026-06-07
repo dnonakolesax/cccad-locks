@@ -40,6 +40,10 @@ solver:
   address: sk-solver:7701
   request-timeout: 10s
 
+geometry:
+  address: geometry-kernel:7701
+  request-timeout: 30s
+
 auth:
   address: auth:7701
   request-timeout: 5s

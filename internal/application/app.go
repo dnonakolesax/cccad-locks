@@ -170,6 +170,12 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	if a.layers.OperationsHTTP != nil {
 		a.layers.OperationsHTTP.RegisterRoutes(mux)
 	}
+	if a.layers.Parts3DHTTP != nil {
+		a.layers.Parts3DHTTP.RegisterRoutes(mux)
+	}
+	if a.layers.Parts3DWS != nil {
+		a.layers.Parts3DWS.RegisterRoutes(mux)
+	}
 	if a.layers.SolverHTTP != nil {
 		a.layers.SolverHTTP.RegisterRoutes(mux)
 	}
@@ -208,6 +214,11 @@ func (a *App) closeComponents() {
 	if a.components.solver != nil {
 		if err := a.components.solver.Close(); err != nil {
 			a.initLogger.Error("Solver grpc close error", slog.String(consts.ErrorLoggerKey, err.Error()))
+		}
+	}
+	if a.components.geometry != nil {
+		if err := a.components.geometry.Close(); err != nil {
+			a.initLogger.Error("Geometry grpc close error", slog.String(consts.ErrorLoggerKey, err.Error()))
 		}
 	}
 	if a.components.auth != nil {

@@ -255,6 +255,28 @@ func (pw *PGXWorker) Query(ctx context.Context, sql string, args ...interface{})
 	return &PGXResponse{rows: result, cancel: cancel}, nil
 }
 
+func (pw *PGXWorker) WithTx(ctx context.Context, fn func(context.Context, pgx.Tx) error) error {
+	timeCtx, cancel := context.WithTimeout(ctx, pw.Conn.requestTimeout)
+	defer cancel()
+
+	if pw.ConnUpdating.Load() {
+		for pw.ConnUpdating.Load() {
+		}
+	}
+
+	tx, err := pw.Conn.pool.Begin(timeCtx)
+	if err != nil {
+		return err
+	}
+
+	if err := fn(timeCtx, tx); err != nil {
+		_ = tx.Rollback(timeCtx)
+		return err
+	}
+
+	return tx.Commit(timeCtx)
+}
+
 func (pr *PGXResponse) Next() bool {
 	return pr.rows.Next()
 }

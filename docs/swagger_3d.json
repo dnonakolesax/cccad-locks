@@ -1,0 +1,884 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "cccAD 3D Modeling REST Read API",
+    "version": "0.1.0",
+    "description": "REST read-side contract for the 3D part-modeling domain.\nIt exposes current 3D feature history, active bodies, generated representations, topology summaries and sketch-plane extraction from topology.\nCollaborative state-changing commands such as feature creation, feature update, feature deletion, suppress/unsuppress and rebuild scheduling are intentionally not defined here and should be transported through the realtime/WebSocket contract.\nSketch CRUD is intentionally not defined here except references by sketchId/profileId.\n"
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "3D Features"
+    },
+    {
+      "name": "3D Bodies"
+    },
+    {
+      "name": "3D Topology"
+    }
+  ],
+  "paths": {
+    "/parts/{partId}/features": {
+      "get": {
+        "tags": [
+          "3D Features"
+        ],
+        "summary": "List ordered 3D features of a part.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartId"
+          },
+          {
+            "name": "includeSuppressed",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feature list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "features"
+                  ],
+                  "properties": {
+                    "features": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Feature"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/parts/{partId}/features/{featureId}": {
+      "get": {
+        "tags": [
+          "3D Features"
+        ],
+        "summary": "Get one feature.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartId"
+          },
+          {
+            "$ref": "#/components/parameters/FeatureId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feature.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Feature"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/parts/{partId}/bodies": {
+      "get": {
+        "tags": [
+          "3D Bodies"
+        ],
+        "summary": "List active 3D bodies.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Body list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "bodies"
+                  ],
+                  "properties": {
+                    "bodies": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Body"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/parts/{partId}/representations": {
+      "get": {
+        "tags": [
+          "3D Bodies"
+        ],
+        "summary": "List BREP/GLB/mesh/STEP/STL representations for a part.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartId"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/RepresentationKind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Representation list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "representations"
+                  ],
+                  "properties": {
+                    "representations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Representation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/parts/{partId}/topology": {
+      "get": {
+        "tags": [
+          "3D Topology"
+        ],
+        "summary": "Get current topology summary for picking/selecting faces and edges.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartId"
+          },
+          {
+            "name": "bodyId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Topology summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopologySummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/parts/{partId}/bodies/{bodyId}/faces/{faceId}/plane": {
+      "get": {
+        "tags": [
+          "3D Topology"
+        ],
+        "summary": "Get sketch plane derived from selected planar face.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartId"
+          },
+          {
+            "$ref": "#/components/parameters/BodyId"
+          },
+          {
+            "name": "faceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Face plane.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "surfaceType"
+                  ],
+                  "properties": {
+                    "surfaceType": {
+                      "type": "string",
+                      "enum": [
+                        "plane",
+                        "cylinder",
+                        "cone",
+                        "sphere",
+                        "bspline",
+                        "unknown"
+                      ]
+                    },
+                    "plane": {
+                      "$ref": "#/components/schemas/SketchPlane"
+                    },
+                    "diagnostics": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Diagnostic"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "PartId": {
+        "name": "partId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "FeatureId": {
+        "name": "featureId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "BodyId": {
+        "name": "bodyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "schemas": {
+      "Feature": {
+        "type": "object",
+        "required": [
+          "id",
+          "partId",
+          "type",
+          "payload",
+          "orderIndex",
+          "suppressed",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sketchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "extrude",
+              "boolean",
+              "hole",
+              "pattern",
+              "fillet",
+              "chamfer"
+            ]
+          },
+          "payload": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ExtrudeFeaturePayload"
+              },
+              {
+                "$ref": "#/components/schemas/BooleanFeaturePayload"
+              },
+              {
+                "$ref": "#/components/schemas/HoleFeaturePayload"
+              },
+              {
+                "$ref": "#/components/schemas/PatternFeaturePayload"
+              },
+              {
+                "$ref": "#/components/schemas/FilletFeaturePayload"
+              },
+              {
+                "$ref": "#/components/schemas/ChamferFeaturePayload"
+              }
+            ]
+          },
+          "orderIndex": {
+            "type": "integer"
+          },
+          "suppressed": {
+            "type": "boolean"
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Vec2": {
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        }
+      },
+      "Vec3": {
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "z"
+        ],
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          }
+        }
+      },
+      "Axis3D": {
+        "type": "object",
+        "required": [
+          "origin",
+          "direction"
+        ],
+        "properties": {
+          "origin": {
+            "$ref": "#/components/schemas/Vec3"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/Vec3"
+          }
+        }
+      },
+      "LinearPattern": {
+        "type": "object",
+        "required": [
+          "direction",
+          "count",
+          "spacing"
+        ],
+        "properties": {
+          "direction": {
+            "$ref": "#/components/schemas/Vec3"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "spacing": {
+            "type": "number"
+          }
+        }
+      },
+      "CircularPattern": {
+        "type": "object",
+        "required": [
+          "axis",
+          "count",
+          "angleDeg"
+        ],
+        "properties": {
+          "axis": {
+            "$ref": "#/components/schemas/Axis3D"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "angleDeg": {
+            "type": "number"
+          }
+        }
+      },
+      "Body": {
+        "type": "object",
+        "required": [
+          "id",
+          "partId",
+          "name",
+          "active"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdByFeatureId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "RepresentationKind": {
+        "type": "string",
+        "enum": [
+          "brep",
+          "glb",
+          "mesh_json",
+          "step",
+          "stl"
+        ]
+      },
+      "Representation": {
+        "type": "object",
+        "required": [
+          "id",
+          "partId",
+          "kind",
+          "storageKey",
+          "documentVersion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bodyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RepresentationKind"
+          },
+          "storageKey": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "documentVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SketchPlane": {
+        "type": "object",
+        "required": [
+          "kind",
+          "origin",
+          "xAxis",
+          "yAxis",
+          "normal"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "XY",
+              "XZ",
+              "YZ",
+              "CUSTOM",
+              "FACE"
+            ]
+          },
+          "origin": {
+            "$ref": "#/components/schemas/Vec3"
+          },
+          "xAxis": {
+            "$ref": "#/components/schemas/Vec3"
+          },
+          "yAxis": {
+            "$ref": "#/components/schemas/Vec3"
+          },
+          "normal": {
+            "$ref": "#/components/schemas/Vec3"
+          }
+        }
+      },
+      "TopologySummary": {
+        "type": "object",
+        "properties": {
+          "bodies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopologyBody"
+            }
+          }
+        }
+      },
+      "TopologyBody": {
+        "type": "object",
+        "properties": {
+          "bodyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stableRef": {
+            "type": "string"
+          },
+          "shells": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "Diagnostic": {
+        "type": "object",
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "featureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bodyId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ExtrudeFeaturePayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "sketchId",
+          "profileId",
+          "depth",
+          "direction",
+          "operation"
+        ],
+        "properties": {
+          "type": {
+            "const": "extrude"
+          },
+          "sketchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "forward",
+              "backward",
+              "symmetric",
+              "through_all"
+            ]
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "new_body",
+              "join",
+              "cut",
+              "intersect"
+            ]
+          },
+          "targetBodyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draftAngleDeg": {
+            "type": "number",
+            "default": 0
+          }
+        }
+      },
+      "BooleanFeaturePayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "operation",
+          "targetBodyId",
+          "toolBodyIds"
+        ],
+        "properties": {
+          "type": {
+            "const": "boolean"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "unite",
+              "subtract",
+              "intersect"
+            ]
+          },
+          "targetBodyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolBodyIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "HoleFeaturePayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "sketchId",
+          "center",
+          "diameter",
+          "direction",
+          "targetBodyId"
+        ],
+        "properties": {
+          "type": {
+            "const": "hole"
+          },
+          "sketchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "center": {
+            "$ref": "#/components/schemas/Vec2"
+          },
+          "diameter": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "depth": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "throughAll": {
+            "type": "boolean",
+            "default": false
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "forward",
+              "backward"
+            ]
+          },
+          "targetBodyId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PatternFeaturePayload": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "const": "pattern"
+          },
+          "sourceFeatureIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "sourceBodyIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "linear": {
+            "$ref": "#/components/schemas/LinearPattern"
+          },
+          "circular": {
+            "$ref": "#/components/schemas/CircularPattern"
+          }
+        }
+      },
+      "FilletFeaturePayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "targetBodyId",
+          "edgeRefs",
+          "radius"
+        ],
+        "properties": {
+          "type": {
+            "const": "fillet"
+          },
+          "targetBodyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "edgeRefs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "radius": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      },
+      "ChamferFeaturePayload": {
+        "type": "object",
+        "required": [
+          "type",
+          "targetBodyId",
+          "edgeRefs",
+          "distance"
+        ],
+        "properties": {
+          "type": {
+            "const": "chamfer"
+          },
+          "targetBodyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "edgeRefs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "distance": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    }
+  }
+}

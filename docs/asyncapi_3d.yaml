@@ -1,0 +1,502 @@
+asyncapi: 3.1.0
+info:
+  title: cccAD 3D Modeling Events
+  version: 0.1.0
+  description: |
+    WebSocket/event-bus contract for the 3D part-modeling domain only.
+    It covers feature lifecycle, rebuild lifecycle, topology updates and 3D selection/presence events.
+    Authentication, RBAC and collaboration-session management are outside this file.
+servers:
+  production:
+    host: api.cccad.example
+    protocol: wss
+    pathname: /api/v1/parts/{partId}/ws
+    variables:
+      partId:
+        description: Part identifier.
+        examples:
+          - 0192e0ec-7e1e-7c01-9f5f-8f6f8d053001
+channels:
+  part3dEvents:
+    address: parts.{partId}.3d.events
+    parameters:
+      partId:
+        description: Part identifier.
+    messages:
+      Part3DFeatureIntent:
+        $ref: '#/components/messages/Part3DFeatureIntent'
+      Part3DFeatureAccepted:
+        $ref: '#/components/messages/Part3DFeatureAccepted'
+      Part3DFeatureRejected:
+        $ref: '#/components/messages/Part3DFeatureRejected'
+      Part3DFeatureCommitted:
+        $ref: '#/components/messages/Part3DFeatureCommitted'
+      Part3DFeatureSuppressed:
+        $ref: '#/components/messages/Part3DFeatureSuppressed'
+      Part3DFeatureDeleted:
+        $ref: '#/components/messages/Part3DFeatureDeleted'
+      Part3DRebuildStarted:
+        $ref: '#/components/messages/Part3DRebuildStarted'
+      Part3DRebuildCompleted:
+        $ref: '#/components/messages/Part3DRebuildCompleted'
+      Part3DRebuildFailed:
+        $ref: '#/components/messages/Part3DRebuildFailed'
+      Part3DTopologyUpdated:
+        $ref: '#/components/messages/Part3DTopologyUpdated'
+      Part3DSelectionChanged:
+        $ref: '#/components/messages/Part3DSelectionChanged'
+      Part3DPreviewChanged:
+        $ref: '#/components/messages/Part3DPreviewChanged'
+operations:
+  publishPart3DFeatureIntent:
+    action: send
+    channel:
+      $ref: '#/channels/part3dEvents'
+    messages:
+      - $ref: '#/channels/part3dEvents/messages/Part3DFeatureIntent'
+  subscribePart3DUpdates:
+    action: receive
+    channel:
+      $ref: '#/channels/part3dEvents'
+    messages:
+      - $ref: '#/channels/part3dEvents/messages/Part3DFeatureAccepted'
+      - $ref: '#/channels/part3dEvents/messages/Part3DFeatureRejected'
+      - $ref: '#/channels/part3dEvents/messages/Part3DFeatureCommitted'
+      - $ref: '#/channels/part3dEvents/messages/Part3DFeatureSuppressed'
+      - $ref: '#/channels/part3dEvents/messages/Part3DFeatureDeleted'
+      - $ref: '#/channels/part3dEvents/messages/Part3DRebuildStarted'
+      - $ref: '#/channels/part3dEvents/messages/Part3DRebuildCompleted'
+      - $ref: '#/channels/part3dEvents/messages/Part3DRebuildFailed'
+      - $ref: '#/channels/part3dEvents/messages/Part3DTopologyUpdated'
+      - $ref: '#/channels/part3dEvents/messages/Part3DSelectionChanged'
+      - $ref: '#/channels/part3dEvents/messages/Part3DPreviewChanged'
+components:
+  messages:
+    Part3DFeatureIntent:
+      name: part.3d.feature.intent
+      title: Client requests or previews a 3D feature operation.
+      payload:
+        $ref: '#/components/schemas/FeatureIntentEnvelope'
+    Part3DFeatureAccepted:
+      name: part.3d.feature.accepted
+      title: Backend accepted the feature for rebuild.
+      payload:
+        $ref: '#/components/schemas/FeatureLifecycleEnvelope'
+    Part3DFeatureRejected:
+      name: part.3d.feature.rejected
+      title: Backend rejected the feature before geometry rebuild.
+      payload:
+        $ref: '#/components/schemas/FeatureRejectedEnvelope'
+    Part3DFeatureCommitted:
+      name: part.3d.feature.committed
+      title: Feature has been committed to the ordered history.
+      payload:
+        $ref: '#/components/schemas/FeatureLifecycleEnvelope'
+    Part3DFeatureSuppressed:
+      name: part.3d.feature.suppressed
+      title: Feature suppression state changed.
+      payload:
+        $ref: '#/components/schemas/FeatureLifecycleEnvelope'
+    Part3DFeatureDeleted:
+      name: part.3d.feature.deleted
+      title: Feature removed from the active history.
+      payload:
+        $ref: '#/components/schemas/FeatureLifecycleEnvelope'
+    Part3DRebuildStarted:
+      name: part.3d.rebuild.started
+      title: Part rebuild started.
+      payload:
+        $ref: '#/components/schemas/RebuildEnvelope'
+    Part3DRebuildCompleted:
+      name: part.3d.rebuild.completed
+      title: Part rebuild completed successfully.
+      payload:
+        $ref: '#/components/schemas/RebuildCompletedEnvelope'
+    Part3DRebuildFailed:
+      name: part.3d.rebuild.failed
+      title: Part rebuild failed.
+      payload:
+        $ref: '#/components/schemas/RebuildFailedEnvelope'
+    Part3DTopologyUpdated:
+      name: part.3d.topology.updated
+      title: Topology identifiers and selectable refs updated.
+      payload:
+        $ref: '#/components/schemas/TopologyUpdatedEnvelope'
+    Part3DSelectionChanged:
+      name: part.3d.selection.changed
+      title: User changed 3D selection.
+      payload:
+        $ref: '#/components/schemas/SelectionChangedEnvelope'
+    Part3DPreviewChanged:
+      name: part.3d.preview.changed
+      title: User changed transient 3D feature preview parameters.
+      payload:
+        $ref: '#/components/schemas/PreviewChangedEnvelope'
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+    Instant:
+      type: string
+      format: date-time
+    BaseEnvelope:
+      type: object
+      required: [messageId, type, partId, documentVersion, actorUserId, timestamp]
+      properties:
+        messageId:
+          $ref: '#/components/schemas/Uuid'
+        type:
+          type: string
+        partId:
+          $ref: '#/components/schemas/Uuid'
+        documentVersion:
+          type: integer
+          format: int64
+        actorUserId:
+          $ref: '#/components/schemas/Uuid'
+        timestamp:
+          $ref: '#/components/schemas/Instant'
+    FeatureIntentEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          required: [clientOperationId, feature]
+          properties:
+            type:
+              const: part.3d.feature.intent
+            clientOperationId:
+              $ref: '#/components/schemas/Uuid'
+            previewOnly:
+              type: boolean
+              default: false
+            feature:
+              $ref: '#/components/schemas/FeatureCreateRequest'
+    FeatureLifecycleEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          required: [featureId]
+          properties:
+            featureId:
+              $ref: '#/components/schemas/Uuid'
+            orderIndex:
+              type: integer
+            status:
+              type: string
+              enum: [accepted, committed, suppressed, unsuppressed, deleted]
+    FeatureRejectedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          required: [clientOperationId, diagnostics]
+          properties:
+            type:
+              const: part.3d.feature.rejected
+            clientOperationId:
+              $ref: '#/components/schemas/Uuid'
+            diagnostics:
+              type: array
+              items:
+                $ref: '#/components/schemas/Diagnostic'
+    RebuildEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            rebuildId:
+              $ref: '#/components/schemas/Uuid'
+    RebuildCompletedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RebuildEnvelope'
+        - type: object
+          required: [bodies, representations]
+          properties:
+            type:
+              const: part.3d.rebuild.completed
+            bodies:
+              type: array
+              items:
+                $ref: '#/components/schemas/BodySummary'
+            representations:
+              type: array
+              items:
+                $ref: '#/components/schemas/RepresentationRef'
+            diagnostics:
+              type: array
+              items:
+                $ref: '#/components/schemas/Diagnostic'
+    RebuildFailedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RebuildEnvelope'
+        - type: object
+          required: [diagnostics]
+          properties:
+            type:
+              const: part.3d.rebuild.failed
+            failedFeatureId:
+              $ref: '#/components/schemas/Uuid'
+            diagnostics:
+              type: array
+              items:
+                $ref: '#/components/schemas/Diagnostic'
+    TopologyUpdatedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          required: [topology]
+          properties:
+            type:
+              const: part.3d.topology.updated
+            topology:
+              $ref: '#/components/schemas/TopologySummary'
+    SelectionChangedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          required: [selection]
+          properties:
+            type:
+              const: part.3d.selection.changed
+            selection:
+              type: array
+              items:
+                $ref: '#/components/schemas/TopologyRef'
+    PreviewChangedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          required: [clientOperationId, feature]
+          properties:
+            type:
+              const: part.3d.preview.changed
+            clientOperationId:
+              $ref: '#/components/schemas/Uuid'
+            feature:
+              $ref: '#/components/schemas/FeatureCreateRequest'
+    FeatureCreateRequest:
+      oneOf:
+        - $ref: '#/components/schemas/ExtrudeCreate'
+        - $ref: '#/components/schemas/BooleanCreate'
+        - $ref: '#/components/schemas/HoleCreate'
+        - $ref: '#/components/schemas/PatternCreate'
+        - $ref: '#/components/schemas/FilletCreate'
+        - $ref: '#/components/schemas/ChamferCreate'
+      discriminator: type
+    ExtrudeCreate:
+      type: object
+      required: [type, sketchId, profileId, depth, direction, operation]
+      properties:
+        type:
+          const: extrude
+        sketchId:
+          $ref: '#/components/schemas/Uuid'
+        profileId:
+          type: string
+        depth:
+          type: number
+          exclusiveMinimum: 0
+        direction:
+          type: string
+          enum: [forward, backward, symmetric, through_all]
+        operation:
+          type: string
+          enum: [new_body, join, cut, intersect]
+        targetBodyId:
+          $ref: '#/components/schemas/Uuid'
+    BooleanCreate:
+      type: object
+      required: [type, operation, targetBodyId, toolBodyIds]
+      properties:
+        type:
+          const: boolean
+        operation:
+          type: string
+          enum: [unite, subtract, intersect]
+        targetBodyId:
+          $ref: '#/components/schemas/Uuid'
+        toolBodyIds:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Uuid'
+    HoleCreate:
+      type: object
+      required: [type, sketchId, center, diameter, direction]
+      properties:
+        type:
+          const: hole
+        sketchId:
+          $ref: '#/components/schemas/Uuid'
+        center:
+          $ref: '#/components/schemas/Vec2'
+        diameter:
+          type: number
+          exclusiveMinimum: 0
+        depth:
+          type: number
+          exclusiveMinimum: 0
+        throughAll:
+          type: boolean
+          default: false
+        direction:
+          type: string
+          enum: [forward, backward]
+        targetBodyId:
+          $ref: '#/components/schemas/Uuid'
+    PatternCreate:
+      type: object
+      required: [type, sourceFeatureIds]
+      properties:
+        type:
+          const: pattern
+        sourceFeatureIds:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Uuid'
+        sourceBodyIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Uuid'
+        linear:
+          $ref: '#/components/schemas/LinearPattern'
+        circular:
+          $ref: '#/components/schemas/CircularPattern'
+    FilletCreate:
+      type: object
+      required: [type, targetBodyId, edgeRefs, radius]
+      properties:
+        type:
+          const: fillet
+        targetBodyId:
+          $ref: '#/components/schemas/Uuid'
+        edgeRefs:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        radius:
+          type: number
+          exclusiveMinimum: 0
+    ChamferCreate:
+      type: object
+      required: [type, targetBodyId, edgeRefs, distance]
+      properties:
+        type:
+          const: chamfer
+        targetBodyId:
+          $ref: '#/components/schemas/Uuid'
+        edgeRefs:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        distance:
+          type: number
+          exclusiveMinimum: 0
+    Vec2:
+      type: object
+      required: [x, y]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+    Vec3:
+      type: object
+      required: [x, y, z]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+        z:
+          type: number
+    Axis3D:
+      type: object
+      required: [origin, direction]
+      properties:
+        origin:
+          $ref: '#/components/schemas/Vec3'
+        direction:
+          $ref: '#/components/schemas/Vec3'
+    LinearPattern:
+      type: object
+      required: [direction, count, spacing]
+      properties:
+        direction:
+          $ref: '#/components/schemas/Vec3'
+        count:
+          type: integer
+          minimum: 2
+        spacing:
+          type: number
+    CircularPattern:
+      type: object
+      required: [axis, count, angleDeg]
+      properties:
+        axis:
+          $ref: '#/components/schemas/Axis3D'
+        count:
+          type: integer
+          minimum: 2
+        angleDeg:
+          type: number
+    Diagnostic:
+      type: object
+      required: [code, severity, message]
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum: [error, warning, info]
+        message:
+          type: string
+        featureId:
+          $ref: '#/components/schemas/Uuid'
+    BodySummary:
+      type: object
+      required: [id, name, active]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        active:
+          type: boolean
+    RepresentationRef:
+      type: object
+      required: [kind, storageKey]
+      properties:
+        kind:
+          type: string
+          enum: [brep, glb, mesh_json, step, stl]
+        storageKey:
+          type: string
+        url:
+          type: string
+          format: uri
+    TopologyRef:
+      type: object
+      required: [kind, bodyId, ref]
+      properties:
+        kind:
+          type: string
+          enum: [body, face, edge, vertex]
+        bodyId:
+          $ref: '#/components/schemas/Uuid'
+        ref:
+          type: string
+    TopologySummary:
+      type: object
+      properties:
+        bodies:
+          type: array
+          items:
+            type: object
+            properties:
+              bodyId:
+                $ref: '#/components/schemas/Uuid'
+              stableRef:
+                type: string

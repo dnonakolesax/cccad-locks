@@ -9,7 +9,7 @@ MIGRATIONS_DIR := ./migrations
 
 PROTOC := protoc
 GO_PACKAGES := ./...
-PROTO_FILES := internal/proto/auth/v1/auth.proto proto/solver/v1/sketch_solver.proto
+PROTO_FILES := internal/proto/auth/v1/auth.proto proto/solver/v1/sketch_solver.proto proto/3d/v1/geometry_kernel.proto
 EASYJSON_PACKAGES := ./internal/model
 
 .DEFAULT_GOAL := help
