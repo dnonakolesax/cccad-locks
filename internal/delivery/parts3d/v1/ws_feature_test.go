@@ -143,3 +143,55 @@ func TestCommitFromBuildResponsePersistsTopologyRefs(t *testing.T) {
 		t.Fatalf("topology refs = %d, want 3", len(commit.Topology))
 	}
 }
+
+func TestTopologyFromGeometryQualifiesRepeatedLoopAndEdgeIDs(t *testing.T) {
+	refs := topologyFromGeometry(&geometryv1.TopologySummary{
+		Bodies: []*geometryv1.Body{{
+			BodyId: "body-1",
+			Shells: []*geometryv1.Shell{{
+				ShellId: "shell-1",
+				Faces: []*geometryv1.Face{
+					{
+						FaceId: "face-1",
+						Loops: []*geometryv1.Loop{{
+							LoopId: "loop-1",
+							Edges: []*geometryv1.Edge{{
+								EdgeId: "edge-1",
+							}},
+						}},
+					},
+					{
+						FaceId: "face-2",
+						Loops: []*geometryv1.Loop{{
+							LoopId: "loop-1",
+							Edges: []*geometryv1.Edge{{
+								EdgeId: "edge-1",
+							}},
+						}},
+					},
+				},
+			}},
+		}},
+	})
+
+	seen := map[string]struct{}{}
+	for _, ref := range refs {
+		key := ref.RefKind + "/" + ref.RefID
+		if _, ok := seen[key]; ok {
+			t.Fatalf("duplicate topology ref %q", key)
+		}
+		seen[key] = struct{}{}
+	}
+	if _, ok := seen["loop/face-1/loop-1"]; !ok {
+		t.Fatal("missing qualified loop ref for face-1")
+	}
+	if _, ok := seen["loop/face-2/loop-1"]; !ok {
+		t.Fatal("missing qualified loop ref for face-2")
+	}
+	if _, ok := seen["edge/face-1/loop-1/edge-1"]; !ok {
+		t.Fatal("missing qualified edge ref for face-1")
+	}
+	if _, ok := seen["edge/face-2/loop-1/edge-1"]; !ok {
+		t.Fatal("missing qualified edge ref for face-2")
+	}
+}

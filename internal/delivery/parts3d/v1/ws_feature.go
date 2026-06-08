@@ -804,24 +804,30 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 					Payload:            payload,
 				})
 				for _, loop := range face.GetLoops() {
+					loopRefID := topologyPath(face.GetFaceId(), loop.GetLoopId())
+					loopPayload, _ := json.Marshal(map[string]string{
+						"originalLoopId": loop.GetLoopId(),
+					})
 					result = append(result, model.TopologyRef3DCommit{
 						BodyID:      bodyID,
 						RefKind:     "loop",
-						RefID:       loop.GetLoopId(),
+						RefID:       loopRefID,
 						StableRef:   loop.GetStableRef(),
 						ParentRefID: face.GetFaceId(),
+						Payload:     loopPayload,
 					})
 					for _, edge := range loop.GetEdges() {
 						payload, _ := json.Marshal(map[string]string{
-							"startVertexId": edge.GetStartVertexId(),
-							"endVertexId":   edge.GetEndVertexId(),
+							"originalEdgeId": edge.GetEdgeId(),
+							"startVertexId":  edge.GetStartVertexId(),
+							"endVertexId":    edge.GetEndVertexId(),
 						})
 						result = append(result, model.TopologyRef3DCommit{
 							BodyID:             bodyID,
 							RefKind:            "edge",
-							RefID:              edge.GetEdgeId(),
+							RefID:              topologyPath(loopRefID, edge.GetEdgeId()),
 							StableRef:          edge.GetStableRef(),
-							ParentRefID:        loop.GetLoopId(),
+							ParentRefID:        loopRefID,
 							SurfaceOrCurveType: edge.GetCurveType(),
 							Payload:            payload,
 						})
@@ -846,6 +852,16 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 		}
 	}
 	return result
+}
+
+func topologyPath(parentID string, refID string) string {
+	if parentID == "" {
+		return refID
+	}
+	if refID == "" {
+		return parentID
+	}
+	return parentID + "/" + refID
 }
 
 func diagnosticsFromGeometry(diagnostics []*geometryv1.Diagnostic) []model.Diagnostic3D {
