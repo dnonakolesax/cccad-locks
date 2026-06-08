@@ -25,6 +25,7 @@ type Repository interface {
 	ListFeatures(ctx context.Context, partID string, includeSuppressed bool) ([]model.Feature3D, error)
 	ListBodies(ctx context.Context, partID string) ([]model.Body3D, error)
 	ListRepresentations(ctx context.Context, partID string, kind *string) ([]model.Representation3D, error)
+	GetRepresentation(ctx context.Context, partID string, representationID string) (*model.Representation3D, error)
 	GetTopology(ctx context.Context, partID string, bodyID *string) (*model.TopologySummary3D, error)
 	GetFacePlane(ctx context.Context, partID string, bodyID string, faceID string) (*model.FacePlane3D, error)
 }
@@ -33,7 +34,10 @@ type Service struct {
 	repo Repository
 }
 
-var ErrFacePlaneNotFound = errors.New("face plane not found")
+var (
+	ErrFacePlaneNotFound      = errors.New("face plane not found")
+	ErrRepresentationNotFound = errors.New("representation not found")
+)
 
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
@@ -170,6 +174,32 @@ func (s *Service) ListRepresentations(
 	}
 
 	return &model.Representation3DList{Representations: representations}, nil
+}
+
+func (s *Service) GetRepresentation(
+	ctx context.Context,
+	partID string,
+	representationID string,
+) (*model.Representation3D, error) {
+	if err := validateUUID("partID", partID); err != nil {
+		return nil, err
+	}
+	if err := validateUUID("representationID", representationID); err != nil {
+		return nil, err
+	}
+	if s.repo == nil {
+		return nil, errors.New("3d parts repository is required")
+	}
+
+	representation, err := s.repo.GetRepresentation(ctx, partID, representationID)
+	if err != nil {
+		return nil, err
+	}
+	if representation == nil {
+		return nil, fmt.Errorf("%w: %s", ErrRepresentationNotFound, representationID)
+	}
+
+	return representation, nil
 }
 
 func (s *Service) GetTopology(

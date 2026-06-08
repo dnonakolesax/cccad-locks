@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -20,6 +22,10 @@ type stubParts3DService struct {
 	deletePartID      string
 	listRepsPartID    string
 	listRepsKind      *string
+	getRepPartID      string
+	getRepID          string
+	getRepStorageKey  string
+	getRepContentType string
 }
 
 func (s *stubParts3DService) Create(
@@ -86,6 +92,27 @@ func (s *stubParts3DService) ListRepresentations(
 				DocumentVersion: 7,
 			},
 		},
+	}, nil
+}
+
+func (s *stubParts3DService) GetRepresentation(
+	_ context.Context,
+	partID string,
+	representationID string,
+) (*model.Representation3D, error) {
+	s.getRepPartID = partID
+	s.getRepID = representationID
+	storageKey := s.getRepStorageKey
+	if storageKey == "" {
+		storageKey = "parts/part-1/body.glb"
+	}
+	return &model.Representation3D{
+		ID:              representationID,
+		PartID:          partID,
+		Kind:            "glb",
+		StorageKey:      storageKey,
+		ContentType:     s.getRepContentType,
+		DocumentVersion: 7,
 	}, nil
 }
 
@@ -228,5 +255,71 @@ func TestListRepresentationsCallsService(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"representations"`) {
 		t.Fatalf("body = %q, want representations response", rec.Body.String())
+	}
+}
+
+func TestGetRepresentationServesStoredFile(t *testing.T) {
+	root := t.TempDir()
+	storageKey := "parts/part-1/body.glb"
+	path := filepath.Join(root, storageKey)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("glb-body"), 0o644); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	service := &stubParts3DService{
+		getRepStorageKey:  storageKey,
+		getRepContentType: "model/gltf-binary",
+	}
+	mux := http.NewServeMux()
+	NewParts3DHandlerWithRepresentationRoot(service, root).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/parts/22222222-2222-2222-2222-222222222222/representations/33333333-3333-3333-3333-333333333333",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if service.getRepPartID != "22222222-2222-2222-2222-222222222222" {
+		t.Fatalf("partID = %q", service.getRepPartID)
+	}
+	if service.getRepID != "33333333-3333-3333-3333-333333333333" {
+		t.Fatalf("representationID = %q", service.getRepID)
+	}
+	if got := strings.TrimSpace(rec.Body.String()); got != "glb-body" {
+		t.Fatalf("body = %q, want file content", got)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "model/gltf-binary" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+}
+
+func TestGetRepresentationRejectsEscapingStorageKey(t *testing.T) {
+	service := &stubParts3DService{getRepStorageKey: "../secret.glb"}
+	mux := http.NewServeMux()
+	NewParts3DHandlerWithRepresentationRoot(service, t.TempDir()).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/parts/22222222-2222-2222-2222-222222222222/representations/33333333-3333-3333-3333-333333333333",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "escapes representation root") {
+		t.Fatalf("body = %q", rec.Body.String())
 	}
 }

@@ -16,6 +16,8 @@ type stubRepository struct {
 	deletePartID      string
 	listRepsPartID    string
 	listRepsKind      *string
+	getRepPartID      string
+	getRepID          string
 }
 
 func (r *stubRepository) Create(
@@ -74,6 +76,22 @@ func (r *stubRepository) ListRepresentations(
 			StorageKey:      "parts/part-1/body.glb",
 			DocumentVersion: 7,
 		},
+	}, nil
+}
+
+func (r *stubRepository) GetRepresentation(
+	_ context.Context,
+	partID string,
+	representationID string,
+) (*model.Representation3D, error) {
+	r.getRepPartID = partID
+	r.getRepID = representationID
+	return &model.Representation3D{
+		ID:              representationID,
+		PartID:          partID,
+		Kind:            "glb",
+		StorageKey:      "parts/part-1/body.glb",
+		DocumentVersion: 7,
 	}, nil
 }
 
@@ -213,5 +231,45 @@ func TestListRepresentationsRejectsInvalidKind(t *testing.T) {
 	}
 	if repo.listRepsPartID != "" {
 		t.Fatal("repository ListRepresentations was called for invalid kind")
+	}
+}
+
+func TestGetRepresentationPassesPartAndRepresentationID(t *testing.T) {
+	repo := &stubRepository{}
+	service := NewService(repo)
+
+	response, err := service.GetRepresentation(
+		context.Background(),
+		"22222222-2222-2222-2222-222222222222",
+		"33333333-3333-3333-3333-333333333333",
+	)
+	if err != nil {
+		t.Fatalf("GetRepresentation returned error: %v", err)
+	}
+	if response == nil {
+		t.Fatal("GetRepresentation returned nil response")
+	}
+	if repo.getRepPartID != "22222222-2222-2222-2222-222222222222" {
+		t.Fatalf("partID = %q", repo.getRepPartID)
+	}
+	if repo.getRepID != "33333333-3333-3333-3333-333333333333" {
+		t.Fatalf("representationID = %q", repo.getRepID)
+	}
+}
+
+func TestGetRepresentationRejectsInvalidRepresentationID(t *testing.T) {
+	repo := &stubRepository{}
+	service := NewService(repo)
+
+	_, err := service.GetRepresentation(
+		context.Background(),
+		"22222222-2222-2222-2222-222222222222",
+		"not-a-uuid",
+	)
+	if err == nil {
+		t.Fatal("GetRepresentation returned nil error for invalid representationID")
+	}
+	if repo.getRepID != "" {
+		t.Fatal("repository GetRepresentation was called for invalid representationID")
 	}
 }

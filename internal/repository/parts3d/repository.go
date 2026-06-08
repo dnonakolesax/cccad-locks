@@ -19,6 +19,7 @@ const (
 	listFeaturesRequest         = "parts3d_features_list"
 	listBodiesRequest           = "parts3d_bodies_list"
 	listRepresentationsRequest  = "parts3d_representations_list"
+	getRepresentationRequest    = "parts3d_representation_get"
 	getTopologyRequest          = "parts3d_topology_get"
 	getFacePlaneRequest         = "parts3d_face_plane_get"
 	getSketchPlaneRequest       = "parts3d_sketch_plane_get"
@@ -210,6 +211,40 @@ func (r *Repository) ListRepresentations(
 	}
 
 	return representations, nil
+}
+
+func (r *Repository) GetRepresentation(
+	ctx context.Context,
+	partID string,
+	representationID string,
+) (*model.Representation3D, error) {
+	sqlRequest, err := r.db.Request(getRepresentationRequest)
+	if err != nil {
+		return nil, fmt.Errorf("get 3d representation request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, partID, representationID)
+	if err != nil {
+		return nil, fmt.Errorf("get 3d representation: %w", err)
+	}
+
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("get 3d representation rows: %w", closeErr)
+		}
+		return nil, nil
+	}
+
+	representation, err := scanRepresentation(rows)
+	if err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("get 3d representation rows: %w", closeErr)
+	}
+
+	return representation, nil
 }
 
 func (r *Repository) GetTopology(

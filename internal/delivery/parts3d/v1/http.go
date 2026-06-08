@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -21,16 +24,33 @@ type Parts3DService interface {
 	ListFeatures(ctx context.Context, partID string, includeSuppressed bool) (*model.Feature3DList, error)
 	ListBodies(ctx context.Context, partID string) (*model.Body3DList, error)
 	ListRepresentations(ctx context.Context, partID string, kind *string) (*model.Representation3DList, error)
+	GetRepresentation(ctx context.Context, partID string, representationID string) (*model.Representation3D, error)
 	GetTopology(ctx context.Context, partID string, bodyID *string) (*model.TopologySummary3D, error)
 	GetFacePlane(ctx context.Context, partID string, bodyID string, faceID string) (*model.FacePlane3D, error)
 }
 
 type Parts3DHandler struct {
-	service Parts3DService
+	service            Parts3DService
+	representationRoot string
 }
 
+const defaultRepresentationRoot = "/data/geometry"
+
 func NewParts3DHandler(service Parts3DService) *Parts3DHandler {
-	return &Parts3DHandler{service: service}
+	return NewParts3DHandlerWithRepresentationRoot(service, defaultRepresentationRoot)
+}
+
+func NewParts3DHandlerWithRepresentationRoot(
+	service Parts3DService,
+	representationRoot string,
+) *Parts3DHandler {
+	if strings.TrimSpace(representationRoot) == "" {
+		representationRoot = defaultRepresentationRoot
+	}
+	return &Parts3DHandler{
+		service:            service,
+		representationRoot: representationRoot,
+	}
 }
 
 func (h *Parts3DHandler) RegisterRoutes(mux *http.ServeMux) {
@@ -40,6 +60,7 @@ func (h *Parts3DHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /parts/{partId}/features", h.ListFeatures)
 	mux.HandleFunc("GET /parts/{partId}/bodies", h.ListBodies)
 	mux.HandleFunc("GET /parts/{partId}/representations", h.ListRepresentations)
+	mux.HandleFunc("GET /parts/{partId}/representations/{representationId}", h.GetRepresentation)
 	mux.HandleFunc("GET /parts/{partId}/topology", h.GetTopology)
 	mux.HandleFunc("GET /parts/{partId}/bodies/{bodyId}/faces/{faceId}/plane", h.GetFacePlane)
 }
@@ -150,6 +171,58 @@ func (h *Parts3DHandler) ListRepresentations(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, response)
 }
 
+func (h *Parts3DHandler) GetRepresentation(w http.ResponseWriter, r *http.Request) {
+	representation, err := h.service.GetRepresentation(
+		r.Context(),
+		r.PathValue("partId"),
+		r.PathValue("representationId"),
+	)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	path, err := representationPath(h.representationRoot, representation.StorageKey)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "INVALID_OPERATION", err.Error())
+		return
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			writeJSONError(w, http.StatusNotFound, "INVALID_REFERENCE", "representation file not found")
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	if info.IsDir() {
+		writeJSONError(w, http.StatusNotFound, "INVALID_REFERENCE", "representation file not found")
+		return
+	}
+
+	contentType := strings.TrimSpace(representation.ContentType)
+	if contentType == "" {
+		contentType = mime.TypeByExtension(filepath.Ext(path))
+	}
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	w.Header().Set("X-Representation-Storage-Key", representation.StorageKey)
+
+	http.ServeContent(w, r, filepath.Base(path), info.ModTime(), file)
+}
+
 func (h *Parts3DHandler) GetTopology(w http.ResponseWriter, r *http.Request) {
 	var bodyID *string
 	if value := strings.TrimSpace(r.URL.Query().Get("bodyId")); value != "" {
@@ -215,12 +288,39 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, parts3dService.ErrFacePlaneNotFound):
 		writeJSONError(w, http.StatusNotFound, "INVALID_REFERENCE", err.Error())
+	case errors.Is(err, parts3dService.ErrRepresentationNotFound):
+		writeJSONError(w, http.StatusNotFound, "INVALID_REFERENCE", err.Error())
 	case strings.Contains(err.Error(), "must be a valid uuid"),
 		strings.Contains(err.Error(), "is required"):
 		writeJSONError(w, http.StatusBadRequest, "INVALID_OPERATION", err.Error())
 	default:
 		writeJSONError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 	}
+}
+
+func representationPath(root string, storageKey string) (string, error) {
+	storageKey = strings.TrimSpace(storageKey)
+	if storageKey == "" {
+		return "", errors.New("representation storageKey is required")
+	}
+	if filepath.IsAbs(storageKey) {
+		return "", errors.New("representation storageKey must be relative")
+	}
+
+	cleanRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	cleanPath := filepath.Clean(filepath.Join(cleanRoot, storageKey))
+	rel, err := filepath.Rel(cleanRoot, cleanPath)
+	if err != nil {
+		return "", err
+	}
+	if rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." {
+		return "", errors.New("representation storageKey escapes representation root")
+	}
+
+	return cleanPath, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
