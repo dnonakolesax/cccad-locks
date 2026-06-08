@@ -2,7 +2,7 @@ WITH latest AS (
     SELECT max(document_version) AS document_version
     FROM topology_refs_3d
     WHERE part_id = $1
-      AND ($2::uuid IS NULL OR body_id = $2::uuid)
+      AND ($2::text IS NULL OR body_id = $2::text)
 )
 SELECT
     body_id::text,
@@ -15,7 +15,7 @@ SELECT
 FROM topology_refs_3d
 WHERE part_id = $1
   AND document_version = (SELECT document_version FROM latest)
-  AND ($2::uuid IS NULL OR body_id = $2::uuid)
+  AND ($2::text IS NULL OR body_id = $2::text)
 ORDER BY
     body_id,
     CASE ref_kind

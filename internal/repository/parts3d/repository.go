@@ -401,7 +401,7 @@ INSERT INTO part_bodies_3d (
     active,
     stable_ref
 )
-VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, NULLIF($6, ''))
+VALUES ($1, $2::uuid, $3, $4::uuid, $5, NULLIF($6, ''))
 ON CONFLICT (id) DO UPDATE SET
     name = EXCLUDED.name,
     created_by_feature_id = EXCLUDED.created_by_feature_id,
@@ -428,7 +428,7 @@ INSERT INTO part_representations_3d (
 )
 VALUES (
     $1::uuid,
-    NULLIF($2, '')::uuid,
+    NULLIF($2, ''),
     $3,
     $4::body_3d_representation_kind,
     $5,
@@ -470,7 +470,7 @@ INSERT INTO topology_refs_3d (
 )
 VALUES (
     $1::uuid,
-    $2::uuid,
+    $2,
     $3,
     $4,
     $5,
@@ -498,7 +498,7 @@ VALUES (
     $3::uuid,
     $4::feature_3d_build_status,
     $5::jsonb,
-    NULLIF($6, '')::uuid
+    NULLIF($6, '')
 )`, rebuildID, commit.FeatureID, commit.PartID, status, diagnostics, firstBodyID(commit.Bodies)); err != nil {
 			return fmt.Errorf("insert 3d build result: %w", err)
 		}
