@@ -768,6 +768,7 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 		return nil
 	}
 	result := make([]model.TopologyRef3DCommit, 0)
+	refs := newTopologyRefAllocator()
 	for _, body := range topology.GetBodies() {
 		bodyID := body.GetBodyId()
 		if bodyID == "" {
@@ -780,14 +781,16 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 			StableRef: body.GetStableRef(),
 		})
 		for _, shell := range body.GetShells() {
+			shellRefID := refs.unique(bodyID, "shell", shell.GetShellId())
 			result = append(result, model.TopologyRef3DCommit{
 				BodyID:      bodyID,
 				RefKind:     "shell",
-				RefID:       shell.GetShellId(),
+				RefID:       shellRefID,
 				StableRef:   shell.GetStableRef(),
 				ParentRefID: bodyID,
 			})
 			for _, face := range shell.GetFaces() {
+				faceRefID := refs.unique(bodyID, "face", face.GetFaceId())
 				payload := json.RawMessage(`{}`)
 				if face.GetPlane() != nil {
 					if plane, err := protojson.Marshal(face.GetPlane()); err == nil {
@@ -797,14 +800,14 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 				result = append(result, model.TopologyRef3DCommit{
 					BodyID:             bodyID,
 					RefKind:            "face",
-					RefID:              face.GetFaceId(),
+					RefID:              faceRefID,
 					StableRef:          face.GetStableRef(),
-					ParentRefID:        shell.GetShellId(),
+					ParentRefID:        shellRefID,
 					SurfaceOrCurveType: face.GetSurfaceType(),
 					Payload:            payload,
 				})
 				for _, loop := range face.GetLoops() {
-					loopRefID := topologyPath(face.GetFaceId(), loop.GetLoopId())
+					loopRefID := refs.unique(bodyID, "loop", topologyPath(faceRefID, loop.GetLoopId()))
 					loopPayload, _ := json.Marshal(map[string]string{
 						"originalLoopId": loop.GetLoopId(),
 					})
@@ -813,7 +816,7 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 						RefKind:     "loop",
 						RefID:       loopRefID,
 						StableRef:   loop.GetStableRef(),
-						ParentRefID: face.GetFaceId(),
+						ParentRefID: faceRefID,
 						Payload:     loopPayload,
 					})
 					for _, edge := range loop.GetEdges() {
@@ -825,7 +828,7 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 						result = append(result, model.TopologyRef3DCommit{
 							BodyID:             bodyID,
 							RefKind:            "edge",
-							RefID:              topologyPath(loopRefID, edge.GetEdgeId()),
+							RefID:              refs.unique(bodyID, "edge", topologyPath(loopRefID, edge.GetEdgeId())),
 							StableRef:          edge.GetStableRef(),
 							ParentRefID:        loopRefID,
 							SurfaceOrCurveType: edge.GetCurveType(),
@@ -842,16 +845,37 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 					payload, _ = json.Marshal(map[string]json.RawMessage{"point": point})
 				}
 			}
+			vertexRefID := refs.unique(bodyID, "vertex", vertex.GetVertexId())
 			result = append(result, model.TopologyRef3DCommit{
 				BodyID:    bodyID,
 				RefKind:   "vertex",
-				RefID:     vertex.GetVertexId(),
+				RefID:     vertexRefID,
 				StableRef: vertex.GetStableRef(),
 				Payload:   payload,
 			})
 		}
 	}
 	return result
+}
+
+type topologyRefAllocator struct {
+	seen map[string]int
+}
+
+func newTopologyRefAllocator() *topologyRefAllocator {
+	return &topologyRefAllocator{seen: map[string]int{}}
+}
+
+func (a *topologyRefAllocator) unique(bodyID string, refKind string, refID string) string {
+	if refID == "" {
+		refID = refKind
+	}
+	key := bodyID + "\x00" + refKind + "\x00" + refID
+	a.seen[key]++
+	if a.seen[key] == 1 {
+		return refID
+	}
+	return fmt.Sprintf("%s#%d", refID, a.seen[key])
 }
 
 func topologyPath(parentID string, refID string) string {

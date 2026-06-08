@@ -195,3 +195,39 @@ func TestTopologyFromGeometryQualifiesRepeatedLoopAndEdgeIDs(t *testing.T) {
 		t.Fatal("missing qualified edge ref for face-2")
 	}
 }
+
+func TestTopologyFromGeometryDisambiguatesRepeatedEdgesInSameLoop(t *testing.T) {
+	refs := topologyFromGeometry(&geometryv1.TopologySummary{
+		Bodies: []*geometryv1.Body{{
+			BodyId: "body-1",
+			Shells: []*geometryv1.Shell{{
+				ShellId: "shell-1",
+				Faces: []*geometryv1.Face{{
+					FaceId: "face-5",
+					Loops: []*geometryv1.Loop{{
+						LoopId: "loop-1",
+						Edges: []*geometryv1.Edge{
+							{EdgeId: "edge-13"},
+							{EdgeId: "edge-13"},
+						},
+					}},
+				}},
+			}},
+		}},
+	})
+
+	seen := map[string]struct{}{}
+	for _, ref := range refs {
+		key := ref.RefKind + "/" + ref.RefID
+		if _, ok := seen[key]; ok {
+			t.Fatalf("duplicate topology ref %q", key)
+		}
+		seen[key] = struct{}{}
+	}
+	if _, ok := seen["edge/face-5/loop-1/edge-13"]; !ok {
+		t.Fatal("missing first edge ref")
+	}
+	if _, ok := seen["edge/face-5/loop-1/edge-13#2"]; !ok {
+		t.Fatal("missing disambiguated second edge ref")
+	}
+}
