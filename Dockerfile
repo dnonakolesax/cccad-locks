@@ -1,11 +1,11 @@
 # Установка модулей и тесты
-FROM golang:1.25.5 AS modules
+FROM golang:1.26.4 AS modules
 
 COPY go.mod go.sum /m/
 RUN cd /m && go mod download
 
 # Сборка приложения
-FROM golang:1.25.5 AS builder
+FROM golang:1.26.4 AS builder
 
 COPY --from=modules /go/pkg /go/pkg
 
