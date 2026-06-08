@@ -15,6 +15,7 @@ import (
 const (
 	createPartRequest         = "parts3d_part_create"
 	listPartsWorkspaceRequest = "parts3d_parts_list_by_workspace"
+	deletePartRequest         = "parts3d_part_delete"
 	listFeaturesRequest       = "parts3d_features_list"
 	listBodiesRequest         = "parts3d_bodies_list"
 	getTopologyRequest        = "parts3d_topology_get"
@@ -89,6 +90,30 @@ func (r *Repository) ListByWorkspace(ctx context.Context, workspaceID string) ([
 	}
 
 	return parts, nil
+}
+
+func (r *Repository) Delete(ctx context.Context, partID string) error {
+	sqlRequest, err := r.db.Request(deletePartRequest)
+	if err != nil {
+		return fmt.Errorf("delete 3d part request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, partID)
+	if err != nil {
+		return fmt.Errorf("delete 3d part: %w", err)
+	}
+
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return fmt.Errorf("delete 3d part rows: %w", closeErr)
+		}
+		return errors.New("delete 3d part returned no rows")
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return fmt.Errorf("delete 3d part rows: %w", closeErr)
+	}
+
+	return nil
 }
 
 func (r *Repository) ListFeatures(

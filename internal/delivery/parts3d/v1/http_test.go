@@ -16,6 +16,8 @@ type stubParts3DService struct {
 	createRequest     *model.CreatePart3DRequest
 	listCalled        bool
 	listWorkspaceID   string
+	deleteCalled      bool
+	deletePartID      string
 }
 
 func (s *stubParts3DService) Create(
@@ -48,6 +50,12 @@ func (s *stubParts3DService) ListByWorkspace(
 			},
 		},
 	}, nil
+}
+
+func (s *stubParts3DService) Delete(_ context.Context, partID string) error {
+	s.deleteCalled = true
+	s.deletePartID = partID
+	return nil
 }
 
 func (s *stubParts3DService) ListFeatures(context.Context, string, bool) (*model.Feature3DList, error) {
@@ -144,5 +152,30 @@ func TestListPartsByWorkspaceCallsService(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"parts"`) {
 		t.Fatalf("body = %q, want parts response", rec.Body.String())
+	}
+}
+
+func TestDeletePartCallsService(t *testing.T) {
+	service := &stubParts3DService{}
+	mux := http.NewServeMux()
+	NewParts3DHandler(service).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodDelete,
+		"/parts/22222222-2222-2222-2222-222222222222",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	if !service.deleteCalled {
+		t.Fatal("service.Delete was not called")
+	}
+	if service.deletePartID != "22222222-2222-2222-2222-222222222222" {
+		t.Fatalf("partID = %q", service.deletePartID)
 	}
 }

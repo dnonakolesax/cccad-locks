@@ -17,6 +17,7 @@ import (
 type Parts3DService interface {
 	Create(ctx context.Context, workspaceID string, request *model.CreatePart3DRequest) (*model.Part3D, error)
 	ListByWorkspace(ctx context.Context, workspaceID string) (*model.Part3DList, error)
+	Delete(ctx context.Context, partID string) error
 	ListFeatures(ctx context.Context, partID string, includeSuppressed bool) (*model.Feature3DList, error)
 	ListBodies(ctx context.Context, partID string) (*model.Body3DList, error)
 	GetTopology(ctx context.Context, partID string, bodyID *string) (*model.TopologySummary3D, error)
@@ -34,6 +35,7 @@ func NewParts3DHandler(service Parts3DService) *Parts3DHandler {
 func (h *Parts3DHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /workspaces/{workspaceId}/parts", h.Create)
 	mux.HandleFunc("GET /workspaces/{workspaceId}/parts", h.ListByWorkspace)
+	mux.HandleFunc("DELETE /parts/{partId}", h.Delete)
 	mux.HandleFunc("GET /parts/{partId}/features", h.ListFeatures)
 	mux.HandleFunc("GET /parts/{partId}/bodies", h.ListBodies)
 	mux.HandleFunc("GET /parts/{partId}/topology", h.GetTopology)
@@ -88,6 +90,21 @@ func (h *Parts3DHandler) ListByWorkspace(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *Parts3DHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	partID := r.PathValue("partId")
+	if strings.TrimSpace(partID) == "" {
+		writeJSONError(w, http.StatusBadRequest, "INVALID_OPERATION", "partId is required")
+		return
+	}
+
+	if err := h.service.Delete(r.Context(), partID); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Parts3DHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {

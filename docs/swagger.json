@@ -795,6 +795,29 @@
         }
       }
     },
+    "/api/v1/parts/{partId}": {
+      "delete": {
+        "tags": [
+          "Parts3D"
+        ],
+        "operationId": "deletePart3D",
+        "summary": "Delete a 3D part",
+        "description": "Soft deletes a part and excludes it from workspace part listings.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PartId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Part deleted"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/api/v1/parts/{partId}/features": {
       "get": {
         "tags": [

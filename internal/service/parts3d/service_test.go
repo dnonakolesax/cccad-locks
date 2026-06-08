@@ -13,6 +13,7 @@ type stubRepository struct {
 	createUserID      string
 	createRequest     *model.CreatePart3DRequest
 	listWorkspaceID   string
+	deletePartID      string
 }
 
 func (r *stubRepository) Create(
@@ -41,6 +42,11 @@ func (r *stubRepository) ListByWorkspace(_ context.Context, workspaceID string) 
 			Name:        "Bracket",
 		},
 	}, nil
+}
+
+func (r *stubRepository) Delete(_ context.Context, partID string) error {
+	r.deletePartID = partID
+	return nil
 }
 
 func (r *stubRepository) ListFeatures(context.Context, string, bool) ([]model.Feature3D, error) {
@@ -119,5 +125,31 @@ func TestListByWorkspacePassesWorkspaceID(t *testing.T) {
 	}
 	if len(response.Parts) != 1 {
 		t.Fatalf("parts length = %d, want 1", len(response.Parts))
+	}
+}
+
+func TestDeleteRequiresAuthenticatedUser(t *testing.T) {
+	repo := &stubRepository{}
+	service := NewService(repo)
+
+	err := service.Delete(context.Background(), "22222222-2222-2222-2222-222222222222")
+	if err == nil {
+		t.Fatal("Delete returned nil error without authenticated user")
+	}
+	if repo.deletePartID != "" {
+		t.Fatal("repository Delete was called without authenticated user")
+	}
+}
+
+func TestDeletePassesPartID(t *testing.T) {
+	repo := &stubRepository{}
+	service := NewService(repo)
+	ctx := auth.ContextWithUserID(context.Background(), "keycloak-sub-1")
+
+	if err := service.Delete(ctx, "22222222-2222-2222-2222-222222222222"); err != nil {
+		t.Fatalf("Delete returned error: %v", err)
+	}
+	if repo.deletePartID != "22222222-2222-2222-2222-222222222222" {
+		t.Fatalf("partID = %q", repo.deletePartID)
 	}
 }

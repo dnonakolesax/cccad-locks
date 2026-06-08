@@ -21,6 +21,7 @@ const (
 type Repository interface {
 	Create(ctx context.Context, workspaceID string, request *model.CreatePart3DRequest, createdByUserID string) (*model.Part3D, error)
 	ListByWorkspace(ctx context.Context, workspaceID string) ([]model.Part3D, error)
+	Delete(ctx context.Context, partID string) error
 	ListFeatures(ctx context.Context, partID string, includeSuppressed bool) ([]model.Feature3D, error)
 	ListBodies(ctx context.Context, partID string) ([]model.Body3D, error)
 	GetTopology(ctx context.Context, partID string, bodyID *string) (*model.TopologySummary3D, error)
@@ -81,6 +82,21 @@ func (s *Service) ListByWorkspace(ctx context.Context, workspaceID string) (*mod
 	}
 
 	return &model.Part3DList{Parts: parts}, nil
+}
+
+func (s *Service) Delete(ctx context.Context, partID string) error {
+	if err := validateUUID("partID", partID); err != nil {
+		return err
+	}
+	if s.repo == nil {
+		return errors.New("3d parts repository is required")
+	}
+
+	if _, ok := auth.UserIDFromContext(ctx); !ok {
+		return errors.New("authenticated user id is required")
+	}
+
+	return s.repo.Delete(ctx, partID)
 }
 
 func (s *Service) ListFeatures(
