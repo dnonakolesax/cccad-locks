@@ -13,14 +13,15 @@ import (
 )
 
 const (
-	createPartRequest         = "parts3d_part_create"
-	listPartsWorkspaceRequest = "parts3d_parts_list_by_workspace"
-	deletePartRequest         = "parts3d_part_delete"
-	listFeaturesRequest       = "parts3d_features_list"
-	listBodiesRequest         = "parts3d_bodies_list"
-	getTopologyRequest        = "parts3d_topology_get"
-	getFacePlaneRequest       = "parts3d_face_plane_get"
-	getSketchPlaneRequest     = "parts3d_sketch_plane_get"
+	createPartRequest           = "parts3d_part_create"
+	listPartsWorkspaceRequest   = "parts3d_parts_list_by_workspace"
+	deletePartRequest           = "parts3d_part_delete"
+	listFeaturesRequest         = "parts3d_features_list"
+	listBodiesRequest           = "parts3d_bodies_list"
+	getTopologyRequest          = "parts3d_topology_get"
+	getFacePlaneRequest         = "parts3d_face_plane_get"
+	getSketchPlaneRequest       = "parts3d_sketch_plane_get"
+	getSketchProfileDataRequest = "parts3d_sketch_profile_data_get"
 )
 
 type Repository struct {
@@ -276,6 +277,40 @@ func (r *Repository) GetSketchPlane(ctx context.Context, sketchID string) (*mode
 	}
 
 	return plane, nil
+}
+
+func (r *Repository) GetSketchProfileData(
+	ctx context.Context,
+	sketchID string,
+) (json.RawMessage, json.RawMessage, error) {
+	sqlRequest, err := r.db.Request(getSketchProfileDataRequest)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get sketch profile data request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, sketchID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get sketch profile data: %w", err)
+	}
+
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, nil, fmt.Errorf("get sketch profile data rows: %w", closeErr)
+		}
+		return nil, nil, errors.New("get sketch profile data returned no rows")
+	}
+
+	var profiles []byte
+	var entities []byte
+	if err := rows.Scan(&profiles, &entities); err != nil {
+		_ = rows.Close()
+		return nil, nil, fmt.Errorf("scan sketch profile data: %w", err)
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, nil, fmt.Errorf("get sketch profile data rows: %w", closeErr)
+	}
+
+	return json.RawMessage(profiles), json.RawMessage(entities), nil
 }
 
 func (r *Repository) CommitFeatureBuild(

@@ -47,6 +47,7 @@ type part3DFeaturePayload struct {
 	Radius           float64            `json:"radius"`
 	Distance         float64            `json:"distance"`
 	SketchPlane      *part3DSketchPlane `json:"sketchPlane"`
+	SketchProfile    *geometryv1.SketchProfile
 }
 
 type part3DVec2 struct {
@@ -129,6 +130,13 @@ func (h *Parts3DWSHandler) handleFeatureIntent(
 	if err := h.ensureSketchPlane(ctx, &feature); err != nil {
 		return h.sendFeatureRejected(conn, intent.ClientOperationID, "", []model.Diagnostic3D{{
 			Code:     "INVALID_SKETCH_PLANE",
+			Severity: "error",
+			Message:  err.Error(),
+		}})
+	}
+	if err := h.ensureSketchProfile(ctx, &feature); err != nil {
+		return h.sendFeatureRejected(conn, intent.ClientOperationID, "", []model.Diagnostic3D{{
+			Code:     "INVALID_SKETCH_PROFILE",
 			Severity: "error",
 			Message:  err.Error(),
 		}})
@@ -242,7 +250,7 @@ func (h *Parts3DWSHandler) callGeometryBuild(
 			FeatureId:   featureID,
 			SketchId:    feature.SketchID,
 			SketchPlane: sketchPlane(feature.SketchPlane),
-			Profile:     &geometryv1.SketchProfile{ProfileId: feature.ProfileID},
+			Profile:     sketchProfile(feature),
 			Parameters: &geometryv1.ExtrudeParameters{
 				Depth:        feature.Depth,
 				Direction:    extrudeDirection(feature.Direction),
@@ -333,6 +341,13 @@ func (h *Parts3DWSHandler) callGeometryBuild(
 	}
 }
 
+func sketchProfile(feature part3DFeaturePayload) *geometryv1.SketchProfile {
+	if feature.SketchProfile != nil {
+		return feature.SketchProfile
+	}
+	return &geometryv1.SketchProfile{ProfileId: feature.ProfileID}
+}
+
 func (h *Parts3DWSHandler) ensureSketchPlane(ctx context.Context, feature *part3DFeaturePayload) error {
 	if feature == nil || !requiresSketchPlane(feature.Type) || isUsableSketchPlane(feature.SketchPlane) {
 		return nil
@@ -384,6 +399,187 @@ func requiresSketchPlane(featureType string) bool {
 	default:
 		return false
 	}
+}
+
+func (h *Parts3DWSHandler) ensureSketchProfile(ctx context.Context, feature *part3DFeaturePayload) error {
+	if feature == nil || feature.Type != "extrude" || usableSketchProfile(feature.SketchProfile) {
+		return nil
+	}
+	sketchID := strings.TrimSpace(feature.SketchID)
+	if sketchID == "" {
+		return errors.New("sketchId is required")
+	}
+	profileID := strings.TrimSpace(feature.ProfileID)
+	if profileID == "" {
+		return errors.New("profileId is required")
+	}
+
+	profilesRaw, entitiesRaw, err := h.repo.GetSketchProfileData(ctx, sketchID)
+	if err != nil {
+		return fmt.Errorf("load sketch profile: %w", err)
+	}
+
+	profile, err := sketchProfileFromState(profileID, profilesRaw, entitiesRaw)
+	if err != nil {
+		return err
+	}
+	feature.SketchProfile = profile
+	return nil
+}
+
+func usableSketchProfile(profile *geometryv1.SketchProfile) bool {
+	return profile != nil && len(profile.GetOuterLoop()) != 0
+}
+
+type sketchStateProfile struct {
+	ID        string                   `json:"id"`
+	OuterLoop sketchStateProfileLoop   `json:"outerLoop"`
+	InnerLoop []sketchStateProfileLoop `json:"innerLoops"`
+}
+
+type sketchStateProfileLoop struct {
+	EntityIDs []string `json:"entityIds"`
+}
+
+type sketchStateEntity struct {
+	ID            string  `json:"id"`
+	Type          string  `json:"type"`
+	X             float64 `json:"x"`
+	Y             float64 `json:"y"`
+	CenterPointID string  `json:"centerPointId"`
+	Radius        float64 `json:"radius"`
+	StartPointID  string  `json:"startPointId"`
+	EndPointID    string  `json:"endPointId"`
+	Clockwise     bool    `json:"clockwise"`
+}
+
+func sketchProfileFromState(
+	profileID string,
+	profilesRaw json.RawMessage,
+	entitiesRaw json.RawMessage,
+) (*geometryv1.SketchProfile, error) {
+	var profiles []sketchStateProfile
+	if err := json.Unmarshal(profilesRaw, &profiles); err != nil {
+		return nil, fmt.Errorf("decode sketch profiles: %w", err)
+	}
+	var entities map[string]sketchStateEntity
+	if err := json.Unmarshal(entitiesRaw, &entities); err != nil {
+		return nil, fmt.Errorf("decode sketch entities: %w", err)
+	}
+
+	for _, profile := range profiles {
+		if profile.ID != profileID {
+			continue
+		}
+		outerLoop, err := profileCurves(profile.OuterLoop.EntityIDs, entities)
+		if err != nil {
+			return nil, err
+		}
+		innerLoops := make([]*geometryv1.ProfileLoop, 0, len(profile.InnerLoop))
+		for _, loop := range profile.InnerLoop {
+			curves, loopErr := profileCurves(loop.EntityIDs, entities)
+			if loopErr != nil {
+				return nil, loopErr
+			}
+			innerLoops = append(innerLoops, &geometryv1.ProfileLoop{Curves: curves})
+		}
+		return &geometryv1.SketchProfile{
+			ProfileId:  profile.ID,
+			OuterLoop:  outerLoop,
+			InnerLoops: innerLoops,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("profile %q not found", profileID)
+}
+
+func profileCurves(entityIDs []string, entities map[string]sketchStateEntity) ([]*geometryv1.ProfileCurve, error) {
+	curves := make([]*geometryv1.ProfileCurve, 0, len(entityIDs))
+	for _, entityID := range entityIDs {
+		entity, ok := entities[entityID]
+		if !ok {
+			return nil, fmt.Errorf("profile entity %q not found", entityID)
+		}
+		curve, err := profileCurve(entity, entities)
+		if err != nil {
+			return nil, err
+		}
+		curves = append(curves, curve)
+	}
+	return curves, nil
+}
+
+func profileCurve(
+	entity sketchStateEntity,
+	entities map[string]sketchStateEntity,
+) (*geometryv1.ProfileCurve, error) {
+	switch entity.Type {
+	case "line":
+		start, err := point2(entity.StartPointID, entities)
+		if err != nil {
+			return nil, err
+		}
+		end, err := point2(entity.EndPointID, entities)
+		if err != nil {
+			return nil, err
+		}
+		return &geometryv1.ProfileCurve{
+			CurveId: entity.ID,
+			Curve: &geometryv1.ProfileCurve_Line{
+				Line: &geometryv1.LineSegment2D{Start: start, End: end},
+			},
+		}, nil
+	case "circle":
+		center, err := point2(entity.CenterPointID, entities)
+		if err != nil {
+			return nil, err
+		}
+		return &geometryv1.ProfileCurve{
+			CurveId: entity.ID,
+			Curve: &geometryv1.ProfileCurve_Circle{
+				Circle: &geometryv1.Circle2D{Center: center, Radius: entity.Radius},
+			},
+		}, nil
+	case "arc":
+		centerEntity, ok := entities[entity.CenterPointID]
+		if !ok {
+			return nil, fmt.Errorf("arc center point %q not found", entity.CenterPointID)
+		}
+		center := &geometryv1.Vec2{X: centerEntity.X, Y: centerEntity.Y}
+		start, err := point2(entity.StartPointID, entities)
+		if err != nil {
+			return nil, err
+		}
+		end, err := point2(entity.EndPointID, entities)
+		if err != nil {
+			return nil, err
+		}
+		return &geometryv1.ProfileCurve{
+			CurveId: entity.ID,
+			Curve: &geometryv1.ProfileCurve_Arc{
+				Arc: &geometryv1.ArcSegment2D{
+					Center:        center,
+					Radius:        entity.Radius,
+					StartAngleRad: math.Atan2(start.GetY()-center.GetY(), start.GetX()-center.GetX()),
+					EndAngleRad:   math.Atan2(end.GetY()-center.GetY(), end.GetX()-center.GetX()),
+					Clockwise:     entity.Clockwise,
+				},
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("profile entity %q has unsupported type %q", entity.ID, entity.Type)
+	}
+}
+
+func point2(pointID string, entities map[string]sketchStateEntity) (*geometryv1.Vec2, error) {
+	point, ok := entities[pointID]
+	if !ok {
+		return nil, fmt.Errorf("point %q not found", pointID)
+	}
+	if point.Type != "point" {
+		return nil, fmt.Errorf("entity %q is %q, want point", pointID, point.Type)
+	}
+	return &geometryv1.Vec2{X: point.X, Y: point.Y}, nil
 }
 
 func part3DSketchPlaneFromSketch(plane model.SketchPlane) *part3DSketchPlane {
