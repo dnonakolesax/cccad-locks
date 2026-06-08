@@ -122,7 +122,7 @@ func NewParts3DWSHandler(opts ...Parts3DWSHandlerOption) *Parts3DWSHandler {
 }
 
 func (h *Parts3DWSHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /parts/{partId}/ws", h.HandleWebSocket)
+	mux.HandleFunc("GET /wsparts/{partId}/ws", h.HandleWebSocket)
 }
 
 func (h *Parts3DWSHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
