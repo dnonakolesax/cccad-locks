@@ -198,6 +198,38 @@ func (h *Parts3DWSHandler) handleFeatureIntent(
 		return h.sendPreviewChanged(conn, intent, feature)
 	}
 
+	if needsTopologyFallback(response) {
+		topologyResponse, topologyErr := h.geometry.GetTopology(ctx, &geometryv1.GetTopologyRequest{
+			Context:        kernelContext(conn.partID, featureID, documentVersion),
+			BodyIds:        bodyIDsFromGeometry(response),
+			ExistingBodies: bodyInputsFromGeometry(response),
+		})
+		if topologyErr != nil {
+			return h.sendFeatureRejected(conn, intent.ClientOperationID, featureID, []model.Diagnostic3D{{
+				Code:      "TOPOLOGY_BUILD_FAILED",
+				Severity:  "error",
+				Message:   topologyErr.Error(),
+				FeatureID: featureID,
+			}})
+		}
+		if topologyResponse == nil || !topologyResponse.GetSuccess() {
+			diagnostics := diagnosticsFromGeometry(nil)
+			if topologyResponse != nil {
+				diagnostics = diagnosticsFromGeometry(topologyResponse.GetDiagnostics())
+			}
+			if len(diagnostics) == 0 {
+				diagnostics = []model.Diagnostic3D{{
+					Code:      "TOPOLOGY_BUILD_FAILED",
+					Severity:  "error",
+					Message:   "geometry service did not return topology for created bodies",
+					FeatureID: featureID,
+				}}
+			}
+			return h.sendFeatureRejected(conn, intent.ClientOperationID, featureID, diagnostics)
+		}
+		response.Topology = topologyResponse.GetTopology()
+	}
+
 	commit, err := commitFromBuildResponse(conn.partID, featureID, safeUUID(conn.userID), documentVersion, feature, intent.Feature, response)
 	if err != nil {
 		return h.sendFeatureRejected(conn, intent.ClientOperationID, featureID, []model.Diagnostic3D{{
@@ -229,13 +261,7 @@ func (h *Parts3DWSHandler) callGeometryBuild(
 	documentVersion int64,
 	feature part3DFeaturePayload,
 ) (*geometryv1.BuildFeatureResponse, error) {
-	kernelCtx := &geometryv1.KernelContext{
-		RequestId:       featureID,
-		PartId:          partID,
-		DocumentId:      partID,
-		DocumentVersion: documentVersion,
-		StoragePrefix:   "parts/" + partID + "/versions/" + fmt.Sprint(documentVersion) + "/",
-	}
+	kernelCtx := kernelContext(partID, featureID, documentVersion)
 	output := &geometryv1.OutputOptions{
 		ReturnTopology: true,
 		WriteBrep:      true,
@@ -338,6 +364,16 @@ func (h *Parts3DWSHandler) callGeometryBuild(
 		return h.geometry.BuildPattern(ctx, req)
 	default:
 		return nil, fmt.Errorf("unsupported feature type %q", feature.Type)
+	}
+}
+
+func kernelContext(partID string, requestID string, documentVersion int64) *geometryv1.KernelContext {
+	return &geometryv1.KernelContext{
+		RequestId:       requestID,
+		PartId:          partID,
+		DocumentId:      partID,
+		DocumentVersion: documentVersion,
+		StoragePrefix:   "parts/" + partID + "/versions/" + fmt.Sprint(documentVersion) + "/",
 	}
 }
 
@@ -604,6 +640,10 @@ func commitFromBuildResponse(
 	rawFeature json.RawMessage,
 	response *geometryv1.BuildFeatureResponse,
 ) (model.Feature3DCommit, error) {
+	topology := topologyFromGeometry(response.GetTopology())
+	if len(response.GetBodies()) != 0 && len(topology) == 0 {
+		return model.Feature3DCommit{}, errors.New("geometry service returned bodies without topology")
+	}
 	commit := model.Feature3DCommit{
 		FeatureID:       featureID,
 		PartID:          partID,
@@ -616,9 +656,48 @@ func commitFromBuildResponse(
 		Diagnostics:     diagnosticsFromGeometry(response.GetDiagnostics()),
 		Bodies:          bodiesFromGeometry(featureID, response),
 		Representations: representationsFromGeometry(response),
-		Topology:        topologyFromGeometry(response.GetTopology()),
+		Topology:        topology,
 	}
 	return commit, nil
+}
+
+func needsTopologyFallback(response *geometryv1.BuildFeatureResponse) bool {
+	return len(response.GetBodies()) != 0 && len(topologyFromGeometry(response.GetTopology())) == 0
+}
+
+func bodyIDsFromGeometry(response *geometryv1.BuildFeatureResponse) []string {
+	bodyIDs := make([]string, 0, len(response.GetBodies()))
+	for _, body := range response.GetBodies() {
+		if body.GetBodyId() != "" {
+			bodyIDs = append(bodyIDs, body.GetBodyId())
+		}
+	}
+	return bodyIDs
+}
+
+func bodyInputsFromGeometry(response *geometryv1.BuildFeatureResponse) []*geometryv1.BodyInput {
+	inputs := make([]*geometryv1.BodyInput, 0, len(response.GetBodies()))
+	for _, body := range response.GetBodies() {
+		bodyID := body.GetBodyId()
+		brep := brepArtifact(body.GetArtifacts())
+		if bodyID == "" || brep == nil {
+			continue
+		}
+		inputs = append(inputs, &geometryv1.BodyInput{
+			BodyId: bodyID,
+			Brep:   brep,
+		})
+	}
+	return inputs
+}
+
+func brepArtifact(artifacts []*geometryv1.ArtifactRef) *geometryv1.ArtifactRef {
+	for _, artifact := range artifacts {
+		if artifact.GetKind() == "brep" {
+			return artifact
+		}
+	}
+	return nil
 }
 
 func bodiesFromGeometry(featureID string, response *geometryv1.BuildFeatureResponse) []model.Body3DCommit {

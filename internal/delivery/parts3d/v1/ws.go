@@ -77,6 +77,7 @@ type part3DGeometryClient interface {
 	BuildChamfer(context.Context, *geometryv1.BuildChamferRequest) (*geometryv1.BuildFeatureResponse, error)
 	BuildPattern(context.Context, *geometryv1.BuildPatternRequest) (*geometryv1.BuildFeatureResponse, error)
 	BuildBoolean(context.Context, *geometryv1.BuildBooleanRequest) (*geometryv1.BuildFeatureResponse, error)
+	GetTopology(context.Context, *geometryv1.GetTopologyRequest) (*geometryv1.GetTopologyResponse, error)
 }
 
 type part3DFeatureRepository interface {

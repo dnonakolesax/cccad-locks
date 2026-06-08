@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/dnonakolesax/cccad-locks/internal/model"
+	geometryv1 "github.com/dnonakolesax/cccad-locks/internal/proto/geometry/v1"
 )
 
 func TestPart3DSketchPlaneFromSketchPreservesXAxis(t *testing.T) {
@@ -61,5 +62,84 @@ func TestSketchProfileFromStateBuildsOuterLoopCurves(t *testing.T) {
 	}
 	if profile.GetOuterLoop()[0].GetLine() == nil {
 		t.Fatalf("first curve = %#v, want line", profile.GetOuterLoop()[0])
+	}
+}
+
+func TestCommitFromBuildResponseRejectsBodiesWithoutTopology(t *testing.T) {
+	_, err := commitFromBuildResponse(
+		"11111111-1111-1111-1111-111111111111",
+		"22222222-2222-2222-2222-222222222222",
+		"33333333-3333-3333-3333-333333333333",
+		1,
+		part3DFeaturePayload{Type: "extrude"},
+		json.RawMessage(`{"type":"extrude"}`),
+		&geometryv1.BuildFeatureResponse{
+			Success: true,
+			Bodies: []*geometryv1.BodyResult{{
+				BodyId: "body-1",
+			}},
+		},
+	)
+
+	if err == nil {
+		t.Fatal("commitFromBuildResponse returned nil error for body without topology")
+	}
+}
+
+func TestBodyInputsFromGeometryUsesBrepArtifacts(t *testing.T) {
+	response := &geometryv1.BuildFeatureResponse{
+		Bodies: []*geometryv1.BodyResult{{
+			BodyId: "body-1",
+			Artifacts: []*geometryv1.ArtifactRef{
+				{Kind: "glb", StorageKey: "body-1.glb"},
+				{Kind: "brep", StorageKey: "body-1.brep"},
+			},
+		}},
+	}
+
+	inputs := bodyInputsFromGeometry(response)
+	if len(inputs) != 1 {
+		t.Fatalf("inputs length = %d, want 1", len(inputs))
+	}
+	if inputs[0].GetBodyId() != "body-1" {
+		t.Fatalf("bodyId = %q", inputs[0].GetBodyId())
+	}
+	if inputs[0].GetBrep().GetStorageKey() != "body-1.brep" {
+		t.Fatalf("brep storage key = %q", inputs[0].GetBrep().GetStorageKey())
+	}
+}
+
+func TestCommitFromBuildResponsePersistsTopologyRefs(t *testing.T) {
+	commit, err := commitFromBuildResponse(
+		"11111111-1111-1111-1111-111111111111",
+		"22222222-2222-2222-2222-222222222222",
+		"33333333-3333-3333-3333-333333333333",
+		1,
+		part3DFeaturePayload{Type: "extrude"},
+		json.RawMessage(`{"type":"extrude"}`),
+		&geometryv1.BuildFeatureResponse{
+			Success: true,
+			Bodies: []*geometryv1.BodyResult{{
+				BodyId: "body-1",
+			}},
+			Topology: &geometryv1.TopologySummary{
+				Bodies: []*geometryv1.Body{{
+					BodyId: "body-1",
+					Shells: []*geometryv1.Shell{{
+						ShellId: "shell-1",
+						Faces: []*geometryv1.Face{{
+							FaceId:      "face-1",
+							SurfaceType: "plane",
+						}},
+					}},
+				}},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("commitFromBuildResponse returned error: %v", err)
+	}
+	if len(commit.Topology) != 3 {
+		t.Fatalf("topology refs = %d, want 3", len(commit.Topology))
 	}
 }
