@@ -51,6 +51,23 @@ type Body3DList struct {
 	Bodies []Body3D `json:"bodies"`
 }
 
+type Representation3D struct {
+	ID              string `json:"id"`
+	PartID          string `json:"partId"`
+	BodyID          string `json:"bodyId,omitempty"`
+	Kind            string `json:"kind"`
+	StorageKey      string `json:"storageKey"`
+	ContentType     string `json:"contentType,omitempty"`
+	DocumentVersion int64  `json:"documentVersion"`
+	SHA256          string `json:"sha256,omitempty"`
+	SizeBytes       int64  `json:"sizeBytes,omitempty"`
+	CreatedAt       string `json:"createdAt,omitempty"`
+}
+
+type Representation3DList struct {
+	Representations []Representation3D `json:"representations"`
+}
+
 type TopologySummary3D struct {
 	Bodies []TopologyBody3D `json:"bodies"`
 }

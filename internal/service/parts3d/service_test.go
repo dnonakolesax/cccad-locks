@@ -14,6 +14,8 @@ type stubRepository struct {
 	createRequest     *model.CreatePart3DRequest
 	listWorkspaceID   string
 	deletePartID      string
+	listRepsPartID    string
+	listRepsKind      *string
 }
 
 func (r *stubRepository) Create(
@@ -55,6 +57,24 @@ func (r *stubRepository) ListFeatures(context.Context, string, bool) ([]model.Fe
 
 func (r *stubRepository) ListBodies(context.Context, string) ([]model.Body3D, error) {
 	return nil, nil
+}
+
+func (r *stubRepository) ListRepresentations(
+	_ context.Context,
+	partID string,
+	kind *string,
+) ([]model.Representation3D, error) {
+	r.listRepsPartID = partID
+	r.listRepsKind = kind
+	return []model.Representation3D{
+		{
+			ID:              "33333333-3333-3333-3333-333333333333",
+			PartID:          partID,
+			Kind:            "glb",
+			StorageKey:      "parts/part-1/body.glb",
+			DocumentVersion: 7,
+		},
+	}, nil
 }
 
 func (r *stubRepository) GetTopology(context.Context, string, *string) (*model.TopologySummary3D, error) {
@@ -151,5 +171,47 @@ func TestDeletePassesPartID(t *testing.T) {
 	}
 	if repo.deletePartID != "22222222-2222-2222-2222-222222222222" {
 		t.Fatalf("partID = %q", repo.deletePartID)
+	}
+}
+
+func TestListRepresentationsValidatesKindAndPassesFilter(t *testing.T) {
+	repo := &stubRepository{}
+	service := NewService(repo)
+	kind := " glb "
+
+	response, err := service.ListRepresentations(
+		context.Background(),
+		"22222222-2222-2222-2222-222222222222",
+		&kind,
+	)
+	if err != nil {
+		t.Fatalf("ListRepresentations returned error: %v", err)
+	}
+	if response == nil || len(response.Representations) != 1 {
+		t.Fatalf("response = %#v", response)
+	}
+	if repo.listRepsPartID != "22222222-2222-2222-2222-222222222222" {
+		t.Fatalf("partID = %q", repo.listRepsPartID)
+	}
+	if repo.listRepsKind == nil || *repo.listRepsKind != "glb" {
+		t.Fatalf("kind = %#v, want trimmed glb", repo.listRepsKind)
+	}
+}
+
+func TestListRepresentationsRejectsInvalidKind(t *testing.T) {
+	repo := &stubRepository{}
+	service := NewService(repo)
+	kind := "obj"
+
+	_, err := service.ListRepresentations(
+		context.Background(),
+		"22222222-2222-2222-2222-222222222222",
+		&kind,
+	)
+	if err == nil {
+		t.Fatal("ListRepresentations returned nil error for invalid kind")
+	}
+	if repo.listRepsPartID != "" {
+		t.Fatal("repository ListRepresentations was called for invalid kind")
 	}
 }

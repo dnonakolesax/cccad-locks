@@ -24,6 +24,7 @@ type Repository interface {
 	Delete(ctx context.Context, partID string) error
 	ListFeatures(ctx context.Context, partID string, includeSuppressed bool) ([]model.Feature3D, error)
 	ListBodies(ctx context.Context, partID string) ([]model.Body3D, error)
+	ListRepresentations(ctx context.Context, partID string, kind *string) ([]model.Representation3D, error)
 	GetTopology(ctx context.Context, partID string, bodyID *string) (*model.TopologySummary3D, error)
 	GetFacePlane(ctx context.Context, partID string, bodyID string, faceID string) (*model.FacePlane3D, error)
 }
@@ -141,6 +142,36 @@ func (s *Service) ListBodies(ctx context.Context, partID string) (*model.Body3DL
 	return &model.Body3DList{Bodies: bodies}, nil
 }
 
+func (s *Service) ListRepresentations(
+	ctx context.Context,
+	partID string,
+	kind *string,
+) (*model.Representation3DList, error) {
+	if err := validateUUID("partID", partID); err != nil {
+		return nil, err
+	}
+	if kind != nil {
+		trimmed := strings.TrimSpace(*kind)
+		if !isValidRepresentationKind(trimmed) {
+			return nil, errors.New("kind must be one of brep, glb, mesh_json, step, stl")
+		}
+		kind = &trimmed
+	}
+	if s.repo == nil {
+		return nil, errors.New("3d parts repository is required")
+	}
+
+	representations, err := s.repo.ListRepresentations(ctx, partID, kind)
+	if err != nil {
+		return nil, err
+	}
+	if representations == nil {
+		representations = []model.Representation3D{}
+	}
+
+	return &model.Representation3DList{Representations: representations}, nil
+}
+
 func (s *Service) GetTopology(
 	ctx context.Context,
 	partID string,
@@ -240,4 +271,13 @@ func isValidUUID(value string) bool {
 
 func isHex(r rune) bool {
 	return ('0' <= r && r <= '9') || ('a' <= r && r <= 'f') || ('A' <= r && r <= 'F')
+}
+
+func isValidRepresentationKind(value string) bool {
+	switch value {
+	case "brep", "glb", "mesh_json", "step", "stl":
+		return true
+	default:
+		return false
+	}
 }

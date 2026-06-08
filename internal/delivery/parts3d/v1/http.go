@@ -20,6 +20,7 @@ type Parts3DService interface {
 	Delete(ctx context.Context, partID string) error
 	ListFeatures(ctx context.Context, partID string, includeSuppressed bool) (*model.Feature3DList, error)
 	ListBodies(ctx context.Context, partID string) (*model.Body3DList, error)
+	ListRepresentations(ctx context.Context, partID string, kind *string) (*model.Representation3DList, error)
 	GetTopology(ctx context.Context, partID string, bodyID *string) (*model.TopologySummary3D, error)
 	GetFacePlane(ctx context.Context, partID string, bodyID string, faceID string) (*model.FacePlane3D, error)
 }
@@ -38,6 +39,7 @@ func (h *Parts3DHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /parts/{partId}", h.Delete)
 	mux.HandleFunc("GET /parts/{partId}/features", h.ListFeatures)
 	mux.HandleFunc("GET /parts/{partId}/bodies", h.ListBodies)
+	mux.HandleFunc("GET /parts/{partId}/representations", h.ListRepresentations)
 	mux.HandleFunc("GET /parts/{partId}/topology", h.GetTopology)
 	mux.HandleFunc("GET /parts/{partId}/bodies/{bodyId}/faces/{faceId}/plane", h.GetFacePlane)
 }
@@ -125,6 +127,21 @@ func (h *Parts3DHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {
 
 func (h *Parts3DHandler) ListBodies(w http.ResponseWriter, r *http.Request) {
 	response, err := h.service.ListBodies(r.Context(), r.PathValue("partId"))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *Parts3DHandler) ListRepresentations(w http.ResponseWriter, r *http.Request) {
+	var kind *string
+	if value := strings.TrimSpace(r.URL.Query().Get("kind")); value != "" {
+		kind = &value
+	}
+
+	response, err := h.service.ListRepresentations(r.Context(), r.PathValue("partId"), kind)
 	if err != nil {
 		writeServiceError(w, err)
 		return

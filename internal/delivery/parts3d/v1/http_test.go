@@ -18,6 +18,8 @@ type stubParts3DService struct {
 	listWorkspaceID   string
 	deleteCalled      bool
 	deletePartID      string
+	listRepsPartID    string
+	listRepsKind      *string
 }
 
 func (s *stubParts3DService) Create(
@@ -64,6 +66,27 @@ func (s *stubParts3DService) ListFeatures(context.Context, string, bool) (*model
 
 func (s *stubParts3DService) ListBodies(context.Context, string) (*model.Body3DList, error) {
 	return nil, nil
+}
+
+func (s *stubParts3DService) ListRepresentations(
+	_ context.Context,
+	partID string,
+	kind *string,
+) (*model.Representation3DList, error) {
+	s.listRepsPartID = partID
+	s.listRepsKind = kind
+	return &model.Representation3DList{
+		Representations: []model.Representation3D{
+			{
+				ID:              "33333333-3333-3333-3333-333333333333",
+				PartID:          partID,
+				BodyID:          "44444444-4444-4444-4444-444444444444",
+				Kind:            "glb",
+				StorageKey:      "parts/part-1/body.glb",
+				DocumentVersion: 7,
+			},
+		},
+	}, nil
 }
 
 func (s *stubParts3DService) GetTopology(context.Context, string, *string) (*model.TopologySummary3D, error) {
@@ -177,5 +200,33 @@ func TestDeletePartCallsService(t *testing.T) {
 	}
 	if service.deletePartID != "22222222-2222-2222-2222-222222222222" {
 		t.Fatalf("partID = %q", service.deletePartID)
+	}
+}
+
+func TestListRepresentationsCallsService(t *testing.T) {
+	service := &stubParts3DService{}
+	mux := http.NewServeMux()
+	NewParts3DHandler(service).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/parts/22222222-2222-2222-2222-222222222222/representations?kind=glb",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if service.listRepsPartID != "22222222-2222-2222-2222-222222222222" {
+		t.Fatalf("partID = %q", service.listRepsPartID)
+	}
+	if service.listRepsKind == nil || *service.listRepsKind != "glb" {
+		t.Fatalf("kind = %#v, want glb", service.listRepsKind)
+	}
+	if !strings.Contains(rec.Body.String(), `"representations"`) {
+		t.Fatalf("body = %q, want representations response", rec.Body.String())
 	}
 }

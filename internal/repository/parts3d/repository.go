@@ -18,6 +18,7 @@ const (
 	deletePartRequest           = "parts3d_part_delete"
 	listFeaturesRequest         = "parts3d_features_list"
 	listBodiesRequest           = "parts3d_bodies_list"
+	listRepresentationsRequest  = "parts3d_representations_list"
 	getTopologyRequest          = "parts3d_topology_get"
 	getFacePlaneRequest         = "parts3d_face_plane_get"
 	getSketchPlaneRequest       = "parts3d_sketch_plane_get"
@@ -174,6 +175,41 @@ func (r *Repository) ListBodies(ctx context.Context, partID string) ([]model.Bod
 	}
 
 	return bodies, nil
+}
+
+func (r *Repository) ListRepresentations(
+	ctx context.Context,
+	partID string,
+	kind *string,
+) ([]model.Representation3D, error) {
+	sqlRequest, err := r.db.Request(listRepresentationsRequest)
+	if err != nil {
+		return nil, fmt.Errorf("list 3d representations request: %w", err)
+	}
+
+	var kindArg any
+	if kind != nil {
+		kindArg = *kind
+	}
+	rows, err := r.db.Query(ctx, sqlRequest, partID, kindArg)
+	if err != nil {
+		return nil, fmt.Errorf("list 3d representations: %w", err)
+	}
+
+	representations := make([]model.Representation3D, 0)
+	for rows.Next() {
+		representation, scanErr := scanRepresentation(rows)
+		if scanErr != nil {
+			_ = rows.Close()
+			return nil, scanErr
+		}
+		representations = append(representations, *representation)
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("list 3d representations rows: %w", closeErr)
+	}
+
+	return representations, nil
 }
 
 func (r *Repository) GetTopology(
@@ -598,6 +634,30 @@ func scanBody(rows *dbsql.PGXResponse) (*model.Body3D, error) {
 	body.UpdatedAt = updatedAt.UTC().Format(time.RFC3339Nano)
 
 	return &body, nil
+}
+
+func scanRepresentation(rows *dbsql.PGXResponse) (*model.Representation3D, error) {
+	var representation model.Representation3D
+	var createdAt time.Time
+
+	if err := rows.Scan(
+		&representation.ID,
+		&representation.PartID,
+		&representation.BodyID,
+		&representation.DocumentVersion,
+		&representation.Kind,
+		&representation.StorageKey,
+		&representation.ContentType,
+		&representation.SizeBytes,
+		&representation.SHA256,
+		&createdAt,
+	); err != nil {
+		return nil, fmt.Errorf("scan 3d representation: %w", err)
+	}
+
+	representation.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
+
+	return &representation, nil
 }
 
 type topologyRow struct {
