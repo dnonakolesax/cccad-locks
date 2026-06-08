@@ -126,6 +126,13 @@ func (h *Parts3DWSHandler) handleFeatureIntent(
 			Message:  "unsupported feature type " + feature.Type,
 		}})
 	}
+	if err := h.ensureSketchPlane(ctx, &feature); err != nil {
+		return h.sendFeatureRejected(conn, intent.ClientOperationID, "", []model.Diagnostic3D{{
+			Code:     "INVALID_SKETCH_PLANE",
+			Severity: "error",
+			Message:  err.Error(),
+		}})
+	}
 	featureID := newUUID()
 	documentVersion := intent.DocumentVersion + 1
 	if documentVersion <= 0 {
@@ -323,6 +330,72 @@ func (h *Parts3DWSHandler) callGeometryBuild(
 		return h.geometry.BuildPattern(ctx, req)
 	default:
 		return nil, fmt.Errorf("unsupported feature type %q", feature.Type)
+	}
+}
+
+func (h *Parts3DWSHandler) ensureSketchPlane(ctx context.Context, feature *part3DFeaturePayload) error {
+	if feature == nil || !requiresSketchPlane(feature.Type) || isUsableSketchPlane(feature.SketchPlane) {
+		return nil
+	}
+	sketchID := strings.TrimSpace(feature.SketchID)
+	if sketchID == "" {
+		return errors.New("sketchId is required")
+	}
+
+	plane, err := h.repo.GetSketchPlane(ctx, sketchID)
+	if err != nil {
+		return fmt.Errorf("load sketch plane: %w", err)
+	}
+	if plane == nil {
+		return errors.New("sketch plane not found")
+	}
+
+	feature.SketchPlane = part3DSketchPlaneFromSketch(*plane)
+	return nil
+}
+
+func isUsableSketchPlane(plane *part3DSketchPlane) bool {
+	if plane == nil {
+		return false
+	}
+	return isFiniteVec3(plane.Origin) &&
+		isFiniteVec3(plane.XAxis) &&
+		isFiniteVec3(plane.Normal) &&
+		vec3LengthSquared(plane.XAxis) > 0 &&
+		vec3LengthSquared(plane.Normal) > 0
+}
+
+func isFiniteVec3(value part3DVec3) bool {
+	return isFiniteFloat(value.X) && isFiniteFloat(value.Y) && isFiniteFloat(value.Z)
+}
+
+func isFiniteFloat(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func vec3LengthSquared(value part3DVec3) float64 {
+	return value.X*value.X + value.Y*value.Y + value.Z*value.Z
+}
+
+func requiresSketchPlane(featureType string) bool {
+	switch featureType {
+	case "extrude", "hole":
+		return true
+	default:
+		return false
+	}
+}
+
+func part3DSketchPlaneFromSketch(plane model.SketchPlane) *part3DSketchPlane {
+	xAxis := part3DVec3{X: plane.XAxis.X, Y: plane.XAxis.Y, Z: plane.XAxis.Z}
+	normal := part3DVec3{X: plane.Normal.X, Y: plane.Normal.Y, Z: plane.Normal.Z}
+
+	return &part3DSketchPlane{
+		Kind:   "custom",
+		Origin: part3DVec3{X: plane.Origin.X, Y: plane.Origin.Y, Z: plane.Origin.Z},
+		XAxis:  xAxis,
+		YAxis:  cross(normal, xAxis),
+		Normal: normal,
 	}
 }
 
@@ -612,6 +685,14 @@ func sketchPlane(plane *part3DSketchPlane) *geometryv1.SketchPlane {
 
 func vec3(value part3DVec3) *geometryv1.Vec3 {
 	return &geometryv1.Vec3{X: value.X, Y: value.Y, Z: value.Z}
+}
+
+func cross(a, b part3DVec3) part3DVec3 {
+	return part3DVec3{
+		X: a.Y*b.Z - a.Z*b.Y,
+		Y: a.Z*b.X - a.X*b.Z,
+		Z: a.X*b.Y - a.Y*b.X,
+	}
 }
 
 func extrudeDirection(value string) geometryv1.ExtrudeDirection {

@@ -80,6 +80,7 @@ type part3DGeometryClient interface {
 }
 
 type part3DFeatureRepository interface {
+	GetSketchPlane(context.Context, string) (*model.SketchPlane, error)
 	CommitFeatureBuild(context.Context, model.Feature3DCommit) (*model.Feature3DCommitResult, error)
 }
 

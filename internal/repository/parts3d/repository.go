@@ -20,6 +20,7 @@ const (
 	listBodiesRequest         = "parts3d_bodies_list"
 	getTopologyRequest        = "parts3d_topology_get"
 	getFacePlaneRequest       = "parts3d_face_plane_get"
+	getSketchPlaneRequest     = "parts3d_sketch_plane_get"
 )
 
 type Repository struct {
@@ -242,6 +243,36 @@ func (r *Repository) GetFacePlane(
 	}
 	if closeErr := rows.Close(); closeErr != nil {
 		return nil, fmt.Errorf("get 3d face plane rows: %w", closeErr)
+	}
+
+	return plane, nil
+}
+
+func (r *Repository) GetSketchPlane(ctx context.Context, sketchID string) (*model.SketchPlane, error) {
+	sqlRequest, err := r.db.Request(getSketchPlaneRequest)
+	if err != nil {
+		return nil, fmt.Errorf("get sketch plane request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, sketchID)
+	if err != nil {
+		return nil, fmt.Errorf("get sketch plane: %w", err)
+	}
+
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("get sketch plane rows: %w", closeErr)
+		}
+		return nil, nil
+	}
+
+	plane, err := scanSketchPlane(rows)
+	if err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("get sketch plane rows: %w", closeErr)
 	}
 
 	return plane, nil
@@ -588,6 +619,20 @@ func scanFacePlane(rows *dbsql.PGXResponse) (*model.FacePlane3D, error) {
 		Plane:       planeFromPayload(data),
 		Diagnostics: diagnosticsFromPayload(data),
 	}, nil
+}
+
+func scanSketchPlane(rows *dbsql.PGXResponse) (*model.SketchPlane, error) {
+	var payload []byte
+	if err := rows.Scan(&payload); err != nil {
+		return nil, fmt.Errorf("scan sketch plane: %w", err)
+	}
+
+	var plane model.SketchPlane
+	if err := json.Unmarshal(payload, &plane); err != nil {
+		return nil, fmt.Errorf("decode sketch plane: %w", err)
+	}
+
+	return &plane, nil
 }
 
 type topologyBuilder struct {
