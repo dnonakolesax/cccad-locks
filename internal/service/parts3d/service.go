@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/model"
 )
 
@@ -18,6 +19,7 @@ const (
 )
 
 type Repository interface {
+	Create(ctx context.Context, workspaceID string, request *model.CreatePart3DRequest, createdByUserID string) (*model.Part3D, error)
 	ListFeatures(ctx context.Context, partID string, includeSuppressed bool) ([]model.Feature3D, error)
 	ListBodies(ctx context.Context, partID string) ([]model.Body3D, error)
 	GetTopology(ctx context.Context, partID string, bodyID *string) (*model.TopologySummary3D, error)
@@ -32,6 +34,33 @@ var ErrFacePlaneNotFound = errors.New("face plane not found")
 
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+func (s *Service) Create(
+	ctx context.Context,
+	workspaceID string,
+	request *model.CreatePart3DRequest,
+) (*model.Part3D, error) {
+	if err := validateUUID("workspaceID", workspaceID); err != nil {
+		return nil, err
+	}
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	request.Name = strings.TrimSpace(request.Name)
+	if request.Name == "" {
+		return nil, errors.New("name is required")
+	}
+	if s.repo == nil {
+		return nil, errors.New("3d parts repository is required")
+	}
+
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authenticated user id is required")
+	}
+
+	return s.repo.Create(ctx, workspaceID, request, userID)
 }
 
 func (s *Service) ListFeatures(

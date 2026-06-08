@@ -2,6 +2,19 @@ package model
 
 import "encoding/json"
 
+type CreatePart3DRequest struct {
+	Name string `json:"name"`
+}
+
+type Part3D struct {
+	ID              string `json:"id"`
+	WorkspaceID     string `json:"workspaceId"`
+	Name            string `json:"name"`
+	CreatedByUserID string `json:"createdByUserId"`
+	CreatedAt       string `json:"createdAt"`
+	UpdatedAt       string `json:"updatedAt"`
+}
+
 type Feature3D struct {
 	ID         string          `json:"id"`
 	PartID     string          `json:"partId"`

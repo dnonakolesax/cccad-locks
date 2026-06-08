@@ -1,0 +1,101 @@
+package v1
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/dnonakolesax/cccad-locks/internal/model"
+)
+
+type stubParts3DService struct {
+	createCalled      bool
+	createWorkspaceID string
+	createRequest     *model.CreatePart3DRequest
+}
+
+func (s *stubParts3DService) Create(
+	_ context.Context,
+	workspaceID string,
+	request *model.CreatePart3DRequest,
+) (*model.Part3D, error) {
+	s.createCalled = true
+	s.createWorkspaceID = workspaceID
+	s.createRequest = request
+	return &model.Part3D{
+		ID:          "22222222-2222-2222-2222-222222222222",
+		WorkspaceID: workspaceID,
+		Name:        request.Name,
+	}, nil
+}
+
+func (s *stubParts3DService) ListFeatures(context.Context, string, bool) (*model.Feature3DList, error) {
+	return nil, nil
+}
+
+func (s *stubParts3DService) ListBodies(context.Context, string) (*model.Body3DList, error) {
+	return nil, nil
+}
+
+func (s *stubParts3DService) GetTopology(context.Context, string, *string) (*model.TopologySummary3D, error) {
+	return nil, nil
+}
+
+func (s *stubParts3DService) GetFacePlane(context.Context, string, string, string) (*model.FacePlane3D, error) {
+	return nil, nil
+}
+
+func TestCreateRejectsMissingPartName(t *testing.T) {
+	service := &stubParts3DService{}
+	mux := http.NewServeMux()
+	NewParts3DHandler(service).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/workspaces/11111111-1111-1111-1111-111111111111/parts",
+		strings.NewReader(`{"name":" "}`),
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if service.createCalled {
+		t.Fatal("service.Create was called for missing part name")
+	}
+	if !strings.Contains(rec.Body.String(), "name is required") {
+		t.Fatalf("body = %q, want name required message", rec.Body.String())
+	}
+}
+
+func TestCreatePartCallsService(t *testing.T) {
+	service := &stubParts3DService{}
+	mux := http.NewServeMux()
+	NewParts3DHandler(service).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/workspaces/11111111-1111-1111-1111-111111111111/parts",
+		strings.NewReader(`{"name":"Bracket"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if !service.createCalled {
+		t.Fatal("service.Create was not called")
+	}
+	if service.createWorkspaceID != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("workspaceID = %q", service.createWorkspaceID)
+	}
+	if service.createRequest == nil || service.createRequest.Name != "Bracket" {
+		t.Fatalf("request = %#v", service.createRequest)
+	}
+}

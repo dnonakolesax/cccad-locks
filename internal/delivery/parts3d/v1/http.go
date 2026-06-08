@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +15,7 @@ import (
 )
 
 type Parts3DService interface {
+	Create(ctx context.Context, workspaceID string, request *model.CreatePart3DRequest) (*model.Part3D, error)
 	ListFeatures(ctx context.Context, partID string, includeSuppressed bool) (*model.Feature3DList, error)
 	ListBodies(ctx context.Context, partID string) (*model.Body3DList, error)
 	GetTopology(ctx context.Context, partID string, bodyID *string) (*model.TopologySummary3D, error)
@@ -28,10 +31,41 @@ func NewParts3DHandler(service Parts3DService) *Parts3DHandler {
 }
 
 func (h *Parts3DHandler) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /workspaces/{workspaceId}/parts", h.Create)
 	mux.HandleFunc("GET /parts/{partId}/features", h.ListFeatures)
 	mux.HandleFunc("GET /parts/{partId}/bodies", h.ListBodies)
 	mux.HandleFunc("GET /parts/{partId}/topology", h.GetTopology)
 	mux.HandleFunc("GET /parts/{partId}/bodies/{bodyId}/faces/{faceId}/plane", h.GetFacePlane)
+}
+
+func (h *Parts3DHandler) Create(w http.ResponseWriter, r *http.Request) {
+	workspaceID := r.PathValue("workspaceId")
+	if strings.TrimSpace(workspaceID) == "" {
+		writeJSONError(w, http.StatusBadRequest, "INVALID_OPERATION", "workspaceId is required")
+		return
+	}
+
+	var request model.CreatePart3DRequest
+	if err := readJSON(r, &request); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "INVALID_OPERATION", err.Error())
+		return
+	}
+	if strings.TrimSpace(request.Name) == "" {
+		writeJSONError(w, http.StatusBadRequest, "INVALID_OPERATION", "name is required")
+		return
+	}
+
+	response, err := h.service.Create(r.Context(), workspaceID, &request)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if response == nil {
+		writeJSONError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "3d parts service returned nil part")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, response)
 }
 
 func (h *Parts3DHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +134,25 @@ func boolQueryDefault(r *http.Request, name string, fallback bool) (bool, error)
 		return false, errors.New(name + " must be a boolean")
 	}
 	return parsed, nil
+}
+
+func readJSON(r *http.Request, value any) error {
+	defer r.Body.Close()
+
+	const maxBodySize = 1 << 20
+
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodySize+1))
+	if err != nil {
+		return err
+	}
+	if len(body) > maxBodySize {
+		return fmt.Errorf("request body exceeds %d bytes", maxBodySize)
+	}
+	if len(strings.TrimSpace(string(body))) == 0 {
+		return errors.New("request body is required")
+	}
+
+	return json.Unmarshal(body, value)
 }
 
 func writeServiceError(w http.ResponseWriter, err error) {

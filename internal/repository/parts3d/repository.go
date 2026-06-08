@@ -3,6 +3,7 @@ package parts3d
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 )
 
 const (
+	createPartRequest   = "parts3d_part_create"
 	listFeaturesRequest = "parts3d_features_list"
 	listBodiesRequest   = "parts3d_bodies_list"
 	getTopologyRequest  = "parts3d_topology_get"
@@ -24,6 +26,41 @@ type Repository struct {
 
 func NewRepository(db *dbsql.PGXWorker) *Repository {
 	return &Repository{db: db}
+}
+
+func (r *Repository) Create(
+	ctx context.Context,
+	workspaceID string,
+	request *model.CreatePart3DRequest,
+	createdByUserID string,
+) (*model.Part3D, error) {
+	sqlRequest, err := r.db.Request(createPartRequest)
+	if err != nil {
+		return nil, fmt.Errorf("create 3d part request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, workspaceID, request.Name, createdByUserID)
+	if err != nil {
+		return nil, fmt.Errorf("create 3d part: %w", err)
+	}
+
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("create 3d part rows: %w", closeErr)
+		}
+		return nil, errors.New("create 3d part returned no rows")
+	}
+
+	part, err := scanPart(rows)
+	if err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("create 3d part rows: %w", closeErr)
+	}
+
+	return part, nil
 }
 
 func (r *Repository) ListFeatures(
@@ -368,6 +405,28 @@ func firstBodyID(bodies []model.Body3DCommit) string {
 		return ""
 	}
 	return bodies[0].ID
+}
+
+func scanPart(rows *dbsql.PGXResponse) (*model.Part3D, error) {
+	var part model.Part3D
+	var createdAt time.Time
+	var updatedAt time.Time
+
+	if err := rows.Scan(
+		&part.ID,
+		&part.WorkspaceID,
+		&part.Name,
+		&part.CreatedByUserID,
+		&createdAt,
+		&updatedAt,
+	); err != nil {
+		return nil, fmt.Errorf("scan 3d part: %w", err)
+	}
+
+	part.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
+	part.UpdatedAt = updatedAt.UTC().Format(time.RFC3339Nano)
+
+	return &part, nil
 }
 
 func scanFeature(rows *dbsql.PGXResponse) (*model.Feature3D, error) {
