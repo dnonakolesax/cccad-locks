@@ -37,11 +37,11 @@ s3:
   bucket: cccad
 
 solver:
-  address: sk-solver:7701
+  address: cccad-solver:50051
   request-timeout: 10s
 
 geometry:
-  address: geometry-kernel:7701
+  address: dnonakolesax/cccad-3dk:50052
   request-timeout: 30s
 
 auth:
