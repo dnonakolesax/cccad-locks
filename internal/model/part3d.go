@@ -15,6 +15,10 @@ type Part3D struct {
 	UpdatedAt       string `json:"updatedAt"`
 }
 
+type Part3DList struct {
+	Parts []Part3D `json:"parts"`
+}
+
 type Feature3D struct {
 	ID         string          `json:"id"`
 	PartID     string          `json:"partId"`

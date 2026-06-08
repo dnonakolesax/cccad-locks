@@ -14,6 +14,8 @@ type stubParts3DService struct {
 	createCalled      bool
 	createWorkspaceID string
 	createRequest     *model.CreatePart3DRequest
+	listCalled        bool
+	listWorkspaceID   string
 }
 
 func (s *stubParts3DService) Create(
@@ -28,6 +30,23 @@ func (s *stubParts3DService) Create(
 		ID:          "22222222-2222-2222-2222-222222222222",
 		WorkspaceID: workspaceID,
 		Name:        request.Name,
+	}, nil
+}
+
+func (s *stubParts3DService) ListByWorkspace(
+	_ context.Context,
+	workspaceID string,
+) (*model.Part3DList, error) {
+	s.listCalled = true
+	s.listWorkspaceID = workspaceID
+	return &model.Part3DList{
+		Parts: []model.Part3D{
+			{
+				ID:          "22222222-2222-2222-2222-222222222222",
+				WorkspaceID: workspaceID,
+				Name:        "Bracket",
+			},
+		},
 	}, nil
 }
 
@@ -97,5 +116,33 @@ func TestCreatePartCallsService(t *testing.T) {
 	}
 	if service.createRequest == nil || service.createRequest.Name != "Bracket" {
 		t.Fatalf("request = %#v", service.createRequest)
+	}
+}
+
+func TestListPartsByWorkspaceCallsService(t *testing.T) {
+	service := &stubParts3DService{}
+	mux := http.NewServeMux()
+	NewParts3DHandler(service).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/workspaces/11111111-1111-1111-1111-111111111111/parts",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !service.listCalled {
+		t.Fatal("service.ListByWorkspace was not called")
+	}
+	if service.listWorkspaceID != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("workspaceID = %q", service.listWorkspaceID)
+	}
+	if !strings.Contains(rec.Body.String(), `"parts"`) {
+		t.Fatalf("body = %q, want parts response", rec.Body.String())
 	}
 }

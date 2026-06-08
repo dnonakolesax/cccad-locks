@@ -254,6 +254,33 @@
             "$ref": "#/components/responses/ErrorResponse"
           }
         }
+      },
+      "get": {
+        "tags": [
+          "Parts3D"
+        ],
+        "operationId": "listParts3DByWorkspace",
+        "summary": "List 3D parts in a workspace",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace parts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Part3DList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
       }
     },
     "/api/v1/sketches": {
@@ -4852,6 +4879,21 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "Part3DList": {
+        "type": "object",
+        "required": [
+          "parts"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Part3D"
+            }
           }
         }
       }

@@ -12,6 +12,7 @@ type stubRepository struct {
 	createWorkspaceID string
 	createUserID      string
 	createRequest     *model.CreatePart3DRequest
+	listWorkspaceID   string
 }
 
 func (r *stubRepository) Create(
@@ -28,6 +29,17 @@ func (r *stubRepository) Create(
 		WorkspaceID:     workspaceID,
 		Name:            request.Name,
 		CreatedByUserID: createdByUserID,
+	}, nil
+}
+
+func (r *stubRepository) ListByWorkspace(_ context.Context, workspaceID string) ([]model.Part3D, error) {
+	r.listWorkspaceID = workspaceID
+	return []model.Part3D{
+		{
+			ID:          "22222222-2222-2222-2222-222222222222",
+			WorkspaceID: workspaceID,
+			Name:        "Bracket",
+		},
 	}, nil
 }
 
@@ -88,5 +100,24 @@ func TestCreateTrimsNameAndPassesUser(t *testing.T) {
 	}
 	if repo.createRequest.Name != "Bracket" {
 		t.Fatalf("name = %q, want trimmed name", repo.createRequest.Name)
+	}
+}
+
+func TestListByWorkspacePassesWorkspaceID(t *testing.T) {
+	repo := &stubRepository{}
+	service := NewService(repo)
+
+	response, err := service.ListByWorkspace(context.Background(), "11111111-1111-1111-1111-111111111111")
+	if err != nil {
+		t.Fatalf("ListByWorkspace returned error: %v", err)
+	}
+	if response == nil {
+		t.Fatal("ListByWorkspace returned nil response")
+	}
+	if repo.listWorkspaceID != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("workspaceID = %q", repo.listWorkspaceID)
+	}
+	if len(response.Parts) != 1 {
+		t.Fatalf("parts length = %d, want 1", len(response.Parts))
 	}
 }

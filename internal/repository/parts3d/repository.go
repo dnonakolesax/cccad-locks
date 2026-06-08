@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	createPartRequest   = "parts3d_part_create"
-	listFeaturesRequest = "parts3d_features_list"
-	listBodiesRequest   = "parts3d_bodies_list"
-	getTopologyRequest  = "parts3d_topology_get"
-	getFacePlaneRequest = "parts3d_face_plane_get"
+	createPartRequest         = "parts3d_part_create"
+	listPartsWorkspaceRequest = "parts3d_parts_list_by_workspace"
+	listFeaturesRequest       = "parts3d_features_list"
+	listBodiesRequest         = "parts3d_bodies_list"
+	getTopologyRequest        = "parts3d_topology_get"
+	getFacePlaneRequest       = "parts3d_face_plane_get"
 )
 
 type Repository struct {
@@ -61,6 +62,33 @@ func (r *Repository) Create(
 	}
 
 	return part, nil
+}
+
+func (r *Repository) ListByWorkspace(ctx context.Context, workspaceID string) ([]model.Part3D, error) {
+	sqlRequest, err := r.db.Request(listPartsWorkspaceRequest)
+	if err != nil {
+		return nil, fmt.Errorf("list workspace 3d parts request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("list workspace 3d parts: %w", err)
+	}
+
+	parts := make([]model.Part3D, 0)
+	for rows.Next() {
+		part, scanErr := scanPart(rows)
+		if scanErr != nil {
+			_ = rows.Close()
+			return nil, scanErr
+		}
+		parts = append(parts, *part)
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("list workspace 3d parts rows: %w", closeErr)
+	}
+
+	return parts, nil
 }
 
 func (r *Repository) ListFeatures(
