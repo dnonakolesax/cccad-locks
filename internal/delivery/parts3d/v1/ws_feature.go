@@ -526,7 +526,45 @@ func sketchProfileFromState(
 		}, nil
 	}
 
+	if profile, err := sketchProfileFromEncodedID(profileID, entities); err == nil {
+		return profile, nil
+	}
+
 	return nil, fmt.Errorf("profile %q not found", profileID)
+}
+
+func sketchProfileFromEncodedID(
+	profileID string,
+	entities map[string]sketchStateEntity,
+) (*geometryv1.SketchProfile, error) {
+	const prefix = "profile:"
+	if !strings.HasPrefix(profileID, prefix) {
+		return nil, errors.New("profile id is not entity-encoded")
+	}
+
+	entityIDs := strings.Split(strings.TrimPrefix(profileID, prefix), ":")
+	if len(entityIDs) == 0 {
+		return nil, errors.New("encoded profile has no entities")
+	}
+	for i, entityID := range entityIDs {
+		entityIDs[i] = strings.TrimSpace(entityID)
+		if entityIDs[i] == "" {
+			return nil, errors.New("encoded profile contains an empty entity id")
+		}
+	}
+
+	outerLoop, err := profileCurves(entityIDs, entities)
+	if err != nil {
+		return nil, err
+	}
+	if len(outerLoop) == 0 {
+		return nil, errors.New("encoded profile has no curves")
+	}
+
+	return &geometryv1.SketchProfile{
+		ProfileId: profileID,
+		OuterLoop: outerLoop,
+	}, nil
 }
 
 func profileCurves(entityIDs []string, entities map[string]sketchStateEntity) ([]*geometryv1.ProfileCurve, error) {

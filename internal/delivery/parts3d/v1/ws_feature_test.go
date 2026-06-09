@@ -65,6 +65,37 @@ func TestSketchProfileFromStateBuildsOuterLoopCurves(t *testing.T) {
 	}
 }
 
+func TestSketchProfileFromStateBuildsEncodedProfileIDFallback(t *testing.T) {
+	profileID := "profile:rectangle-line-1:fillet-arc-1:rectangle-line-2:fillet-arc-2"
+	profiles := json.RawMessage(`[]`)
+	entities := json.RawMessage(`{
+		"p1":{"id":"p1","type":"point","x":0,"y":0},
+		"p2":{"id":"p2","type":"point","x":10,"y":0},
+		"p3":{"id":"p3","type":"point","x":10,"y":5},
+		"p4":{"id":"p4","type":"point","x":0,"y":5},
+		"c1":{"id":"c1","type":"point","x":10,"y":0},
+		"c2":{"id":"c2","type":"point","x":0,"y":5},
+		"rectangle-line-1":{"id":"rectangle-line-1","type":"line","startPointId":"p1","endPointId":"p2"},
+		"rectangle-line-2":{"id":"rectangle-line-2","type":"line","startPointId":"p3","endPointId":"p4"},
+		"fillet-arc-1":{"id":"fillet-arc-1","type":"arc","centerPointId":"c1","startPointId":"p2","endPointId":"p3","radius":2},
+		"fillet-arc-2":{"id":"fillet-arc-2","type":"arc","centerPointId":"c2","startPointId":"p4","endPointId":"p1","radius":2}
+	}`)
+
+	profile, err := sketchProfileFromState(profileID, profiles, entities)
+	if err != nil {
+		t.Fatalf("sketchProfileFromState returned error: %v", err)
+	}
+	if profile.GetProfileId() != profileID {
+		t.Fatalf("profileId = %q, want %q", profile.GetProfileId(), profileID)
+	}
+	if len(profile.GetOuterLoop()) != 4 {
+		t.Fatalf("outer loop length = %d, want 4", len(profile.GetOuterLoop()))
+	}
+	if profile.GetOuterLoop()[1].GetArc() == nil {
+		t.Fatalf("second curve = %#v, want arc", profile.GetOuterLoop()[1])
+	}
+}
+
 func TestCommitFromBuildResponseRejectsBodiesWithoutTopology(t *testing.T) {
 	_, err := commitFromBuildResponse(
 		"11111111-1111-1111-1111-111111111111",
