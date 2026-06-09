@@ -129,6 +129,7 @@ func TestPreviewBuildsApplyFilletIntentRequest(t *testing.T) {
 			"cornerPointId":"corner",
 			"createdPoint1Id":"fillet-p1",
 			"createdPoint2Id":"fillet-p2",
+			"createdCenterPointId":"fillet-center",
 			"createdArcId":"fillet-arc",
 			"radius":2.5,
 			"trim":true,
@@ -143,9 +144,37 @@ func TestPreviewBuildsApplyFilletIntentRequest(t *testing.T) {
 		t.Fatal("intent was not ApplyFillet")
 	}
 	if intent.GetLine1Id() != "line-1" || intent.GetLine2Id() != "line-2" ||
+		intent.GetCreatedCenterPointId() != "fillet-center" ||
 		intent.GetCreatedArcId() != "fillet-arc" || intent.GetRadius() != 2.5 ||
 		!intent.GetTrim() || !intent.GetClockwise() {
 		t.Fatalf("unexpected fillet intent: %#v", intent)
+	}
+}
+
+func TestPreviewBuildsApplyFilletIntentDefaultCenterPointID(t *testing.T) {
+	client := &clientStub{}
+	service := NewService(&sketchRepositoryStub{document: testSketchDocument()}, client)
+	raw := easyjson.RawMessage(`{
+		"type":"ApplyFillet",
+		"featureId":"fillet-1",
+		"line1Id":"line-1",
+		"line2Id":"line-2",
+		"createdPoint1Id":"fillet-p1",
+		"createdPoint2Id":"fillet-p2",
+		"createdArcId":"fillet-arc",
+		"radius":2.5
+	}`)
+
+	_, err := service.Preview(context.Background(), "sketch-id", &model.SolvePreviewRequest{
+		BaseVersion: 7,
+		Intent:      raw,
+	})
+	if err != nil {
+		t.Fatalf("Preview returned error: %v", err)
+	}
+	intent := client.applyIntentRequest.GetIntent().GetApplyFillet()
+	if intent.GetCreatedCenterPointId() != generatedIntentID(raw, "fillet-center-point") {
+		t.Fatalf("createdCenterPointId = %q, want deterministic default", intent.GetCreatedCenterPointId())
 	}
 }
 

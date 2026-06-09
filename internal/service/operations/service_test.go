@@ -673,6 +673,7 @@ func TestServiceSubmitApplyFilletCommitsFeatureIntent(t *testing.T) {
 			"cornerPointId":"corner",
 			"createdPoint1Id":"fillet-p1",
 			"createdPoint2Id":"fillet-p2",
+			"createdCenterPointId":"fillet-center",
 			"createdArcId":"fillet-arc",
 			"radius":4.5,
 			"trim":true,
@@ -705,10 +706,10 @@ func TestServiceSubmitApplyFilletCommitsFeatureIntent(t *testing.T) {
 	if feature["type"] != "fillet" {
 		t.Fatalf("feature type = %#v, want fillet", feature["type"])
 	}
-	if feature["createdArcId"] != "fillet-arc" || feature["radius"] != float64(4.5) {
-		t.Fatalf("fillet feature = %#v, want createdArcId fillet-arc radius 4.5", feature)
+	if feature["createdCenterPointId"] != "fillet-center" || feature["createdArcId"] != "fillet-arc" || feature["radius"] != float64(4.5) {
+		t.Fatalf("fillet feature = %#v, want createdCenterPointId fillet-center createdArcId fillet-arc radius 4.5", feature)
 	}
-	if !containsAll(response.ChangedEntityIDs, "line-1", "line-2", "corner", "fillet-p1", "fillet-p2", "fillet-arc", "fillet-1") {
+	if !containsAll(response.ChangedEntityIDs, "line-1", "line-2", "corner", "fillet-p1", "fillet-p2", "fillet-center", "fillet-arc", "fillet-1") {
 		t.Fatalf("ChangedEntityIDs = %#v, missing fillet affected IDs", response.ChangedEntityIDs)
 	}
 }

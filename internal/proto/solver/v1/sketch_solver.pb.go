@@ -3114,19 +3114,20 @@ func (x *AddConstraintIntent) GetConstraint() *Constraint {
 }
 
 type ApplyFilletIntent struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	FeatureId       string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
-	Line1Id         string                 `protobuf:"bytes,2,opt,name=line1_id,json=line1Id,proto3" json:"line1_id,omitempty"`
-	Line2Id         string                 `protobuf:"bytes,3,opt,name=line2_id,json=line2Id,proto3" json:"line2_id,omitempty"`
-	CornerPointId   string                 `protobuf:"bytes,4,opt,name=corner_point_id,json=cornerPointId,proto3" json:"corner_point_id,omitempty"`
-	CreatedPoint1Id string                 `protobuf:"bytes,5,opt,name=created_point1_id,json=createdPoint1Id,proto3" json:"created_point1_id,omitempty"`
-	CreatedPoint2Id string                 `protobuf:"bytes,6,opt,name=created_point2_id,json=createdPoint2Id,proto3" json:"created_point2_id,omitempty"`
-	CreatedArcId    string                 `protobuf:"bytes,7,opt,name=created_arc_id,json=createdArcId,proto3" json:"created_arc_id,omitempty"`
-	Radius          float64                `protobuf:"fixed64,8,opt,name=radius,proto3" json:"radius,omitempty"`
-	Trim            bool                   `protobuf:"varint,9,opt,name=trim,proto3" json:"trim,omitempty"`
-	Clockwise       bool                   `protobuf:"varint,10,opt,name=clockwise,proto3" json:"clockwise,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	FeatureId            string                 `protobuf:"bytes,1,opt,name=feature_id,json=featureId,proto3" json:"feature_id,omitempty"`
+	Line1Id              string                 `protobuf:"bytes,2,opt,name=line1_id,json=line1Id,proto3" json:"line1_id,omitempty"`
+	Line2Id              string                 `protobuf:"bytes,3,opt,name=line2_id,json=line2Id,proto3" json:"line2_id,omitempty"`
+	CornerPointId        string                 `protobuf:"bytes,4,opt,name=corner_point_id,json=cornerPointId,proto3" json:"corner_point_id,omitempty"`
+	CreatedPoint1Id      string                 `protobuf:"bytes,5,opt,name=created_point1_id,json=createdPoint1Id,proto3" json:"created_point1_id,omitempty"`
+	CreatedPoint2Id      string                 `protobuf:"bytes,6,opt,name=created_point2_id,json=createdPoint2Id,proto3" json:"created_point2_id,omitempty"`
+	CreatedCenterPointId string                 `protobuf:"bytes,7,opt,name=created_center_point_id,json=createdCenterPointId,proto3" json:"created_center_point_id,omitempty"`
+	CreatedArcId         string                 `protobuf:"bytes,8,opt,name=created_arc_id,json=createdArcId,proto3" json:"created_arc_id,omitempty"`
+	Radius               float64                `protobuf:"fixed64,9,opt,name=radius,proto3" json:"radius,omitempty"`
+	Trim                 bool                   `protobuf:"varint,10,opt,name=trim,proto3" json:"trim,omitempty"`
+	Clockwise            bool                   `protobuf:"varint,11,opt,name=clockwise,proto3" json:"clockwise,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ApplyFilletIntent) Reset() {
@@ -3197,6 +3198,13 @@ func (x *ApplyFilletIntent) GetCreatedPoint1Id() string {
 func (x *ApplyFilletIntent) GetCreatedPoint2Id() string {
 	if x != nil {
 		return x.CreatedPoint2Id
+	}
+	return ""
+}
+
+func (x *ApplyFilletIntent) GetCreatedCenterPointId() string {
+	if x != nil {
+		return x.CreatedCenterPointId
 	}
 	return ""
 }
@@ -5051,7 +5059,7 @@ const file_proto_solver_v1_sketch_solver_proto_rawDesc = "" +
 	"\x13AddConstraintIntent\x12;\n" +
 	"\n" +
 	"constraint\x18\x01 \x01(\v2\x1b.cccad.solver.v1.ConstraintR\n" +
-	"constraint\"\xd8\x02\n" +
+	"constraint\"\x8f\x03\n" +
 	"\x11ApplyFilletIntent\x12\x1d\n" +
 	"\n" +
 	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12\x19\n" +
@@ -5059,12 +5067,13 @@ const file_proto_solver_v1_sketch_solver_proto_rawDesc = "" +
 	"\bline2_id\x18\x03 \x01(\tR\aline2Id\x12&\n" +
 	"\x0fcorner_point_id\x18\x04 \x01(\tR\rcornerPointId\x12*\n" +
 	"\x11created_point1_id\x18\x05 \x01(\tR\x0fcreatedPoint1Id\x12*\n" +
-	"\x11created_point2_id\x18\x06 \x01(\tR\x0fcreatedPoint2Id\x12$\n" +
-	"\x0ecreated_arc_id\x18\a \x01(\tR\fcreatedArcId\x12\x16\n" +
-	"\x06radius\x18\b \x01(\x01R\x06radius\x12\x12\n" +
-	"\x04trim\x18\t \x01(\bR\x04trim\x12\x1c\n" +
-	"\tclockwise\x18\n" +
-	" \x01(\bR\tclockwise\"\xdf\x02\n" +
+	"\x11created_point2_id\x18\x06 \x01(\tR\x0fcreatedPoint2Id\x125\n" +
+	"\x17created_center_point_id\x18\a \x01(\tR\x14createdCenterPointId\x12$\n" +
+	"\x0ecreated_arc_id\x18\b \x01(\tR\fcreatedArcId\x12\x16\n" +
+	"\x06radius\x18\t \x01(\x01R\x06radius\x12\x12\n" +
+	"\x04trim\x18\n" +
+	" \x01(\bR\x04trim\x12\x1c\n" +
+	"\tclockwise\x18\v \x01(\bR\tclockwise\"\xdf\x02\n" +
 	"\x12ApplyChamferIntent\x12\x1d\n" +
 	"\n" +
 	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12\x19\n" +

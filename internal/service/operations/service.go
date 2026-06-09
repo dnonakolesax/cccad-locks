@@ -1046,16 +1046,17 @@ func applyMovePoint(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, a
 
 func applyFillet(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
 	var op struct {
-		FeatureID       string  `json:"featureId"`
-		Line1ID         string  `json:"line1Id"`
-		Line2ID         string  `json:"line2Id"`
-		CornerPointID   string  `json:"cornerPointId"`
-		CreatedPoint1ID string  `json:"createdPoint1Id"`
-		CreatedPoint2ID string  `json:"createdPoint2Id"`
-		CreatedArcID    string  `json:"createdArcId"`
-		Radius          float64 `json:"radius"`
-		Trim            bool    `json:"trim"`
-		Clockwise       bool    `json:"clockwise"`
+		FeatureID            string  `json:"featureId"`
+		Line1ID              string  `json:"line1Id"`
+		Line2ID              string  `json:"line2Id"`
+		CornerPointID        string  `json:"cornerPointId"`
+		CreatedPoint1ID      string  `json:"createdPoint1Id"`
+		CreatedPoint2ID      string  `json:"createdPoint2Id"`
+		CreatedCenterPointID string  `json:"createdCenterPointId"`
+		CreatedArcID         string  `json:"createdArcId"`
+		Radius               float64 `json:"radius"`
+		Trim                 bool    `json:"trim"`
+		Clockwise            bool    `json:"clockwise"`
 	}
 	if err := json.Unmarshal(raw, &op); err != nil {
 		return nil, affectedIDs{}, fmt.Errorf("decode ApplyFillet: %w", err)
@@ -1069,6 +1070,7 @@ func applyFillet(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affe
 	op.CornerPointID = strings.TrimSpace(op.CornerPointID)
 	op.CreatedPoint1ID = strings.TrimSpace(op.CreatedPoint1ID)
 	op.CreatedPoint2ID = strings.TrimSpace(op.CreatedPoint2ID)
+	op.CreatedCenterPointID = strings.TrimSpace(op.CreatedCenterPointID)
 	op.CreatedArcID = strings.TrimSpace(op.CreatedArcID)
 	if op.FeatureID == "" {
 		return nil, affectedIDs{}, errors.New("featureId is required")
@@ -1099,27 +1101,31 @@ func applyFillet(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affe
 	if op.CreatedPoint2ID == "" {
 		op.CreatedPoint2ID = generatedID(raw, "fillet-point-2")
 	}
+	if op.CreatedCenterPointID == "" {
+		op.CreatedCenterPointID = generatedID(raw, "fillet-center-point")
+	}
 	if op.CreatedArcID == "" {
 		op.CreatedArcID = generatedID(raw, "fillet-arc")
 	}
-	for _, id := range []string{op.CreatedPoint1ID, op.CreatedPoint2ID, op.CreatedArcID} {
+	for _, id := range []string{op.CreatedPoint1ID, op.CreatedPoint2ID, op.CreatedCenterPointID, op.CreatedArcID} {
 		if _, exists := graph.Entities[id]; exists {
 			return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", id)
 		}
 	}
 
 	entity := mustJSON(map[string]any{
-		"id":              op.FeatureID,
-		"type":            "fillet",
-		"line1Id":         op.Line1ID,
-		"line2Id":         op.Line2ID,
-		"cornerPointId":   op.CornerPointID,
-		"createdPoint1Id": op.CreatedPoint1ID,
-		"createdPoint2Id": op.CreatedPoint2ID,
-		"createdArcId":    op.CreatedArcID,
-		"radius":          op.Radius,
-		"trim":            op.Trim,
-		"clockwise":       op.Clockwise,
+		"id":                   op.FeatureID,
+		"type":                 "fillet",
+		"line1Id":              op.Line1ID,
+		"line2Id":              op.Line2ID,
+		"cornerPointId":        op.CornerPointID,
+		"createdPoint1Id":      op.CreatedPoint1ID,
+		"createdPoint2Id":      op.CreatedPoint2ID,
+		"createdCenterPointId": op.CreatedCenterPointID,
+		"createdArcId":         op.CreatedArcID,
+		"radius":               op.Radius,
+		"trim":                 op.Trim,
+		"clockwise":            op.Clockwise,
 	})
 	graph.Entities[op.FeatureID] = entity
 	return &sketchPatch{Entities: map[string]json.RawMessage{op.FeatureID: entity}}, affectedIDs{
@@ -1129,6 +1135,7 @@ func applyFillet(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affe
 			op.CornerPointID,
 			op.CreatedPoint1ID,
 			op.CreatedPoint2ID,
+			op.CreatedCenterPointID,
 			op.CreatedArcID,
 			op.FeatureID,
 		},
@@ -1236,19 +1243,20 @@ func applyChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, aff
 
 func applyUpdateFillet(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
 	var op struct {
-		FeatureID       string  `json:"featureId"`
-		CreatedPoint1ID *string `json:"createdPoint1Id"`
-		CreatedPoint2ID *string `json:"createdPoint2Id"`
-		CreatedArcID    *string `json:"createdArcId"`
-		Radius          float64 `json:"radius"`
-		Trim            bool    `json:"trim"`
-		Clockwise       bool    `json:"clockwise"`
+		FeatureID            string  `json:"featureId"`
+		CreatedPoint1ID      *string `json:"createdPoint1Id"`
+		CreatedPoint2ID      *string `json:"createdPoint2Id"`
+		CreatedCenterPointID *string `json:"createdCenterPointId"`
+		CreatedArcID         *string `json:"createdArcId"`
+		Radius               float64 `json:"radius"`
+		Trim                 bool    `json:"trim"`
+		Clockwise            bool    `json:"clockwise"`
 	}
 	if err := json.Unmarshal(raw, &op); err != nil {
 		return nil, affectedIDs{}, fmt.Errorf("decode UpdateFillet: %w", err)
 	}
-	if op.CreatedPoint1ID != nil || op.CreatedPoint2ID != nil || op.CreatedArcID != nil {
-		return nil, affectedIDs{}, errors.New("UpdateFillet must not include createdPoint1Id, createdPoint2Id, or createdArcId")
+	if op.CreatedPoint1ID != nil || op.CreatedPoint2ID != nil || op.CreatedCenterPointID != nil || op.CreatedArcID != nil {
+		return nil, affectedIDs{}, errors.New("UpdateFillet must not include createdPoint1Id, createdPoint2Id, createdCenterPointId, or createdArcId")
 	}
 	op.FeatureID = strings.TrimSpace(op.FeatureID)
 	if op.FeatureID == "" {
@@ -1663,7 +1671,7 @@ func featureAffectedIDs(feature map[string]any, featureID string) []string {
 	ids := []string{featureID}
 	for _, key := range []string{
 		"line1Id", "line2Id", "cornerPointId",
-		"createdPoint1Id", "createdPoint2Id", "createdArcId", "createdLineId",
+		"createdPoint1Id", "createdPoint2Id", "createdCenterPointId", "createdArcId", "createdLineId",
 	} {
 		value, _ := feature[key].(string)
 		ids = mergeIDs(ids, []string{value})

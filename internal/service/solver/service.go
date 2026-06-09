@@ -2,6 +2,8 @@ package solver
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -412,44 +414,45 @@ func dimension(raw easyjson.RawMessage) (*solverv1.Dimension, error) {
 
 func userIntent(raw easyjson.RawMessage) (*solverv1.UserIntent, error) {
 	var data struct {
-		Type              string          `json:"type"`
-		PointID           string          `json:"pointId"`
-		EntityID          string          `json:"entityId"`
-		DimensionID       string          `json:"dimensionId"`
-		FeatureID         string          `json:"featureId"`
-		Line1ID           string          `json:"line1Id"`
-		Line2ID           string          `json:"line2Id"`
-		CornerPointID     string          `json:"cornerPointId"`
-		CreatedPoint1ID   string          `json:"createdPoint1Id"`
-		CreatedPoint2ID   string          `json:"createdPoint2Id"`
-		CreatedPointID    string          `json:"createdPointId"`
-		CreatedArcID      string          `json:"createdArcId"`
-		CreatedLineID     string          `json:"createdLineId"`
-		CreatedEntityIDs  []string        `json:"createdEntityIds"`
-		SourceEntityIDs   []string        `json:"sourceEntityIds"`
-		MirrorLineID      string          `json:"mirrorLineId"`
-		Target            vec2JSON        `json:"target"`
-		PickPoint         vec2JSON        `json:"pickPoint"`
-		Direction         vec2JSON        `json:"direction"`
-		Delta             vec2JSON        `json:"delta"`
-		Value             float64         `json:"value"`
-		Weight            float64         `json:"weight"`
-		Radius            float64         `json:"radius"`
-		Distance1         float64         `json:"distance1"`
-		Distance2         float64         `json:"distance2"`
-		Spacing           float64         `json:"spacing"`
-		Count             int32           `json:"count"`
-		CenterPointID     string          `json:"centerPointId"`
-		TotalAngleRad     float64         `json:"totalAngleRad"`
-		Endpoint          string          `json:"endpoint"`
-		BoundaryEntityIDs []string        `json:"boundaryEntityIds"`
-		TargetEntityIDs   []string        `json:"targetEntityIds"`
-		Copy              bool            `json:"copy"`
-		KeepConstraints   bool            `json:"keepConstraints"`
-		RotateInstances   bool            `json:"rotateInstances"`
-		Trim              bool            `json:"trim"`
-		Clockwise         bool            `json:"clockwise"`
-		Constraint        json.RawMessage `json:"constraint"`
+		Type                 string          `json:"type"`
+		PointID              string          `json:"pointId"`
+		EntityID             string          `json:"entityId"`
+		DimensionID          string          `json:"dimensionId"`
+		FeatureID            string          `json:"featureId"`
+		Line1ID              string          `json:"line1Id"`
+		Line2ID              string          `json:"line2Id"`
+		CornerPointID        string          `json:"cornerPointId"`
+		CreatedPoint1ID      string          `json:"createdPoint1Id"`
+		CreatedPoint2ID      string          `json:"createdPoint2Id"`
+		CreatedCenterPointID string          `json:"createdCenterPointId"`
+		CreatedPointID       string          `json:"createdPointId"`
+		CreatedArcID         string          `json:"createdArcId"`
+		CreatedLineID        string          `json:"createdLineId"`
+		CreatedEntityIDs     []string        `json:"createdEntityIds"`
+		SourceEntityIDs      []string        `json:"sourceEntityIds"`
+		MirrorLineID         string          `json:"mirrorLineId"`
+		Target               vec2JSON        `json:"target"`
+		PickPoint            vec2JSON        `json:"pickPoint"`
+		Direction            vec2JSON        `json:"direction"`
+		Delta                vec2JSON        `json:"delta"`
+		Value                float64         `json:"value"`
+		Weight               float64         `json:"weight"`
+		Radius               float64         `json:"radius"`
+		Distance1            float64         `json:"distance1"`
+		Distance2            float64         `json:"distance2"`
+		Spacing              float64         `json:"spacing"`
+		Count                int32           `json:"count"`
+		CenterPointID        string          `json:"centerPointId"`
+		TotalAngleRad        float64         `json:"totalAngleRad"`
+		Endpoint             string          `json:"endpoint"`
+		BoundaryEntityIDs    []string        `json:"boundaryEntityIds"`
+		TargetEntityIDs      []string        `json:"targetEntityIds"`
+		Copy                 bool            `json:"copy"`
+		KeepConstraints      bool            `json:"keepConstraints"`
+		RotateInstances      bool            `json:"rotateInstances"`
+		Trim                 bool            `json:"trim"`
+		Clockwise            bool            `json:"clockwise"`
+		Constraint           json.RawMessage `json:"constraint"`
 	}
 	if err := json.Unmarshal(raw, &data); err != nil {
 		return nil, fmt.Errorf("decode solver intent: %w", err)
@@ -489,17 +492,22 @@ func userIntent(raw easyjson.RawMessage) (*solverv1.UserIntent, error) {
 			Constraint: constraint,
 		}}
 	case "ApplyFillet":
+		createdCenterPointID := data.CreatedCenterPointID
+		if createdCenterPointID == "" {
+			createdCenterPointID = generatedIntentID(raw, "fillet-center-point")
+		}
 		result.Kind = &solverv1.UserIntent_ApplyFillet{ApplyFillet: &solverv1.ApplyFilletIntent{
-			FeatureId:       data.FeatureID,
-			Line1Id:         data.Line1ID,
-			Line2Id:         data.Line2ID,
-			CornerPointId:   data.CornerPointID,
-			CreatedPoint1Id: data.CreatedPoint1ID,
-			CreatedPoint2Id: data.CreatedPoint2ID,
-			CreatedArcId:    data.CreatedArcID,
-			Radius:          data.Radius,
-			Trim:            data.Trim,
-			Clockwise:       data.Clockwise,
+			FeatureId:            data.FeatureID,
+			Line1Id:              data.Line1ID,
+			Line2Id:              data.Line2ID,
+			CornerPointId:        data.CornerPointID,
+			CreatedPoint1Id:      data.CreatedPoint1ID,
+			CreatedPoint2Id:      data.CreatedPoint2ID,
+			CreatedCenterPointId: createdCenterPointID,
+			CreatedArcId:         data.CreatedArcID,
+			Radius:               data.Radius,
+			Trim:                 data.Trim,
+			Clockwise:            data.Clockwise,
 		}}
 	case "ApplyChamfer":
 		createdArcID := data.CreatedArcID
@@ -655,6 +663,11 @@ func defaultSolverOptions() *solverv1.SolverOptions {
 		Deterministic:     true,
 		ReturnDiagnostics: true,
 	}
+}
+
+func generatedIntentID(raw easyjson.RawMessage, suffix string) string {
+	sum := sha1.Sum(append(append([]byte(nil), raw...), []byte("|"+suffix)...))
+	return suffix + "-" + hex.EncodeToString(sum[:8])
 }
 
 type solverPatchProfileLoop struct {
