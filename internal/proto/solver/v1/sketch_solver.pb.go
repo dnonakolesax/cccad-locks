@@ -3237,7 +3237,7 @@ type ApplyChamferIntent struct {
 	CornerPointId   string                 `protobuf:"bytes,4,opt,name=corner_point_id,json=cornerPointId,proto3" json:"corner_point_id,omitempty"`
 	CreatedPoint1Id string                 `protobuf:"bytes,5,opt,name=created_point1_id,json=createdPoint1Id,proto3" json:"created_point1_id,omitempty"`
 	CreatedPoint2Id string                 `protobuf:"bytes,6,opt,name=created_point2_id,json=createdPoint2Id,proto3" json:"created_point2_id,omitempty"`
-	CreatedLineId   string                 `protobuf:"bytes,7,opt,name=created_line_id,json=createdLineId,proto3" json:"created_line_id,omitempty"`
+	CreatedArcId    string                 `protobuf:"bytes,7,opt,name=created_arc_id,json=createdArcId,proto3" json:"created_arc_id,omitempty"`
 	Distance1       float64                `protobuf:"fixed64,8,opt,name=distance1,proto3" json:"distance1,omitempty"`
 	Distance2       float64                `protobuf:"fixed64,9,opt,name=distance2,proto3" json:"distance2,omitempty"`
 	Trim            bool                   `protobuf:"varint,10,opt,name=trim,proto3" json:"trim,omitempty"`
@@ -3317,9 +3317,9 @@ func (x *ApplyChamferIntent) GetCreatedPoint2Id() string {
 	return ""
 }
 
-func (x *ApplyChamferIntent) GetCreatedLineId() string {
+func (x *ApplyChamferIntent) GetCreatedArcId() string {
 	if x != nil {
-		return x.CreatedLineId
+		return x.CreatedArcId
 	}
 	return ""
 }
@@ -5064,7 +5064,7 @@ const file_proto_solver_v1_sketch_solver_proto_rawDesc = "" +
 	"\x06radius\x18\b \x01(\x01R\x06radius\x12\x12\n" +
 	"\x04trim\x18\t \x01(\bR\x04trim\x12\x1c\n" +
 	"\tclockwise\x18\n" +
-	" \x01(\bR\tclockwise\"\xe1\x02\n" +
+	" \x01(\bR\tclockwise\"\xdf\x02\n" +
 	"\x12ApplyChamferIntent\x12\x1d\n" +
 	"\n" +
 	"feature_id\x18\x01 \x01(\tR\tfeatureId\x12\x19\n" +
@@ -5072,8 +5072,8 @@ const file_proto_solver_v1_sketch_solver_proto_rawDesc = "" +
 	"\bline2_id\x18\x03 \x01(\tR\aline2Id\x12&\n" +
 	"\x0fcorner_point_id\x18\x04 \x01(\tR\rcornerPointId\x12*\n" +
 	"\x11created_point1_id\x18\x05 \x01(\tR\x0fcreatedPoint1Id\x12*\n" +
-	"\x11created_point2_id\x18\x06 \x01(\tR\x0fcreatedPoint2Id\x12&\n" +
-	"\x0fcreated_line_id\x18\a \x01(\tR\rcreatedLineId\x12\x1c\n" +
+	"\x11created_point2_id\x18\x06 \x01(\tR\x0fcreatedPoint2Id\x12$\n" +
+	"\x0ecreated_arc_id\x18\a \x01(\tR\fcreatedArcId\x12\x1c\n" +
 	"\tdistance1\x18\b \x01(\x01R\tdistance1\x12\x1c\n" +
 	"\tdistance2\x18\t \x01(\x01R\tdistance2\x12\x12\n" +
 	"\x04trim\x18\n" +

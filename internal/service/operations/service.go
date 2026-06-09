@@ -1143,6 +1143,7 @@ func applyChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, aff
 		CornerPointID   string  `json:"cornerPointId"`
 		CreatedPoint1ID string  `json:"createdPoint1Id"`
 		CreatedPoint2ID string  `json:"createdPoint2Id"`
+		CreatedArcID    string  `json:"createdArcId"`
 		CreatedLineID   string  `json:"createdLineId"`
 		Distance1       float64 `json:"distance1"`
 		Distance2       float64 `json:"distance2"`
@@ -1160,7 +1161,11 @@ func applyChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, aff
 	op.CornerPointID = strings.TrimSpace(op.CornerPointID)
 	op.CreatedPoint1ID = strings.TrimSpace(op.CreatedPoint1ID)
 	op.CreatedPoint2ID = strings.TrimSpace(op.CreatedPoint2ID)
+	op.CreatedArcID = strings.TrimSpace(op.CreatedArcID)
 	op.CreatedLineID = strings.TrimSpace(op.CreatedLineID)
+	if op.CreatedArcID == "" {
+		op.CreatedArcID = op.CreatedLineID
+	}
 	if op.FeatureID == "" {
 		return nil, affectedIDs{}, errors.New("featureId is required")
 	}
@@ -1193,10 +1198,10 @@ func applyChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, aff
 	if op.CreatedPoint2ID == "" {
 		op.CreatedPoint2ID = generatedID(raw, "chamfer-point-2")
 	}
-	if op.CreatedLineID == "" {
-		op.CreatedLineID = generatedID(raw, "chamfer-line")
+	if op.CreatedArcID == "" {
+		op.CreatedArcID = generatedID(raw, "chamfer-arc")
 	}
-	for _, id := range []string{op.CreatedPoint1ID, op.CreatedPoint2ID, op.CreatedLineID} {
+	for _, id := range []string{op.CreatedPoint1ID, op.CreatedPoint2ID, op.CreatedArcID} {
 		if _, exists := graph.Entities[id]; exists {
 			return nil, affectedIDs{}, fmt.Errorf("entity %q already exists", id)
 		}
@@ -1210,7 +1215,7 @@ func applyChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, aff
 		"cornerPointId":   op.CornerPointID,
 		"createdPoint1Id": op.CreatedPoint1ID,
 		"createdPoint2Id": op.CreatedPoint2ID,
-		"createdLineId":   op.CreatedLineID,
+		"createdArcId":    op.CreatedArcID,
 		"distance1":       op.Distance1,
 		"distance2":       op.Distance2,
 		"trim":            op.Trim,
@@ -1223,7 +1228,7 @@ func applyChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, aff
 			op.CornerPointID,
 			op.CreatedPoint1ID,
 			op.CreatedPoint2ID,
-			op.CreatedLineID,
+			op.CreatedArcID,
 			op.FeatureID,
 		},
 	}, nil
@@ -1276,6 +1281,7 @@ func applyUpdateChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatc
 		FeatureID       string  `json:"featureId"`
 		CreatedPoint1ID *string `json:"createdPoint1Id"`
 		CreatedPoint2ID *string `json:"createdPoint2Id"`
+		CreatedArcID    *string `json:"createdArcId"`
 		CreatedLineID   *string `json:"createdLineId"`
 		Distance1       float64 `json:"distance1"`
 		Distance2       float64 `json:"distance2"`
@@ -1284,8 +1290,8 @@ func applyUpdateChamfer(graph *graphState, raw easyjson.RawMessage) (*sketchPatc
 	if err := json.Unmarshal(raw, &op); err != nil {
 		return nil, affectedIDs{}, fmt.Errorf("decode UpdateChamfer: %w", err)
 	}
-	if op.CreatedPoint1ID != nil || op.CreatedPoint2ID != nil || op.CreatedLineID != nil {
-		return nil, affectedIDs{}, errors.New("UpdateChamfer must not include createdPoint1Id, createdPoint2Id, or createdLineId")
+	if op.CreatedPoint1ID != nil || op.CreatedPoint2ID != nil || op.CreatedArcID != nil || op.CreatedLineID != nil {
+		return nil, affectedIDs{}, errors.New("UpdateChamfer must not include createdPoint1Id, createdPoint2Id, createdArcId, or createdLineId")
 	}
 	op.FeatureID = strings.TrimSpace(op.FeatureID)
 	if op.FeatureID == "" {

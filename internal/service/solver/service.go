@@ -502,6 +502,10 @@ func userIntent(raw easyjson.RawMessage) (*solverv1.UserIntent, error) {
 			Clockwise:       data.Clockwise,
 		}}
 	case "ApplyChamfer":
+		createdArcID := data.CreatedArcID
+		if createdArcID == "" {
+			createdArcID = data.CreatedLineID
+		}
 		result.Kind = &solverv1.UserIntent_ApplyChamfer{ApplyChamfer: &solverv1.ApplyChamferIntent{
 			FeatureId:       data.FeatureID,
 			Line1Id:         data.Line1ID,
@@ -509,7 +513,7 @@ func userIntent(raw easyjson.RawMessage) (*solverv1.UserIntent, error) {
 			CornerPointId:   data.CornerPointID,
 			CreatedPoint1Id: data.CreatedPoint1ID,
 			CreatedPoint2Id: data.CreatedPoint2ID,
-			CreatedLineId:   data.CreatedLineID,
+			CreatedArcId:    createdArcID,
 			Distance1:       data.Distance1,
 			Distance2:       data.Distance2,
 			Trim:            data.Trim,

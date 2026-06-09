@@ -750,7 +750,7 @@ func TestServiceSubmitApplyChamferCommitsFeatureIntent(t *testing.T) {
 			"cornerPointId":"corner",
 			"createdPoint1Id":"chamfer-p1",
 			"createdPoint2Id":"chamfer-p2",
-			"createdLineId":"chamfer-line",
+			"createdArcId":"chamfer-arc",
 			"distance1":2,
 			"distance2":3,
 			"trim":true
@@ -782,10 +782,10 @@ func TestServiceSubmitApplyChamferCommitsFeatureIntent(t *testing.T) {
 	if feature["type"] != "chamfer" {
 		t.Fatalf("feature type = %#v, want chamfer", feature["type"])
 	}
-	if feature["createdLineId"] != "chamfer-line" || feature["distance1"] != float64(2) || feature["distance2"] != float64(3) {
-		t.Fatalf("chamfer feature = %#v, want createdLineId chamfer-line distances 2 and 3", feature)
+	if feature["createdArcId"] != "chamfer-arc" || feature["distance1"] != float64(2) || feature["distance2"] != float64(3) {
+		t.Fatalf("chamfer feature = %#v, want createdArcId chamfer-arc distances 2 and 3", feature)
 	}
-	if !containsAll(response.ChangedEntityIDs, "line-1", "line-2", "corner", "chamfer-p1", "chamfer-p2", "chamfer-line", "chamfer-1") {
+	if !containsAll(response.ChangedEntityIDs, "line-1", "line-2", "corner", "chamfer-p1", "chamfer-p2", "chamfer-arc", "chamfer-1") {
 		t.Fatalf("ChangedEntityIDs = %#v, missing chamfer affected IDs", response.ChangedEntityIDs)
 	}
 }

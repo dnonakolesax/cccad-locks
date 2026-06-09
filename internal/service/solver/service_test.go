@@ -163,7 +163,7 @@ func TestPreviewBuildsApplyChamferIntentRequest(t *testing.T) {
 			"cornerPointId":"corner",
 			"createdPoint1Id":"chamfer-p1",
 			"createdPoint2Id":"chamfer-p2",
-			"createdLineId":"chamfer-line",
+			"createdArcId":"chamfer-arc",
 			"distance1":2,
 			"distance2":3,
 			"trim":true
@@ -177,7 +177,7 @@ func TestPreviewBuildsApplyChamferIntentRequest(t *testing.T) {
 		t.Fatal("intent was not ApplyChamfer")
 	}
 	if intent.GetLine1Id() != "line-1" || intent.GetLine2Id() != "line-2" ||
-		intent.GetCreatedLineId() != "chamfer-line" || intent.GetDistance1() != 2 ||
+		intent.GetCreatedArcId() != "chamfer-arc" || intent.GetDistance1() != 2 ||
 		intent.GetDistance2() != 3 || !intent.GetTrim() {
 		t.Fatalf("unexpected chamfer intent: %#v", intent)
 	}
