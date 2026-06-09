@@ -806,6 +806,7 @@ func (b *topologyBuilder) add(row topologyRow) error {
 			StableRef:   row.stableRef,
 			SurfaceType: row.surfaceOrCurveType,
 			Plane:       planeFromPayload(row.payload),
+			Cylinder:    cylinderFromPayload(row.payload),
 			Loops:       []model.TopologyLoop3D{},
 		}
 		shell := b.shells[topologyKey(row.bodyID, row.parentRefID)]
@@ -818,6 +819,8 @@ func (b *topologyBuilder) add(row topologyRow) error {
 		loop := &model.TopologyLoop3D{
 			LoopID:    row.refID,
 			StableRef: row.stableRef,
+			Role:      stringFromPayload(row.payload, "role"),
+			Closed:    boolFromPayload(row.payload, "closed"),
 			Edges:     []model.TopologyEdge3D{},
 		}
 		face := b.faces[topologyKey(row.bodyID, row.parentRefID)]
@@ -833,6 +836,8 @@ func (b *topologyBuilder) add(row topologyRow) error {
 			CurveType:     row.surfaceOrCurveType,
 			StartVertexID: stringFromPayload(row.payload, "startVertexId", "start_vertex_id"),
 			EndVertexID:   stringFromPayload(row.payload, "endVertexId", "end_vertex_id"),
+			Orientation:   stringFromPayload(row.payload, "orientation"),
+			Circle:        circleFromPayload(row.payload),
 		}
 		loop := b.loops[topologyKey(row.bodyID, row.parentRefID)]
 		if loop == nil {
@@ -904,6 +909,38 @@ func planeFromPayload(payload map[string]any) *model.SketchPlane3D {
 	return &plane
 }
 
+func cylinderFromPayload(payload map[string]any) *model.Cylinder3D {
+	raw, ok := payload["cylinder"]
+	if !ok {
+		return nil
+	}
+	body, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var cylinder model.Cylinder3D
+	if err := json.Unmarshal(body, &cylinder); err != nil {
+		return nil
+	}
+	return &cylinder
+}
+
+func circleFromPayload(payload map[string]any) *model.CircleCurve3D {
+	raw, ok := payload["circle"]
+	if !ok {
+		return nil
+	}
+	body, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var circle model.CircleCurve3D
+	if err := json.Unmarshal(body, &circle); err != nil {
+		return nil
+	}
+	return &circle
+}
+
 func vectorFromPayload(payload map[string]any, key string) *model.Vector3 {
 	raw, ok := payload[key]
 	if !ok {
@@ -927,6 +964,11 @@ func stringFromPayload(payload map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func boolFromPayload(payload map[string]any, key string) bool {
+	value, ok := payload[key].(bool)
+	return ok && value
 }
 
 func diagnosticsFromPayload(payload map[string]any) []model.Diagnostic3D {

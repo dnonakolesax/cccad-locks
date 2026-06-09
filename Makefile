@@ -10,6 +10,7 @@ MIGRATIONS_DIR := ./migrations
 PROTOC := protoc
 GO_PACKAGES := ./...
 PROTO_FILES := internal/proto/auth/v1/auth.proto proto/solver/v1/sketch_solver.proto proto/3d/v1/geometry_kernel.proto
+GEOMETRY_PROTO_GO_PACKAGE := github.com/dnonakolesax/cccad-locks/internal/proto/geometry/v1
 EASYJSON_PACKAGES := ./internal/model
 
 .DEFAULT_GOAL := help
@@ -45,7 +46,7 @@ lint: ## Run golangci-lint
 
 .PHONY: proto
 proto: ## Regenerate protobuf Go files
-	$(PROTOC) -I . --go_out=. --go_opt=module=github.com/dnonakolesax/cccad-locks --go-grpc_out=. --go-grpc_opt=module=github.com/dnonakolesax/cccad-locks $(PROTO_FILES)
+	$(PROTOC) -I . --go_out=. --go_opt=module=github.com/dnonakolesax/cccad-locks --go_opt=Mproto/3d/v1/geometry_kernel.proto=$(GEOMETRY_PROTO_GO_PACKAGE) --go-grpc_out=. --go-grpc_opt=module=github.com/dnonakolesax/cccad-locks --go-grpc_opt=Mproto/3d/v1/geometry_kernel.proto=$(GEOMETRY_PROTO_GO_PACKAGE) $(PROTO_FILES)
 
 .PHONY: easyjson
 easyjson: ## Regenerate easyjson Go files

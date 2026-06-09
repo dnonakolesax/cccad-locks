@@ -792,10 +792,19 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 			for _, face := range shell.GetFaces() {
 				faceRefID := refs.unique(bodyID, "face", face.GetFaceId())
 				payload := json.RawMessage(`{}`)
+				facePayload := map[string]json.RawMessage{}
 				if face.GetPlane() != nil {
 					if plane, err := protojson.Marshal(face.GetPlane()); err == nil {
-						payload, _ = json.Marshal(map[string]json.RawMessage{"plane": plane})
+						facePayload["plane"] = plane
 					}
+				}
+				if face.GetCylinder() != nil {
+					if cylinder, err := protojson.Marshal(face.GetCylinder()); err == nil {
+						facePayload["cylinder"] = cylinder
+					}
+				}
+				if len(facePayload) != 0 {
+					payload, _ = json.Marshal(facePayload)
 				}
 				result = append(result, model.TopologyRef3DCommit{
 					BodyID:             bodyID,
@@ -808,8 +817,10 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 				})
 				for _, loop := range face.GetLoops() {
 					loopRefID := refs.unique(bodyID, "loop", topologyPath(faceRefID, loop.GetLoopId()))
-					loopPayload, _ := json.Marshal(map[string]string{
+					loopPayload, _ := json.Marshal(map[string]any{
 						"originalLoopId": loop.GetLoopId(),
+						"role":           loop.GetRole(),
+						"closed":         loop.GetClosed(),
 					})
 					result = append(result, model.TopologyRef3DCommit{
 						BodyID:      bodyID,
@@ -820,11 +831,18 @@ func topologyFromGeometry(topology *geometryv1.TopologySummary) []model.Topology
 						Payload:     loopPayload,
 					})
 					for _, edge := range loop.GetEdges() {
-						payload, _ := json.Marshal(map[string]string{
+						edgePayload := map[string]any{
 							"originalEdgeId": edge.GetEdgeId(),
 							"startVertexId":  edge.GetStartVertexId(),
 							"endVertexId":    edge.GetEndVertexId(),
-						})
+							"orientation":    edge.GetOrientation(),
+						}
+						if edge.GetCircle() != nil {
+							if circle, err := protojson.Marshal(edge.GetCircle()); err == nil {
+								edgePayload["circle"] = json.RawMessage(circle)
+							}
+						}
+						payload, _ := json.Marshal(edgePayload)
 						result = append(result, model.TopologyRef3DCommit{
 							BodyID:             bodyID,
 							RefKind:            "edge",

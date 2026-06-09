@@ -196,6 +196,78 @@ func TestTopologyFromGeometryQualifiesRepeatedLoopAndEdgeIDs(t *testing.T) {
 	}
 }
 
+func TestTopologyFromGeometryPersistsKernelTopologyMetadata(t *testing.T) {
+	refs := topologyFromGeometry(&geometryv1.TopologySummary{
+		Bodies: []*geometryv1.Body{{
+			BodyId: "body-1",
+			Shells: []*geometryv1.Shell{{
+				ShellId: "shell-1",
+				Faces: []*geometryv1.Face{{
+					FaceId:      "face-1",
+					SurfaceType: "cylinder",
+					Cylinder: &geometryv1.CylinderSurface{
+						Origin: &geometryv1.Vec3{X: 1, Y: 2, Z: 3},
+						Axis:   &geometryv1.Vec3{Z: 1},
+						Radius: 4,
+					},
+					Loops: []*geometryv1.Loop{{
+						LoopId: "loop-1",
+						Role:   "outer",
+						Closed: true,
+						Edges: []*geometryv1.Edge{{
+							EdgeId:      "edge-1",
+							CurveType:   "circle",
+							Orientation: "reversed",
+							Circle: &geometryv1.CircleCurve{
+								Center: &geometryv1.Vec3{X: 5, Y: 6, Z: 7},
+								Normal: &geometryv1.Vec3{Z: 1},
+								Radius: 8,
+							},
+						}},
+					}},
+				}},
+			}},
+		}},
+	})
+
+	byKind := map[string]model.TopologyRef3DCommit{}
+	for _, ref := range refs {
+		byKind[ref.RefKind] = ref
+	}
+
+	var facePayload map[string]any
+	if err := json.Unmarshal(byKind["face"].Payload, &facePayload); err != nil {
+		t.Fatalf("decode face payload: %v", err)
+	}
+	cylinder, ok := facePayload["cylinder"].(map[string]any)
+	if !ok {
+		t.Fatalf("face payload cylinder = %#v, want object", facePayload["cylinder"])
+	}
+	if cylinder["radius"] != float64(4) {
+		t.Fatalf("cylinder radius = %#v, want 4", cylinder["radius"])
+	}
+
+	var loopPayload map[string]any
+	if err := json.Unmarshal(byKind["loop"].Payload, &loopPayload); err != nil {
+		t.Fatalf("decode loop payload: %v", err)
+	}
+	if loopPayload["role"] != "outer" || loopPayload["closed"] != true {
+		t.Fatalf("loop payload = %#v, want role outer and closed true", loopPayload)
+	}
+
+	var edgePayload map[string]any
+	if err := json.Unmarshal(byKind["edge"].Payload, &edgePayload); err != nil {
+		t.Fatalf("decode edge payload: %v", err)
+	}
+	circle, ok := edgePayload["circle"].(map[string]any)
+	if !ok {
+		t.Fatalf("edge payload circle = %#v, want object", edgePayload["circle"])
+	}
+	if edgePayload["orientation"] != "reversed" || circle["radius"] != float64(8) {
+		t.Fatalf("edge payload = %#v, want reversed circle radius 8", edgePayload)
+	}
+}
+
 func TestTopologyFromGeometryDisambiguatesRepeatedEdgesInSameLoop(t *testing.T) {
 	refs := topologyFromGeometry(&geometryv1.TopologySummary{
 		Bodies: []*geometryv1.Body{{

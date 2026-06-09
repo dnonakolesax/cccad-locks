@@ -3699,6 +3699,7 @@ type Face struct {
 	SurfaceType   string                 `protobuf:"bytes,3,opt,name=surface_type,json=surfaceType,proto3" json:"surface_type,omitempty"` // "plane", "cylinder", "cone", "sphere", "bspline", "unknown"
 	Plane         *SketchPlane           `protobuf:"bytes,4,opt,name=plane,proto3" json:"plane,omitempty"`                                // set when surface_type = "plane"
 	Loops         []*Loop                `protobuf:"bytes,5,rep,name=loops,proto3" json:"loops,omitempty"`
+	Cylinder      *CylinderSurface       `protobuf:"bytes,6,opt,name=cylinder,proto3" json:"cylinder,omitempty"` // set when surface_type = "cylinder"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3768,11 +3769,20 @@ func (x *Face) GetLoops() []*Loop {
 	return nil
 }
 
+func (x *Face) GetCylinder() *CylinderSurface {
+	if x != nil {
+		return x.Cylinder
+	}
+	return nil
+}
+
 type Loop struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LoopId        string                 `protobuf:"bytes,1,opt,name=loop_id,json=loopId,proto3" json:"loop_id,omitempty"`
 	StableRef     string                 `protobuf:"bytes,2,opt,name=stable_ref,json=stableRef,proto3" json:"stable_ref,omitempty"`
 	Edges         []*Edge                `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
+	Role          string                 `protobuf:"bytes,4,opt,name=role,proto3" json:"role,omitempty"` // "outer", "inner", "unknown"
+	Closed        bool                   `protobuf:"varint,5,opt,name=closed,proto3" json:"closed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3828,6 +3838,20 @@ func (x *Loop) GetEdges() []*Edge {
 	return nil
 }
 
+func (x *Loop) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *Loop) GetClosed() bool {
+	if x != nil {
+		return x.Closed
+	}
+	return false
+}
+
 type Edge struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EdgeId        string                 `protobuf:"bytes,1,opt,name=edge_id,json=edgeId,proto3" json:"edge_id,omitempty"`
@@ -3835,6 +3859,8 @@ type Edge struct {
 	CurveType     string                 `protobuf:"bytes,3,opt,name=curve_type,json=curveType,proto3" json:"curve_type,omitempty"` // "line", "circle", "ellipse", "bspline", "unknown"
 	StartVertexId string                 `protobuf:"bytes,4,opt,name=start_vertex_id,json=startVertexId,proto3" json:"start_vertex_id,omitempty"`
 	EndVertexId   string                 `protobuf:"bytes,5,opt,name=end_vertex_id,json=endVertexId,proto3" json:"end_vertex_id,omitempty"`
+	Orientation   string                 `protobuf:"bytes,6,opt,name=orientation,proto3" json:"orientation,omitempty"` // "forward", "reversed", "internal", "external", "unknown"
+	Circle        *CircleCurve           `protobuf:"bytes,7,opt,name=circle,proto3" json:"circle,omitempty"`           // set when curve_type = "circle"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3904,6 +3930,20 @@ func (x *Edge) GetEndVertexId() string {
 	return ""
 }
 
+func (x *Edge) GetOrientation() string {
+	if x != nil {
+		return x.Orientation
+	}
+	return ""
+}
+
+func (x *Edge) GetCircle() *CircleCurve {
+	if x != nil {
+		return x.Circle
+	}
+	return nil
+}
+
 type Vertex struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	VertexId      string                 `protobuf:"bytes,1,opt,name=vertex_id,json=vertexId,proto3" json:"vertex_id,omitempty"`
@@ -3962,6 +4002,126 @@ func (x *Vertex) GetPoint() *Vec3 {
 		return x.Point
 	}
 	return nil
+}
+
+type CylinderSurface struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Origin        *Vec3                  `protobuf:"bytes,1,opt,name=origin,proto3" json:"origin,omitempty"`
+	Axis          *Vec3                  `protobuf:"bytes,2,opt,name=axis,proto3" json:"axis,omitempty"`
+	Radius        float64                `protobuf:"fixed64,3,opt,name=radius,proto3" json:"radius,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CylinderSurface) Reset() {
+	*x = CylinderSurface{}
+	mi := &file_proto_3d_v1_geometry_kernel_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CylinderSurface) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CylinderSurface) ProtoMessage() {}
+
+func (x *CylinderSurface) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_3d_v1_geometry_kernel_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CylinderSurface.ProtoReflect.Descriptor instead.
+func (*CylinderSurface) Descriptor() ([]byte, []int) {
+	return file_proto_3d_v1_geometry_kernel_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *CylinderSurface) GetOrigin() *Vec3 {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
+func (x *CylinderSurface) GetAxis() *Vec3 {
+	if x != nil {
+		return x.Axis
+	}
+	return nil
+}
+
+func (x *CylinderSurface) GetRadius() float64 {
+	if x != nil {
+		return x.Radius
+	}
+	return 0
+}
+
+type CircleCurve struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Center        *Vec3                  `protobuf:"bytes,1,opt,name=center,proto3" json:"center,omitempty"`
+	Normal        *Vec3                  `protobuf:"bytes,2,opt,name=normal,proto3" json:"normal,omitempty"`
+	Radius        float64                `protobuf:"fixed64,3,opt,name=radius,proto3" json:"radius,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CircleCurve) Reset() {
+	*x = CircleCurve{}
+	mi := &file_proto_3d_v1_geometry_kernel_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CircleCurve) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CircleCurve) ProtoMessage() {}
+
+func (x *CircleCurve) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_3d_v1_geometry_kernel_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CircleCurve.ProtoReflect.Descriptor instead.
+func (*CircleCurve) Descriptor() ([]byte, []int) {
+	return file_proto_3d_v1_geometry_kernel_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *CircleCurve) GetCenter() *Vec3 {
+	if x != nil {
+		return x.Center
+	}
+	return nil
+}
+
+func (x *CircleCurve) GetNormal() *Vec3 {
+	if x != nil {
+		return x.Normal
+	}
+	return nil
+}
+
+func (x *CircleCurve) GetRadius() float64 {
+	if x != nil {
+		return x.Radius
+	}
+	return 0
 }
 
 var File_proto_3d_v1_geometry_kernel_proto protoreflect.FileDescriptor
@@ -4261,19 +4421,22 @@ const file_proto_3d_v1_geometry_kernel_proto_rawDesc = "" +
 	"\bshell_id\x18\x01 \x01(\tR\ashellId\x12\x1d\n" +
 	"\n" +
 	"stable_ref\x18\x02 \x01(\tR\tstableRef\x12-\n" +
-	"\x05faces\x18\x03 \x03(\v2\x17.cccad.geometry.v1.FaceR\x05faces\"\xc6\x01\n" +
+	"\x05faces\x18\x03 \x03(\v2\x17.cccad.geometry.v1.FaceR\x05faces\"\x86\x02\n" +
 	"\x04Face\x12\x17\n" +
 	"\aface_id\x18\x01 \x01(\tR\x06faceId\x12\x1d\n" +
 	"\n" +
 	"stable_ref\x18\x02 \x01(\tR\tstableRef\x12!\n" +
 	"\fsurface_type\x18\x03 \x01(\tR\vsurfaceType\x124\n" +
 	"\x05plane\x18\x04 \x01(\v2\x1e.cccad.geometry.v1.SketchPlaneR\x05plane\x12-\n" +
-	"\x05loops\x18\x05 \x03(\v2\x17.cccad.geometry.v1.LoopR\x05loops\"m\n" +
+	"\x05loops\x18\x05 \x03(\v2\x17.cccad.geometry.v1.LoopR\x05loops\x12>\n" +
+	"\bcylinder\x18\x06 \x01(\v2\".cccad.geometry.v1.CylinderSurfaceR\bcylinder\"\x99\x01\n" +
 	"\x04Loop\x12\x17\n" +
 	"\aloop_id\x18\x01 \x01(\tR\x06loopId\x12\x1d\n" +
 	"\n" +
 	"stable_ref\x18\x02 \x01(\tR\tstableRef\x12-\n" +
-	"\x05edges\x18\x03 \x03(\v2\x17.cccad.geometry.v1.EdgeR\x05edges\"\xa9\x01\n" +
+	"\x05edges\x18\x03 \x03(\v2\x17.cccad.geometry.v1.EdgeR\x05edges\x12\x12\n" +
+	"\x04role\x18\x04 \x01(\tR\x04role\x12\x16\n" +
+	"\x06closed\x18\x05 \x01(\bR\x06closed\"\x83\x02\n" +
 	"\x04Edge\x12\x17\n" +
 	"\aedge_id\x18\x01 \x01(\tR\x06edgeId\x12\x1d\n" +
 	"\n" +
@@ -4281,12 +4444,22 @@ const file_proto_3d_v1_geometry_kernel_proto_rawDesc = "" +
 	"\n" +
 	"curve_type\x18\x03 \x01(\tR\tcurveType\x12&\n" +
 	"\x0fstart_vertex_id\x18\x04 \x01(\tR\rstartVertexId\x12\"\n" +
-	"\rend_vertex_id\x18\x05 \x01(\tR\vendVertexId\"s\n" +
+	"\rend_vertex_id\x18\x05 \x01(\tR\vendVertexId\x12 \n" +
+	"\vorientation\x18\x06 \x01(\tR\vorientation\x126\n" +
+	"\x06circle\x18\a \x01(\v2\x1e.cccad.geometry.v1.CircleCurveR\x06circle\"s\n" +
 	"\x06Vertex\x12\x1b\n" +
 	"\tvertex_id\x18\x01 \x01(\tR\bvertexId\x12\x1d\n" +
 	"\n" +
 	"stable_ref\x18\x02 \x01(\tR\tstableRef\x12-\n" +
-	"\x05point\x18\x03 \x01(\v2\x17.cccad.geometry.v1.Vec3R\x05point*\xb8\x01\n" +
+	"\x05point\x18\x03 \x01(\v2\x17.cccad.geometry.v1.Vec3R\x05point\"\x87\x01\n" +
+	"\x0fCylinderSurface\x12/\n" +
+	"\x06origin\x18\x01 \x01(\v2\x17.cccad.geometry.v1.Vec3R\x06origin\x12+\n" +
+	"\x04axis\x18\x02 \x01(\v2\x17.cccad.geometry.v1.Vec3R\x04axis\x12\x16\n" +
+	"\x06radius\x18\x03 \x01(\x01R\x06radius\"\x87\x01\n" +
+	"\vCircleCurve\x12/\n" +
+	"\x06center\x18\x01 \x01(\v2\x17.cccad.geometry.v1.Vec3R\x06center\x12/\n" +
+	"\x06normal\x18\x02 \x01(\v2\x17.cccad.geometry.v1.Vec3R\x06normal\x12\x16\n" +
+	"\x06radius\x18\x03 \x01(\x01R\x06radius*\xb8\x01\n" +
 	"\x10ExtrudeDirection\x12!\n" +
 	"\x1dEXTRUDE_DIRECTION_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19EXTRUDE_DIRECTION_FORWARD\x10\x01\x12\x1e\n" +
@@ -4318,7 +4491,7 @@ const file_proto_3d_v1_geometry_kernel_proto_rawDesc = "" +
 	"\fBuildBoolean\x12&.cccad.geometry.v1.BuildBooleanRequest\x1a'.cccad.geometry.v1.BuildFeatureResponse\x12\\\n" +
 	"\vRebuildPart\x12%.cccad.geometry.v1.RebuildPartRequest\x1a&.cccad.geometry.v1.RebuildPartResponse\x12\\\n" +
 	"\vGetTopology\x12%.cccad.geometry.v1.GetTopologyRequest\x1a&.cccad.geometry.v1.GetTopologyResponse\x12_\n" +
-	"\fGetFacePlane\x12&.cccad.geometry.v1.GetFacePlaneRequest\x1a'.cccad.geometry.v1.GetFacePlaneResponseBKZIgithub.com/dnonakolesax/cccad-locks/internal/proto/geometry/v1;geometryv1b\x06proto3"
+	"\fGetFacePlane\x12&.cccad.geometry.v1.GetFacePlaneRequest\x1a'.cccad.geometry.v1.GetFacePlaneResponseB6Z4github.com/cccad/geometry/gen/geometry/v1;geometryv1b\x06proto3"
 
 var (
 	file_proto_3d_v1_geometry_kernel_proto_rawDescOnce sync.Once
@@ -4333,7 +4506,7 @@ func file_proto_3d_v1_geometry_kernel_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_3d_v1_geometry_kernel_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_proto_3d_v1_geometry_kernel_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_proto_3d_v1_geometry_kernel_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
 var file_proto_3d_v1_geometry_kernel_proto_goTypes = []any{
 	(ExtrudeDirection)(0),             // 0: cccad.geometry.v1.ExtrudeDirection
 	(SolidOperation)(0),               // 1: cccad.geometry.v1.SolidOperation
@@ -4390,6 +4563,8 @@ var file_proto_3d_v1_geometry_kernel_proto_goTypes = []any{
 	(*Loop)(nil),                      // 52: cccad.geometry.v1.Loop
 	(*Edge)(nil),                      // 53: cccad.geometry.v1.Edge
 	(*Vertex)(nil),                    // 54: cccad.geometry.v1.Vertex
+	(*CylinderSurface)(nil),           // 55: cccad.geometry.v1.CylinderSurface
+	(*CircleCurve)(nil),               // 56: cccad.geometry.v1.CircleCurve
 }
 var file_proto_3d_v1_geometry_kernel_proto_depIdxs = []int32{
 	7,   // 0: cccad.geometry.v1.Axis3D.origin:type_name -> cccad.geometry.v1.Vec3
@@ -4484,33 +4659,39 @@ var file_proto_3d_v1_geometry_kernel_proto_depIdxs = []int32{
 	51,  // 89: cccad.geometry.v1.Shell.faces:type_name -> cccad.geometry.v1.Face
 	9,   // 90: cccad.geometry.v1.Face.plane:type_name -> cccad.geometry.v1.SketchPlane
 	52,  // 91: cccad.geometry.v1.Face.loops:type_name -> cccad.geometry.v1.Loop
-	53,  // 92: cccad.geometry.v1.Loop.edges:type_name -> cccad.geometry.v1.Edge
-	7,   // 93: cccad.geometry.v1.Vertex.point:type_name -> cccad.geometry.v1.Vec3
-	4,   // 94: cccad.geometry.v1.GeometrySolverService.Health:input_type -> cccad.geometry.v1.HealthRequest
-	22,  // 95: cccad.geometry.v1.GeometrySolverService.BuildExtrude:input_type -> cccad.geometry.v1.BuildExtrudeRequest
-	24,  // 96: cccad.geometry.v1.GeometrySolverService.BuildHole:input_type -> cccad.geometry.v1.BuildHoleRequest
-	26,  // 97: cccad.geometry.v1.GeometrySolverService.BuildFillet:input_type -> cccad.geometry.v1.BuildFilletRequest
-	27,  // 98: cccad.geometry.v1.GeometrySolverService.BuildChamfer:input_type -> cccad.geometry.v1.BuildChamferRequest
-	30,  // 99: cccad.geometry.v1.GeometrySolverService.BuildPattern:input_type -> cccad.geometry.v1.BuildPatternRequest
-	25,  // 100: cccad.geometry.v1.GeometrySolverService.BuildBoolean:input_type -> cccad.geometry.v1.BuildBooleanRequest
-	42,  // 101: cccad.geometry.v1.GeometrySolverService.RebuildPart:input_type -> cccad.geometry.v1.RebuildPartRequest
-	44,  // 102: cccad.geometry.v1.GeometrySolverService.GetTopology:input_type -> cccad.geometry.v1.GetTopologyRequest
-	46,  // 103: cccad.geometry.v1.GeometrySolverService.GetFacePlane:input_type -> cccad.geometry.v1.GetFacePlaneRequest
-	5,   // 104: cccad.geometry.v1.GeometrySolverService.Health:output_type -> cccad.geometry.v1.HealthResponse
-	33,  // 105: cccad.geometry.v1.GeometrySolverService.BuildExtrude:output_type -> cccad.geometry.v1.BuildFeatureResponse
-	33,  // 106: cccad.geometry.v1.GeometrySolverService.BuildHole:output_type -> cccad.geometry.v1.BuildFeatureResponse
-	33,  // 107: cccad.geometry.v1.GeometrySolverService.BuildFillet:output_type -> cccad.geometry.v1.BuildFeatureResponse
-	33,  // 108: cccad.geometry.v1.GeometrySolverService.BuildChamfer:output_type -> cccad.geometry.v1.BuildFeatureResponse
-	33,  // 109: cccad.geometry.v1.GeometrySolverService.BuildPattern:output_type -> cccad.geometry.v1.BuildFeatureResponse
-	33,  // 110: cccad.geometry.v1.GeometrySolverService.BuildBoolean:output_type -> cccad.geometry.v1.BuildFeatureResponse
-	43,  // 111: cccad.geometry.v1.GeometrySolverService.RebuildPart:output_type -> cccad.geometry.v1.RebuildPartResponse
-	45,  // 112: cccad.geometry.v1.GeometrySolverService.GetTopology:output_type -> cccad.geometry.v1.GetTopologyResponse
-	47,  // 113: cccad.geometry.v1.GeometrySolverService.GetFacePlane:output_type -> cccad.geometry.v1.GetFacePlaneResponse
-	104, // [104:114] is the sub-list for method output_type
-	94,  // [94:104] is the sub-list for method input_type
-	94,  // [94:94] is the sub-list for extension type_name
-	94,  // [94:94] is the sub-list for extension extendee
-	0,   // [0:94] is the sub-list for field type_name
+	55,  // 92: cccad.geometry.v1.Face.cylinder:type_name -> cccad.geometry.v1.CylinderSurface
+	53,  // 93: cccad.geometry.v1.Loop.edges:type_name -> cccad.geometry.v1.Edge
+	56,  // 94: cccad.geometry.v1.Edge.circle:type_name -> cccad.geometry.v1.CircleCurve
+	7,   // 95: cccad.geometry.v1.Vertex.point:type_name -> cccad.geometry.v1.Vec3
+	7,   // 96: cccad.geometry.v1.CylinderSurface.origin:type_name -> cccad.geometry.v1.Vec3
+	7,   // 97: cccad.geometry.v1.CylinderSurface.axis:type_name -> cccad.geometry.v1.Vec3
+	7,   // 98: cccad.geometry.v1.CircleCurve.center:type_name -> cccad.geometry.v1.Vec3
+	7,   // 99: cccad.geometry.v1.CircleCurve.normal:type_name -> cccad.geometry.v1.Vec3
+	4,   // 100: cccad.geometry.v1.GeometrySolverService.Health:input_type -> cccad.geometry.v1.HealthRequest
+	22,  // 101: cccad.geometry.v1.GeometrySolverService.BuildExtrude:input_type -> cccad.geometry.v1.BuildExtrudeRequest
+	24,  // 102: cccad.geometry.v1.GeometrySolverService.BuildHole:input_type -> cccad.geometry.v1.BuildHoleRequest
+	26,  // 103: cccad.geometry.v1.GeometrySolverService.BuildFillet:input_type -> cccad.geometry.v1.BuildFilletRequest
+	27,  // 104: cccad.geometry.v1.GeometrySolverService.BuildChamfer:input_type -> cccad.geometry.v1.BuildChamferRequest
+	30,  // 105: cccad.geometry.v1.GeometrySolverService.BuildPattern:input_type -> cccad.geometry.v1.BuildPatternRequest
+	25,  // 106: cccad.geometry.v1.GeometrySolverService.BuildBoolean:input_type -> cccad.geometry.v1.BuildBooleanRequest
+	42,  // 107: cccad.geometry.v1.GeometrySolverService.RebuildPart:input_type -> cccad.geometry.v1.RebuildPartRequest
+	44,  // 108: cccad.geometry.v1.GeometrySolverService.GetTopology:input_type -> cccad.geometry.v1.GetTopologyRequest
+	46,  // 109: cccad.geometry.v1.GeometrySolverService.GetFacePlane:input_type -> cccad.geometry.v1.GetFacePlaneRequest
+	5,   // 110: cccad.geometry.v1.GeometrySolverService.Health:output_type -> cccad.geometry.v1.HealthResponse
+	33,  // 111: cccad.geometry.v1.GeometrySolverService.BuildExtrude:output_type -> cccad.geometry.v1.BuildFeatureResponse
+	33,  // 112: cccad.geometry.v1.GeometrySolverService.BuildHole:output_type -> cccad.geometry.v1.BuildFeatureResponse
+	33,  // 113: cccad.geometry.v1.GeometrySolverService.BuildFillet:output_type -> cccad.geometry.v1.BuildFeatureResponse
+	33,  // 114: cccad.geometry.v1.GeometrySolverService.BuildChamfer:output_type -> cccad.geometry.v1.BuildFeatureResponse
+	33,  // 115: cccad.geometry.v1.GeometrySolverService.BuildPattern:output_type -> cccad.geometry.v1.BuildFeatureResponse
+	33,  // 116: cccad.geometry.v1.GeometrySolverService.BuildBoolean:output_type -> cccad.geometry.v1.BuildFeatureResponse
+	43,  // 117: cccad.geometry.v1.GeometrySolverService.RebuildPart:output_type -> cccad.geometry.v1.RebuildPartResponse
+	45,  // 118: cccad.geometry.v1.GeometrySolverService.GetTopology:output_type -> cccad.geometry.v1.GetTopologyResponse
+	47,  // 119: cccad.geometry.v1.GeometrySolverService.GetFacePlane:output_type -> cccad.geometry.v1.GetFacePlaneResponse
+	110, // [110:120] is the sub-list for method output_type
+	100, // [100:110] is the sub-list for method input_type
+	100, // [100:100] is the sub-list for extension type_name
+	100, // [100:100] is the sub-list for extension extendee
+	0,   // [0:100] is the sub-list for field type_name
 }
 
 func init() { file_proto_3d_v1_geometry_kernel_proto_init() }
@@ -4545,7 +4726,7 @@ func file_proto_3d_v1_geometry_kernel_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_3d_v1_geometry_kernel_proto_rawDesc), len(file_proto_3d_v1_geometry_kernel_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   51,
+			NumMessages:   53,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

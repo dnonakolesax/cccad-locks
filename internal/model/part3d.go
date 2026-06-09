@@ -90,21 +90,26 @@ type TopologyFace3D struct {
 	StableRef   string           `json:"stableRef,omitempty"`
 	SurfaceType string           `json:"surfaceType,omitempty"`
 	Plane       *SketchPlane3D   `json:"plane,omitempty"`
+	Cylinder    *Cylinder3D      `json:"cylinder,omitempty"`
 	Loops       []TopologyLoop3D `json:"loops"`
 }
 
 type TopologyLoop3D struct {
 	LoopID    string           `json:"loopId"`
 	StableRef string           `json:"stableRef,omitempty"`
+	Role      string           `json:"role,omitempty"`
+	Closed    bool             `json:"closed,omitempty"`
 	Edges     []TopologyEdge3D `json:"edges"`
 }
 
 type TopologyEdge3D struct {
-	EdgeID        string `json:"edgeId"`
-	StableRef     string `json:"stableRef,omitempty"`
-	CurveType     string `json:"curveType,omitempty"`
-	StartVertexID string `json:"startVertexId,omitempty"`
-	EndVertexID   string `json:"endVertexId,omitempty"`
+	EdgeID        string         `json:"edgeId"`
+	StableRef     string         `json:"stableRef,omitempty"`
+	CurveType     string         `json:"curveType,omitempty"`
+	StartVertexID string         `json:"startVertexId,omitempty"`
+	EndVertexID   string         `json:"endVertexId,omitempty"`
+	Orientation   string         `json:"orientation,omitempty"`
+	Circle        *CircleCurve3D `json:"circle,omitempty"`
 }
 
 type TopologyVertex3D struct {
@@ -125,6 +130,18 @@ type FacePlane3D struct {
 	SurfaceType string         `json:"surfaceType"`
 	Plane       *SketchPlane3D `json:"plane,omitempty"`
 	Diagnostics []Diagnostic3D `json:"diagnostics,omitempty"`
+}
+
+type Cylinder3D struct {
+	Origin *Vector3 `json:"origin,omitempty"`
+	Axis   *Vector3 `json:"axis,omitempty"`
+	Radius float64  `json:"radius,omitempty"`
+}
+
+type CircleCurve3D struct {
+	Center *Vector3 `json:"center,omitempty"`
+	Normal *Vector3 `json:"normal,omitempty"`
+	Radius float64  `json:"radius,omitempty"`
 }
 
 type Diagnostic3D struct {
