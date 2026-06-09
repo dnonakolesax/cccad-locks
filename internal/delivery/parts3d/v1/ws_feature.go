@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
@@ -454,12 +455,41 @@ func (h *Parts3DWSHandler) ensureSketchProfile(ctx context.Context, feature *par
 	if err != nil {
 		return fmt.Errorf("load sketch profile: %w", err)
 	}
+	debugInfo := sketchProfileDebugInfo(profileID, profilesRaw, entitiesRaw)
+	h.logger.InfoContext(ctx, "3d sketch profile data loaded",
+		slog.String("sketchId", sketchID),
+		slog.String("profileId", profileID),
+		slog.Int("storedProfileCount", debugInfo.StoredProfileCount),
+		slog.Bool("exactProfileFound", debugInfo.ExactProfileFound),
+		slog.Int("entityCount", debugInfo.EntityCount),
+		slog.Any("entityTypeCounts", debugInfo.EntityTypeCounts),
+		slog.Bool("encodedProfileId", debugInfo.EncodedProfileID),
+		slog.Int("encodedEntityCount", debugInfo.EncodedEntityCount),
+		slog.Any("storedProfileIds", debugInfo.StoredProfileIDs),
+	)
 
 	profile, err := sketchProfileFromState(profileID, profilesRaw, entitiesRaw)
 	if err != nil {
+		h.logger.WarnContext(ctx, "3d sketch profile resolution failed",
+			slog.String("sketchId", sketchID),
+			slog.String("profileId", profileID),
+			slog.String("error", err.Error()),
+			slog.Bool("exactProfileFound", debugInfo.ExactProfileFound),
+			slog.Any("encodedMissingEntityIds", debugInfo.EncodedMissingEntityIDs),
+			slog.Any("encodedUnsupportedEntityIds", debugInfo.EncodedUnsupportedEntityIDs),
+			slog.Any("encodedFilletFeatureIds", debugInfo.EncodedFilletFeatureIDs),
+			slog.Any("encodedCreatedArcFallbackIds", debugInfo.EncodedCreatedArcFallbackIDs),
+		)
 		return err
 	}
 	feature.SketchProfile = profile
+	h.logger.InfoContext(ctx, "3d sketch profile resolved",
+		slog.String("sketchId", sketchID),
+		slog.String("profileId", profileID),
+		slog.Int("outerLoopCurveCount", len(profile.GetOuterLoop())),
+		slog.Int("innerLoopCount", len(profile.GetInnerLoops())),
+		slog.Bool("usedStoredProfile", debugInfo.ExactProfileFound),
+	)
 	return nil
 }
 
@@ -491,6 +521,94 @@ type sketchStateEntity struct {
 	StartPointID  string  `json:"startPointId"`
 	EndPointID    string  `json:"endPointId"`
 	Clockwise     bool    `json:"clockwise"`
+}
+
+type sketchProfileDebug struct {
+	StoredProfileCount           int
+	StoredProfileIDs             []string
+	ExactProfileFound            bool
+	EntityCount                  int
+	EntityTypeCounts             map[string]int
+	EncodedProfileID             bool
+	EncodedEntityCount           int
+	EncodedMissingEntityIDs      []string
+	EncodedUnsupportedEntityIDs  []string
+	EncodedFilletFeatureIDs      []string
+	EncodedCreatedArcFallbackIDs []string
+}
+
+func sketchProfileDebugInfo(
+	profileID string,
+	profilesRaw json.RawMessage,
+	entitiesRaw json.RawMessage,
+) sketchProfileDebug {
+	info := sketchProfileDebug{
+		EntityTypeCounts: map[string]int{},
+	}
+
+	var profiles []sketchStateProfile
+	if err := json.Unmarshal(profilesRaw, &profiles); err == nil {
+		info.StoredProfileCount = len(profiles)
+		for _, profile := range profiles {
+			if profile.ID == profileID {
+				info.ExactProfileFound = true
+			}
+			info.StoredProfileIDs = appendLimitedString(info.StoredProfileIDs, profile.ID, 20)
+		}
+	}
+
+	var entities map[string]sketchStateEntity
+	if err := json.Unmarshal(entitiesRaw, &entities); err != nil {
+		return info
+	}
+	info.EntityCount = len(entities)
+	for _, entity := range entities {
+		entityType := entity.Type
+		if entityType == "" {
+			entityType = "unknown"
+		}
+		info.EntityTypeCounts[entityType]++
+	}
+
+	const prefix = "profile:"
+	if !strings.HasPrefix(profileID, prefix) {
+		return info
+	}
+	info.EncodedProfileID = true
+	encodedIDs := strings.Split(strings.TrimPrefix(profileID, prefix), ":")
+	info.EncodedEntityCount = len(encodedIDs)
+	for _, encodedID := range encodedIDs {
+		encodedID = strings.TrimSpace(encodedID)
+		if encodedID == "" {
+			continue
+		}
+		entity, ok := entities[encodedID]
+		if !ok {
+			if feature, found := filletFeatureByCreatedArcID(encodedID, entities); found {
+				info.EncodedCreatedArcFallbackIDs = appendLimitedString(info.EncodedCreatedArcFallbackIDs, encodedID, 20)
+				info.EncodedFilletFeatureIDs = appendLimitedString(info.EncodedFilletFeatureIDs, feature.ID, 20)
+			} else {
+				info.EncodedMissingEntityIDs = appendLimitedString(info.EncodedMissingEntityIDs, encodedID, 20)
+			}
+			continue
+		}
+		switch entity.Type {
+		case "line", "circle", "arc":
+		case "fillet":
+			info.EncodedFilletFeatureIDs = appendLimitedString(info.EncodedFilletFeatureIDs, entity.ID, 20)
+		default:
+			info.EncodedUnsupportedEntityIDs = appendLimitedString(info.EncodedUnsupportedEntityIDs, encodedID+":"+entity.Type, 20)
+		}
+	}
+	return info
+}
+
+func appendLimitedString(values []string, value string, limit int) []string {
+	value = strings.TrimSpace(value)
+	if value == "" || len(values) >= limit {
+		return values
+	}
+	return append(values, value)
 }
 
 func sketchProfileFromState(
