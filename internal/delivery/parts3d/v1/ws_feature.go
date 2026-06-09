@@ -482,6 +482,10 @@ type sketchStateEntity struct {
 	Type          string  `json:"type"`
 	X             float64 `json:"x"`
 	Y             float64 `json:"y"`
+	Line1ID       string  `json:"line1Id"`
+	Line2ID       string  `json:"line2Id"`
+	CornerPointID string  `json:"cornerPointId"`
+	CreatedArcID  string  `json:"createdArcId"`
 	CenterPointID string  `json:"centerPointId"`
 	Radius        float64 `json:"radius"`
 	StartPointID  string  `json:"startPointId"`
@@ -553,7 +557,7 @@ func sketchProfileFromEncodedID(
 		}
 	}
 
-	outerLoop, err := profileCurves(entityIDs, entities)
+	outerLoop, err := encodedProfileCurves(entityIDs, entities)
 	if err != nil {
 		return nil, err
 	}
@@ -567,14 +571,43 @@ func sketchProfileFromEncodedID(
 	}, nil
 }
 
-func profileCurves(entityIDs []string, entities map[string]sketchStateEntity) ([]*geometryv1.ProfileCurve, error) {
-	curves := make([]*geometryv1.ProfileCurve, 0, len(entityIDs))
+func encodedProfileCurves(
+	entityIDs []string,
+	entities map[string]sketchStateEntity,
+) ([]*geometryv1.ProfileCurve, error) {
+	curveIDs := make([]string, 0, len(entityIDs))
 	for _, entityID := range entityIDs {
 		entity, ok := entities[entityID]
 		if !ok {
-			return nil, fmt.Errorf("profile entity %q not found", entityID)
+			if feature, found := filletFeatureByCreatedArcID(entityID, entities); found {
+				curveIDs = append(curveIDs, feature.ID)
+			}
+			continue
 		}
-		curve, err := profileCurve(entity, entities)
+		switch entity.Type {
+		case "line", "circle", "arc", "fillet":
+			curveIDs = append(curveIDs, entityID)
+		}
+	}
+	if len(curveIDs) == 0 {
+		return nil, errors.New("encoded profile has no curve entities")
+	}
+	return profileCurves(curveIDs, entities)
+}
+
+func profileCurves(entityIDs []string, entities map[string]sketchStateEntity) ([]*geometryv1.ProfileCurve, error) {
+	curves := make([]*geometryv1.ProfileCurve, 0, len(entityIDs))
+	lineOverrides := lineEndpointOverrides(entityIDs, entities)
+	for _, entityID := range entityIDs {
+		entity, ok := entities[entityID]
+		if !ok {
+			if feature, found := filletFeatureByCreatedArcID(entityID, entities); found {
+				entity = feature
+			} else {
+				return nil, fmt.Errorf("profile entity %q not found", entityID)
+			}
+		}
+		curve, err := profileCurve(entity, entities, lineOverrides)
 		if err != nil {
 			return nil, err
 		}
@@ -586,6 +619,7 @@ func profileCurves(entityIDs []string, entities map[string]sketchStateEntity) ([
 func profileCurve(
 	entity sketchStateEntity,
 	entities map[string]sketchStateEntity,
+	overrides map[string]map[string]*geometryv1.Vec2,
 ) (*geometryv1.ProfileCurve, error) {
 	switch entity.Type {
 	case "line":
@@ -596,6 +630,14 @@ func profileCurve(
 		end, err := point2(entity.EndPointID, entities)
 		if err != nil {
 			return nil, err
+		}
+		if lineOverrides := overrides[entity.ID]; lineOverrides != nil {
+			if override := lineOverrides[entity.StartPointID]; override != nil {
+				start = override
+			}
+			if override := lineOverrides[entity.EndPointID]; override != nil {
+				end = override
+			}
 		}
 		return &geometryv1.ProfileCurve{
 			CurveId: entity.ID,
@@ -640,9 +682,201 @@ func profileCurve(
 				},
 			},
 		}, nil
+	case "fillet":
+		arc, err := filletArc(entity, entities)
+		if err != nil {
+			return nil, err
+		}
+		return &geometryv1.ProfileCurve{
+			CurveId: entity.ID,
+			Curve: &geometryv1.ProfileCurve_Arc{
+				Arc: arc,
+			},
+		}, nil
 	default:
 		return nil, fmt.Errorf("profile entity %q has unsupported type %q", entity.ID, entity.Type)
 	}
+}
+
+func lineEndpointOverrides(
+	entityIDs []string,
+	entities map[string]sketchStateEntity,
+) map[string]map[string]*geometryv1.Vec2 {
+	result := map[string]map[string]*geometryv1.Vec2{}
+	for _, entityID := range entityIDs {
+		entity, ok := entities[entityID]
+		if !ok || entity.Type != "fillet" {
+			continue
+		}
+		points, err := filletTangentPoints(entity, entities)
+		if err != nil {
+			continue
+		}
+		setLineEndpointOverride(result, entity.Line1ID, entity.CornerPointID, points.start)
+		setLineEndpointOverride(result, entity.Line2ID, entity.CornerPointID, points.end)
+	}
+	return result
+}
+
+func setLineEndpointOverride(
+	overrides map[string]map[string]*geometryv1.Vec2,
+	lineID string,
+	pointID string,
+	point *geometryv1.Vec2,
+) {
+	if lineID == "" || pointID == "" || point == nil {
+		return
+	}
+	if overrides[lineID] == nil {
+		overrides[lineID] = map[string]*geometryv1.Vec2{}
+	}
+	overrides[lineID][pointID] = point
+}
+
+type filletTangents struct {
+	start  *geometryv1.Vec2
+	end    *geometryv1.Vec2
+	center *geometryv1.Vec2
+}
+
+func filletArc(
+	entity sketchStateEntity,
+	entities map[string]sketchStateEntity,
+) (*geometryv1.ArcSegment2D, error) {
+	points, err := filletTangentPoints(entity, entities)
+	if err != nil {
+		return nil, err
+	}
+	return &geometryv1.ArcSegment2D{
+		Center:        points.center,
+		Radius:        entity.Radius,
+		StartAngleRad: math.Atan2(points.start.GetY()-points.center.GetY(), points.start.GetX()-points.center.GetX()),
+		EndAngleRad:   math.Atan2(points.end.GetY()-points.center.GetY(), points.end.GetX()-points.center.GetX()),
+		Clockwise:     entity.Clockwise,
+	}, nil
+}
+
+func filletTangentPoints(
+	entity sketchStateEntity,
+	entities map[string]sketchStateEntity,
+) (*filletTangents, error) {
+	if entity.Radius <= 0 {
+		return nil, fmt.Errorf("fillet %q radius must be greater than 0", entity.ID)
+	}
+	corner, err := point2(entity.CornerPointID, entities)
+	if err != nil {
+		return nil, err
+	}
+	u1, err := lineDirectionFromCorner(entity.Line1ID, entity.CornerPointID, entities)
+	if err != nil {
+		return nil, err
+	}
+	u2, err := lineDirectionFromCorner(entity.Line2ID, entity.CornerPointID, entities)
+	if err != nil {
+		return nil, err
+	}
+
+	dot := clamp(u1.x*u2.x+u1.y*u2.y, -1, 1)
+	angle := math.Acos(dot)
+	if angle <= 0 || math.Abs(math.Pi-angle) < 1e-9 {
+		return nil, fmt.Errorf("fillet %q lines do not form a valid corner", entity.ID)
+	}
+	tangentDistance := entity.Radius / math.Tan(angle/2)
+	centerDistance := entity.Radius / math.Sin(angle/2)
+	bisector := normalize2(vec2Internal{x: u1.x + u2.x, y: u1.y + u2.y})
+	if bisector.zero {
+		return nil, fmt.Errorf("fillet %q has no angle bisector", entity.ID)
+	}
+
+	return &filletTangents{
+		start: &geometryv1.Vec2{
+			X: corner.GetX() + u1.x*tangentDistance,
+			Y: corner.GetY() + u1.y*tangentDistance,
+		},
+		end: &geometryv1.Vec2{
+			X: corner.GetX() + u2.x*tangentDistance,
+			Y: corner.GetY() + u2.y*tangentDistance,
+		},
+		center: &geometryv1.Vec2{
+			X: corner.GetX() + bisector.x*centerDistance,
+			Y: corner.GetY() + bisector.y*centerDistance,
+		},
+	}, nil
+}
+
+type vec2Internal struct {
+	x    float64
+	y    float64
+	zero bool
+}
+
+func lineDirectionFromCorner(
+	lineID string,
+	cornerPointID string,
+	entities map[string]sketchStateEntity,
+) (vec2Internal, error) {
+	line, ok := entities[lineID]
+	if !ok {
+		return vec2Internal{}, fmt.Errorf("fillet line %q not found", lineID)
+	}
+	if line.Type != "line" {
+		return vec2Internal{}, fmt.Errorf("fillet entity %q is %q, want line", lineID, line.Type)
+	}
+	var otherPointID string
+	switch cornerPointID {
+	case line.StartPointID:
+		otherPointID = line.EndPointID
+	case line.EndPointID:
+		otherPointID = line.StartPointID
+	default:
+		return vec2Internal{}, fmt.Errorf("line %q does not reference corner %q", lineID, cornerPointID)
+	}
+	if otherPointID == "" {
+		return vec2Internal{}, fmt.Errorf("line %q does not reference corner %q", lineID, cornerPointID)
+	}
+	corner, err := point2(cornerPointID, entities)
+	if err != nil {
+		return vec2Internal{}, err
+	}
+	other, err := point2(otherPointID, entities)
+	if err != nil {
+		return vec2Internal{}, err
+	}
+	return normalize2(vec2Internal{x: other.GetX() - corner.GetX(), y: other.GetY() - corner.GetY()}), nil
+}
+
+func normalize2(value vec2Internal) vec2Internal {
+	length := math.Hypot(value.x, value.y)
+	if length == 0 {
+		return vec2Internal{zero: true}
+	}
+	return vec2Internal{x: value.x / length, y: value.y / length}
+}
+
+func clamp(value, min, max float64) float64 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
+}
+
+func filletFeatureByCreatedArcID(
+	createdArcID string,
+	entities map[string]sketchStateEntity,
+) (sketchStateEntity, bool) {
+	createdArcID = strings.TrimSpace(createdArcID)
+	if createdArcID == "" {
+		return sketchStateEntity{}, false
+	}
+	for _, entity := range entities {
+		if entity.Type == "fillet" && entity.CreatedArcID == createdArcID {
+			return entity, true
+		}
+	}
+	return sketchStateEntity{}, false
 }
 
 func point2(pointID string, entities map[string]sketchStateEntity) (*geometryv1.Vec2, error) {

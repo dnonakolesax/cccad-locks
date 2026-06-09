@@ -96,6 +96,52 @@ func TestSketchProfileFromStateBuildsEncodedProfileIDFallback(t *testing.T) {
 	}
 }
 
+func TestSketchProfileFromStateBuildsGraphFilletFallback(t *testing.T) {
+	profileID := "profile:line-bottom:line-right:line-top:fillet-1:line-left"
+	profiles := json.RawMessage(`[]`)
+	entities := json.RawMessage(`{
+		"p0":{"id":"p0","type":"point","x":0,"y":0},
+		"p1":{"id":"p1","type":"point","x":4,"y":0},
+		"p2":{"id":"p2","type":"point","x":4,"y":3},
+		"p3":{"id":"p3","type":"point","x":0,"y":3},
+		"line-bottom":{"id":"line-bottom","type":"line","startPointId":"p0","endPointId":"p1"},
+		"line-right":{"id":"line-right","type":"line","startPointId":"p1","endPointId":"p2"},
+		"line-top":{"id":"line-top","type":"line","startPointId":"p2","endPointId":"p3"},
+		"line-left":{"id":"line-left","type":"line","startPointId":"p3","endPointId":"p0"},
+		"fillet-1":{
+			"id":"fillet-1",
+			"type":"fillet",
+			"line1Id":"line-top",
+			"line2Id":"line-left",
+			"cornerPointId":"p3",
+			"createdArcId":"arc-fillet-1",
+			"radius":1
+		}
+	}`)
+
+	profile, err := sketchProfileFromState(profileID, profiles, entities)
+	if err != nil {
+		t.Fatalf("sketchProfileFromState returned error: %v", err)
+	}
+	if len(profile.GetOuterLoop()) != 5 {
+		t.Fatalf("outer loop length = %d, want 5", len(profile.GetOuterLoop()))
+	}
+	if profile.GetOuterLoop()[3].GetArc() == nil {
+		t.Fatalf("fourth curve = %#v, want synthesized fillet arc", profile.GetOuterLoop()[3])
+	}
+	topLine := profile.GetOuterLoop()[2].GetLine()
+	leftLine := profile.GetOuterLoop()[4].GetLine()
+	if topLine == nil || leftLine == nil {
+		t.Fatalf("expected adjacent lines, got top=%#v left=%#v", topLine, leftLine)
+	}
+	if topLine.GetEnd().GetX() == 0 && topLine.GetEnd().GetY() == 3 {
+		t.Fatalf("top line end was not trimmed away from fillet corner: %#v", topLine.GetEnd())
+	}
+	if leftLine.GetStart().GetX() == 0 && leftLine.GetStart().GetY() == 3 {
+		t.Fatalf("left line start was not trimmed away from fillet corner: %#v", leftLine.GetStart())
+	}
+}
+
 func TestCommitFromBuildResponseRejectsBodiesWithoutTopology(t *testing.T) {
 	_, err := commitFromBuildResponse(
 		"11111111-1111-1111-1111-111111111111",
