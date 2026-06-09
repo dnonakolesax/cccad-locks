@@ -881,6 +881,66 @@ func TestServiceSubmitUpdateFilletCommitsFeatureUpdate(t *testing.T) {
 	}
 }
 
+func TestServiceSubmitUpdateFilletSendsMaterializedArcToSolver(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 6,
+			GraphState: []byte(`{
+				"entities":{
+					"fillet-1":{
+						"id":"fillet-1",
+						"type":"fillet",
+						"line1Id":"line-2",
+						"line2Id":"line-3",
+						"cornerPointId":"corner",
+						"createdPoint1Id":"fillet-p1",
+						"createdPoint2Id":"fillet-p2",
+						"createdCenterPointId":"fillet-center",
+						"createdArcId":"fillet-arc",
+						"radius":1
+					},
+					"corner":{"id":"corner","type":"point","x":0,"y":0},
+					"p1":{"id":"p1","type":"point","x":1,"y":0},
+					"p2":{"id":"p2","type":"point","x":0,"y":1},
+					"line-2":{"id":"line-2","type":"line","startPointId":"p1","endPointId":"corner"},
+					"line-3":{"id":"line-3","type":"line","startPointId":"corner","endPointId":"p2"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{
+				"fillet-p1":{"id":"fillet-p1","type":"point","x":0.5,"y":0},
+				"fillet-p2":{"id":"fillet-p2","type":"point","x":0,"y":0.5},
+				"fillet-center":{"id":"fillet-center","type":"point","x":0.5,"y":0.5},
+				"fillet-arc":{"id":"fillet-arc","type":"arc","centerPointId":"fillet-center","startPointId":"fillet-p1","endPointId":"fillet-p2","branch":"minor"}
+			}}`),
+			SolveStatus: []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	solver := &solverStub{}
+	service := NewServiceWithSolver(repo, solver)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 6,
+		ClientOpID:  "client-op-id",
+		Op:          []byte(`{"type":"UpdateFillet","featureId":"fillet-1","radius":2,"trim":true}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if !modelHasArc(solver.applyIntentRequest.GetModel(), "fillet-arc") {
+		t.Fatalf("solver model entities = %#v, missing materialized fillet arc", solver.applyIntentRequest.GetModel().GetEntities())
+	}
+	if !modelHasPoint(solver.applyIntentRequest.GetModel(), "fillet-center") {
+		t.Fatalf("solver model entities = %#v, missing materialized fillet center point", solver.applyIntentRequest.GetModel().GetEntities())
+	}
+}
+
 func TestServiceSubmitSetEntityConstructionCommitsWithoutSolver(t *testing.T) {
 	repo := &repositoryStub{
 		submitState: &model.SubmitState{
@@ -1040,6 +1100,24 @@ func containsAll(values []string, want ...string) bool {
 		}
 	}
 	return true
+}
+
+func modelHasArc(model *solverv1.SketchModel, id string) bool {
+	for _, entity := range model.GetEntities() {
+		if entity.GetId() == id && entity.GetArc() != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func modelHasPoint(model *solverv1.SketchModel, id string) bool {
+	for _, entity := range model.GetEntities() {
+		if entity.GetId() == id && entity.GetPoint() != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func TestApplySolverPatchIncludesProfiles(t *testing.T) {

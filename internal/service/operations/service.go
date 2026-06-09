@@ -169,6 +169,7 @@ func (s *Service) Submit(
 				sketchID,
 				request.BaseVersion+1,
 				graph,
+				state.MaterializedGeometry,
 				request.Op,
 			)
 		} else {
@@ -177,6 +178,7 @@ func (s *Service) Submit(
 				sketchID,
 				request.BaseVersion+1,
 				graph,
+				state.MaterializedGeometry,
 			)
 		}
 		if err != nil {
@@ -455,14 +457,19 @@ func (s *Service) solveGraph(
 	sketchID string,
 	version int64,
 	graph *graphState,
+	materializedGeometry easyjson.RawMessage,
 ) (*sketchPatch, easyjson.RawMessage, easyjson.RawMessage, easyjson.RawMessage, affectedIDs, error) {
+	entities, err := solverModelEntities(graph, materializedGeometry)
+	if err != nil {
+		return nil, nil, nil, nil, affectedIDs{}, err
+	}
 	result, err := s.solver.Solve(ctx, &solverv1.SolveRequest{
 		SketchId: sketchID,
 		Version:  version,
 		Model: solverService.BuildSketchModel(&model.SketchDocument{
 			ID:          sketchID,
 			Version:     version,
-			Entities:    rawMessageMap(graph.Entities),
+			Entities:    rawMessageMap(entities),
 			Constraints: rawMessageMap(graph.Constraints),
 			Dimensions:  rawMessageMap(graph.Dimensions),
 			Groups:      rawMessageMap(graph.Groups),
@@ -504,9 +511,14 @@ func (s *Service) applySolverIntent(
 	sketchID string,
 	version int64,
 	graph *graphState,
+	materializedGeometry easyjson.RawMessage,
 	raw easyjson.RawMessage,
 ) (*sketchPatch, easyjson.RawMessage, easyjson.RawMessage, easyjson.RawMessage, affectedIDs, error) {
 	intent, err := solverService.UserIntent(raw)
+	if err != nil {
+		return nil, nil, nil, nil, affectedIDs{}, err
+	}
+	entities, err := solverModelEntities(graph, materializedGeometry)
 	if err != nil {
 		return nil, nil, nil, nil, affectedIDs{}, err
 	}
@@ -514,7 +526,7 @@ func (s *Service) applySolverIntent(
 		Model: solverService.BuildSketchModel(&model.SketchDocument{
 			ID:          sketchID,
 			Version:     version,
-			Entities:    rawMessageMap(graph.Entities),
+			Entities:    rawMessageMap(entities),
 			Constraints: rawMessageMap(graph.Constraints),
 			Dimensions:  rawMessageMap(graph.Dimensions),
 			Groups:      rawMessageMap(graph.Groups),
@@ -717,6 +729,35 @@ func rawMessageMap(values map[string]json.RawMessage) map[string]easyjson.RawMes
 		result[key] = easyjson.RawMessage(value)
 	}
 	return result
+}
+
+func solverModelEntities(
+	graph *graphState,
+	materializedGeometry easyjson.RawMessage,
+) (map[string]json.RawMessage, error) {
+	result := make(map[string]json.RawMessage, len(graph.Entities))
+	for id, entity := range graph.Entities {
+		result[id] = append(json.RawMessage(nil), entity...)
+	}
+
+	if len(materializedGeometry) == 0 {
+		return result, nil
+	}
+	var materialized struct {
+		Entities map[string]json.RawMessage `json:"entities"`
+	}
+	if err := json.Unmarshal(materializedGeometry, &materialized); err != nil {
+		return nil, fmt.Errorf("decode materialized geometry: %w", err)
+	}
+	for id, entity := range materialized.Entities {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		result[id] = append(json.RawMessage(nil), entity...)
+	}
+
+	return result, nil
 }
 
 func applyCreatePoint(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {
