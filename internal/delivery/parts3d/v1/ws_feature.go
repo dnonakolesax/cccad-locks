@@ -775,11 +775,10 @@ func profileCurve(
 			},
 		}, nil
 	case "arc":
-		centerEntity, ok := entities[entity.CenterPointID]
-		if !ok {
-			return nil, fmt.Errorf("arc center point %q not found", entity.CenterPointID)
+		center, err := point2(entity.CenterPointID, entities)
+		if err != nil {
+			return nil, fmt.Errorf("arc center point: %w", err)
 		}
-		center := &geometryv1.Vec2{X: centerEntity.X, Y: centerEntity.Y}
 		start, err := point2(entity.StartPointID, entities)
 		if err != nil {
 			return nil, err
@@ -788,12 +787,19 @@ func profileCurve(
 		if err != nil {
 			return nil, err
 		}
+		radius := entity.Radius
+		if radius <= 0 {
+			radius = pointDistance(center, start)
+		}
+		if radius <= 0 {
+			return nil, fmt.Errorf("arc %q radius must be greater than 0", entity.ID)
+		}
 		return &geometryv1.ProfileCurve{
 			CurveId: entity.ID,
 			Curve: &geometryv1.ProfileCurve_Arc{
 				Arc: &geometryv1.ArcSegment2D{
 					Center:        center,
-					Radius:        entity.Radius,
+					Radius:        radius,
 					StartAngleRad: math.Atan2(start.GetY()-center.GetY(), start.GetX()-center.GetX()),
 					EndAngleRad:   math.Atan2(end.GetY()-center.GetY(), end.GetX()-center.GetX()),
 					Clockwise:     entity.Clockwise,
@@ -1006,6 +1012,13 @@ func point2(pointID string, entities map[string]sketchStateEntity) (*geometryv1.
 		return nil, fmt.Errorf("entity %q is %q, want point", pointID, point.Type)
 	}
 	return &geometryv1.Vec2{X: point.X, Y: point.Y}, nil
+}
+
+func pointDistance(a *geometryv1.Vec2, b *geometryv1.Vec2) float64 {
+	if a == nil || b == nil {
+		return 0
+	}
+	return math.Hypot(b.GetX()-a.GetX(), b.GetY()-a.GetY())
 }
 
 func part3DSketchPlaneFromSketch(plane model.SketchPlane) *part3DSketchPlane {

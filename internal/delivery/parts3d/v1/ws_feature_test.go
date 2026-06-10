@@ -96,6 +96,37 @@ func TestSketchProfileFromStateBuildsEncodedProfileIDFallback(t *testing.T) {
 	}
 }
 
+func TestSketchProfileFromStateDerivesArcRadiusFromPoints(t *testing.T) {
+	profiles := json.RawMessage(`[
+		{"id":"profile-1","outerLoop":{"entityIds":["arc-1"]},"validForExtrude":true}
+	]`)
+	entities := json.RawMessage(`{
+		"center":{"id":"center","type":"point","x":-2,"y":-2},
+		"start":{"id":"start","type":"point","x":-2,"y":-3},
+		"end":{"id":"end","type":"point","x":-3,"y":-2},
+		"arc-1":{
+			"id":"arc-1",
+			"type":"arc",
+			"branch":"minor",
+			"centerPointId":"center",
+			"startPointId":"start",
+			"endPointId":"end"
+		}
+	}`)
+
+	profile, err := sketchProfileFromState("profile-1", profiles, entities)
+	if err != nil {
+		t.Fatalf("sketchProfileFromState returned error: %v", err)
+	}
+	arc := profile.GetOuterLoop()[0].GetArc()
+	if arc == nil {
+		t.Fatalf("first curve = %#v, want arc", profile.GetOuterLoop()[0])
+	}
+	if arc.GetRadius() != 1 {
+		t.Fatalf("arc radius = %v, want derived radius 1", arc.GetRadius())
+	}
+}
+
 func TestSketchProfileFromStateBuildsGraphFilletFallback(t *testing.T) {
 	profileID := "profile:line-bottom:line-right:line-top:fillet-1:line-left"
 	profiles := json.RawMessage(`[]`)
