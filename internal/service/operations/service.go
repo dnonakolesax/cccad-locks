@@ -754,10 +754,72 @@ func solverModelEntities(
 		if id == "" {
 			continue
 		}
+		if _, exists := graph.Entities[id]; !exists && !referencesEntityID(graph, id) {
+			continue
+		}
 		result[id] = append(json.RawMessage(nil), entity...)
 	}
 
 	return result, nil
+}
+
+func referencesEntityID(graph *graphState, id string) bool {
+	if graph == nil || id == "" {
+		return false
+	}
+	for _, entity := range graph.Entities {
+		if rawReferencesEntityID(entity, id) {
+			return true
+		}
+	}
+	return false
+}
+
+func rawReferencesEntityID(raw json.RawMessage, id string) bool {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return false
+	}
+	return valueReferencesEntityID(value, id)
+}
+
+func valueReferencesEntityID(value any, id string) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			if key == "id" {
+				continue
+			}
+			if stringFieldReferencesEntityID(key, child, id) || valueReferencesEntityID(child, id) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if valueReferencesEntityID(child, id) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func stringFieldReferencesEntityID(key string, value any, id string) bool {
+	if !strings.HasSuffix(key, "Id") && !strings.HasSuffix(key, "ID") &&
+		!strings.HasSuffix(key, "Ids") && !strings.HasSuffix(key, "IDs") {
+		return false
+	}
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed) == id
+	case []any:
+		for _, child := range typed {
+			if childID, ok := child.(string); ok && strings.TrimSpace(childID) == id {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func applyCreatePoint(graph *graphState, raw easyjson.RawMessage) (*sketchPatch, affectedIDs, error) {

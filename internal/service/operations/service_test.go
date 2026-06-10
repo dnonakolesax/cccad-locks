@@ -941,6 +941,57 @@ func TestServiceSubmitUpdateFilletSendsMaterializedArcToSolver(t *testing.T) {
 	}
 }
 
+func TestServiceSubmitDeleteEntityDoesNotSendDeletedMaterializedEntityToSolver(t *testing.T) {
+	repo := &repositoryStub{
+		submitState: &model.SubmitState{
+			Version: 111,
+			GraphState: []byte(`{
+				"entities":{
+					"p1":{"id":"p1","type":"point","x":0,"y":0},
+					"p2":{"id":"p2","type":"point","x":1,"y":0},
+					"line-1":{"id":"line-1","type":"line","startPointId":"p1","endPointId":"p2"}
+				},
+				"constraints":{},
+				"dimensions":{},
+				"groups":{}
+			}`),
+			MaterializedGeometry: []byte(`{"entities":{
+				"p1":{"id":"p1","type":"point","x":0,"y":0},
+				"p2":{"id":"p2","type":"point","x":1,"y":0},
+				"line-1":{"id":"line-1","type":"line","startPointId":"p1","endPointId":"p2"}
+			}}`),
+			SolveStatus: []byte(`{"status":"ok","degreesOfFreedom":0,"diagnostics":[]}`),
+		},
+	}
+	solver := &solverStub{}
+	service := NewServiceWithSolver(repo, solver)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	response, err := service.Submit(ctx, "sketch-id", &model.SubmitOperationRequest{
+		BaseVersion: 111,
+		ClientOpID:  "client-op-id",
+		Op:          []byte(`{"type":"delete_entity","entityId":"line-1","cascade":true}`),
+	})
+	if err != nil {
+		t.Fatalf("Submit returned error: %v", err)
+	}
+	if response == nil || !response.Accepted {
+		t.Fatalf("Submit accepted = false, response = %#v", response)
+	}
+	if modelHasLine(solver.solveRequest.GetModel(), "line-1") {
+		t.Fatalf("solver model entities = %#v, contains deleted materialized line", solver.solveRequest.GetModel().GetEntities())
+	}
+	var graph struct {
+		Entities map[string]map[string]any `json:"entities"`
+	}
+	if err := json.Unmarshal(repo.submitRequest.GraphState, &graph); err != nil {
+		t.Fatalf("decode graph state: %v", err)
+	}
+	if _, exists := graph.Entities["line-1"]; exists {
+		t.Fatalf("graph entities = %#v, contains deleted line", graph.Entities)
+	}
+}
+
 func TestServiceSubmitSetEntityConstructionCommitsWithoutSolver(t *testing.T) {
 	repo := &repositoryStub{
 		submitState: &model.SubmitState{
@@ -1114,6 +1165,15 @@ func modelHasArc(model *solverv1.SketchModel, id string) bool {
 func modelHasPoint(model *solverv1.SketchModel, id string) bool {
 	for _, entity := range model.GetEntities() {
 		if entity.GetId() == id && entity.GetPoint() != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func modelHasLine(model *solverv1.SketchModel, id string) bool {
+	for _, entity := range model.GetEntities() {
+		if entity.GetId() == id && entity.GetLine() != nil {
 			return true
 		}
 	}
