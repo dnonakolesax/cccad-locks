@@ -34,7 +34,7 @@ services:
     command: --requirepass ${REDIS_PASS}
 
   sk-psql:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: sketcher
       POSTGRES_PASSWORD: ${POSTGRES_PASS}
