@@ -1,0 +1,629 @@
+openapi: 3.0.3
+info:
+  title: cccAD Comments API Add-on
+  version: 0.1.0
+  description: REST contract add-on for comments and task comments attached to CAD entities.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Comments
+    description: Comments and task-comments attached to CAD/domain entities.
+
+paths:
+  /documents/{documentId}/comments:
+    get:
+      tags: [Comments]
+      summary: List comments for a document
+      operationId: listDocumentComments
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - name: partId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: targetType
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CommentTargetType'
+        - name: targetId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CommentKind'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CommentStatus'
+        - name: assigneeId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: includeDeleted
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Comments list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Comments]
+      summary: Create a comment or task-comment
+      operationId: createDocumentComment
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '201':
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CadComment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/{commentId}:
+    get:
+      tags: [Comments]
+      summary: Get a comment by id
+      operationId: getComment
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: Comment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CadComment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [Comments]
+      summary: Update comment body, anchor or metadata
+      operationId: updateComment
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommentRequest'
+      responses:
+        '200':
+          description: Updated comment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CadComment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Comments]
+      summary: Soft-delete a comment
+      operationId: deleteComment
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '204':
+          description: Comment deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/{commentId}/status:
+    post:
+      tags: [Comments]
+      summary: Change comment status and append status history record
+      operationId: changeCommentStatus
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeCommentStatusRequest'
+      responses:
+        '200':
+          description: Updated comment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CadComment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/{commentId}/assignees:
+    put:
+      tags: [Comments]
+      summary: Replace comment assignees
+      operationId: replaceCommentAssignees
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceCommentAssigneesRequest'
+      responses:
+        '200':
+          description: Updated comment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CadComment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/{commentId}/status-history:
+    get:
+      tags: [Comments]
+      summary: Get comment status history
+      operationId: getCommentStatusHistory
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: Status history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentStatusHistoryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /comments/{commentId}/edit-history:
+    get:
+      tags: [Comments]
+      summary: Get comment body edit history
+      operationId: getCommentEditHistory
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: Edit history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentEditHistoryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    CommentTargetType:
+      type: string
+      enum:
+        - document
+        - part
+        - sketch
+        - sketch_entity
+        - constraint
+        - feature_3d
+        - body
+        - face
+        - edge
+        - vertex
+        - profile
+        - simulation_case
+        - simulation_result
+        - mesh_entity
+
+    CommentKind:
+      type: string
+      enum:
+        - comment
+        - task
+
+    CommentStatus:
+      type: string
+      enum:
+        - open
+        - in_progress
+        - resolved
+        - reopened
+        - closed
+        - rejected
+
+    JsonObject:
+      type: object
+      additionalProperties: true
+
+    CadComment:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - documentId
+        - targetType
+        - targetId
+        - kind
+        - status
+        - authorId
+        - assigneeIds
+        - body
+        - metadata
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        partId:
+          type: string
+          format: uuid
+          nullable: true
+        targetType:
+          $ref: '#/components/schemas/CommentTargetType'
+        targetId:
+          type: string
+        kind:
+          $ref: '#/components/schemas/CommentKind'
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+        authorId:
+          type: string
+        assigneeIds:
+          type: array
+          items:
+            type: string
+        body:
+          type: string
+        documentVersion:
+          type: integer
+          minimum: 1
+          nullable: true
+        partVersion:
+          type: integer
+          minimum: 1
+          nullable: true
+        anchor:
+          allOf:
+            - $ref: '#/components/schemas/JsonObject'
+          nullable: true
+        metadata:
+          $ref: '#/components/schemas/JsonObject'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateCommentRequest:
+      type: object
+      required:
+        - targetType
+        - targetId
+        - body
+      properties:
+        partId:
+          type: string
+          format: uuid
+          nullable: true
+        targetType:
+          $ref: '#/components/schemas/CommentTargetType'
+        targetId:
+          type: string
+          minLength: 1
+        kind:
+          $ref: '#/components/schemas/CommentKind'
+          default: comment
+        body:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        assigneeIds:
+          type: array
+          default: []
+          items:
+            type: string
+          uniqueItems: true
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+          default: open
+        documentVersion:
+          type: integer
+          minimum: 1
+          nullable: true
+        partVersion:
+          type: integer
+          minimum: 1
+          nullable: true
+        anchor:
+          allOf:
+            - $ref: '#/components/schemas/JsonObject'
+          nullable: true
+        metadata:
+          $ref: '#/components/schemas/JsonObject'
+
+    UpdateCommentRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        anchor:
+          allOf:
+            - $ref: '#/components/schemas/JsonObject'
+          nullable: true
+        metadata:
+          $ref: '#/components/schemas/JsonObject'
+
+    ChangeCommentStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+        reason:
+          type: string
+          nullable: true
+          maxLength: 2000
+
+    ReplaceCommentAssigneesRequest:
+      type: object
+      required:
+        - assigneeIds
+      properties:
+        assigneeIds:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+
+    CommentStatusHistoryItem:
+      type: object
+      required:
+        - id
+        - commentId
+        - newStatus
+        - changedBy
+        - changedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        commentId:
+          type: string
+          format: uuid
+        oldStatus:
+          allOf:
+            - $ref: '#/components/schemas/CommentStatus'
+          nullable: true
+        newStatus:
+          $ref: '#/components/schemas/CommentStatus'
+        changedBy:
+          type: string
+        changedAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          nullable: true
+
+    CommentEditHistoryItem:
+      type: object
+      required:
+        - id
+        - commentId
+        - oldBody
+        - newBody
+        - editedBy
+        - editedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        commentId:
+          type: string
+          format: uuid
+        oldBody:
+          type: string
+        newBody:
+          type: string
+        editedBy:
+          type: string
+        editedAt:
+          type: string
+          format: date-time
+
+    CommentListResponse:
+      type: object
+      required:
+        - items
+        - limit
+        - offset
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CadComment'
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
+
+    CommentStatusHistoryResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentStatusHistoryItem'
+
+    CommentEditHistoryResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentEditHistoryItem'
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

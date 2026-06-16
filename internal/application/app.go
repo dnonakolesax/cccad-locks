@@ -185,6 +185,9 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	if a.layers.PermissionsHTTP != nil {
 		a.layers.PermissionsHTTP.RegisterRoutes(mux)
 	}
+	if a.layers.CommentsHTTP != nil {
+		a.layers.CommentsHTTP.RegisterRoutes(mux)
+	}
 }
 
 func (a *App) loggingMiddleware(next http.Handler) http.Handler {

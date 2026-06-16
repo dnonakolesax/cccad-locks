@@ -10,6 +10,7 @@ import (
 	dbredis "github.com/dnonakolesax/cccad-locks/internal/db/redis"
 	dbsql "github.com/dnonakolesax/cccad-locks/internal/db/sql"
 	"github.com/dnonakolesax/cccad-locks/internal/geometry"
+	commentsRepo "github.com/dnonakolesax/cccad-locks/internal/repository/comments"
 	operationsRepo "github.com/dnonakolesax/cccad-locks/internal/repository/operations"
 	parts3dRepo "github.com/dnonakolesax/cccad-locks/internal/repository/parts3d"
 	permissionsRepo "github.com/dnonakolesax/cccad-locks/internal/repository/permissions"
@@ -17,6 +18,7 @@ import (
 	sketchesRepo "github.com/dnonakolesax/cccad-locks/internal/repository/sketches"
 	workspacesRepo "github.com/dnonakolesax/cccad-locks/internal/repository/workspaces"
 	"github.com/dnonakolesax/cccad-locks/internal/s3"
+	commentsService "github.com/dnonakolesax/cccad-locks/internal/service/comments"
 	locksService "github.com/dnonakolesax/cccad-locks/internal/service/locks"
 	operationsService "github.com/dnonakolesax/cccad-locks/internal/service/operations"
 	parts3dService "github.com/dnonakolesax/cccad-locks/internal/service/parts3d"
@@ -35,6 +37,7 @@ type Components struct {
 	solver      *solver.Client
 	geometry    *geometry.Client
 	locks       *locksService.Service
+	comments    *commentsService.Service
 	operations  *operationsService.Service
 	parts3d     *parts3dService.Service
 	permissions *permissionsService.Service
@@ -172,6 +175,7 @@ func (a *App) SetupComponents() error {
 		solver:      solverClient,
 		geometry:    geometryClient,
 		locks:       locksService.NewService(locksRepo.NewRepository(redisClient)),
+		comments:    commentsService.NewService(commentsRepo.NewRepository(psqlWorker)),
 		operations:  operationsService.NewServiceWithSolver(operationsRepo.NewRepository(psqlWorker), solverClient),
 		parts3d:     parts3dService.NewService(parts3dRepo.NewRepository(psqlWorker)),
 		permissions: permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),

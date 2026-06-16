@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 
+	commentsDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/comments/v1"
 	locksDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/locks/v1"
 	operationsDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/operations/v1"
 	parts3dDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/parts3d/v1"
@@ -17,6 +18,7 @@ import (
 )
 
 type Layers struct {
+	CommentsHTTP    *commentsDelivery.CommentsHandler
 	PermissionsHTTP *permissionsDelivery.PermissionsHandler
 	LocksHTTP       *locksDelivery.LocksHandler
 	OperationsHTTP  *operationsDelivery.OperationsHandler
@@ -30,6 +32,7 @@ type Layers struct {
 
 func (a *App) SetupLayers() error {
 	a.layers = &Layers{
+		CommentsHTTP:    commentsDelivery.NewCommentsHandler(a.components.comments),
 		PermissionsHTTP: permissionsDelivery.NewPermissionsHandler(a.components.permissions),
 		LocksHTTP:       locksDelivery.NewLocksHandler(a.components.locks),
 		OperationsHTTP:  operationsDelivery.NewOperationsHandler(a.components.operations),
