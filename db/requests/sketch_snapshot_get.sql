@@ -14,6 +14,43 @@ WITH authorized_current AS (
         AND sp.role IN ('reader', 'editor', 'admin')
         AND s.deleted_at IS NULL
 ),
+authorized_operation AS (
+    SELECT
+        so.sketch_id,
+        so.version,
+        so.graph_state,
+        so.materialized_geometry,
+        so.solve_status
+    FROM sketch_ops so
+    JOIN sketches s ON s.id = so.sketch_id
+    JOIN sketch_permissions sp ON sp.sketch_id = so.sketch_id
+    WHERE so.sketch_id = $1::uuid
+        AND so.version = $2
+        AND so.graph_state IS NOT NULL
+        AND so.materialized_geometry IS NOT NULL
+        AND COALESCE(so.solve_status, '{}'::jsonb) IS NOT NULL
+        AND sp.user_id = $3
+        AND sp.role IN ('reader', 'editor', 'admin')
+        AND s.deleted_at IS NULL
+),
+snapshot_source AS (
+    SELECT
+        sketch_id,
+        version,
+        graph_state,
+        materialized_geometry,
+        solve_status
+    FROM authorized_current
+    UNION ALL
+    SELECT
+        sketch_id,
+        version,
+        graph_state,
+        materialized_geometry,
+        COALESCE(solve_status, '{}'::jsonb)
+    FROM authorized_operation
+    WHERE NOT EXISTS (SELECT 1 FROM authorized_current)
+),
 inserted AS (
     INSERT INTO sketch_snapshots (
         sketch_id,
@@ -28,7 +65,7 @@ inserted AS (
         graph_state,
         materialized_geometry,
         solve_status
-    FROM authorized_current
+    FROM snapshot_source
     ON CONFLICT (sketch_id, version) DO NOTHING
     RETURNING
         sketch_id::text,

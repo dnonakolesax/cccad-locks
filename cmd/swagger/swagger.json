@@ -401,7 +401,7 @@
         ],
         "operationId": "getSketchSnapshot",
         "summary": "Get or create a persisted sketch snapshot by version",
-        "description": "Returns an existing snapshot for the requested version. If the snapshot is missing and the requested version is the current persisted sketch state version, the service creates the snapshot from sketch_current_states before returning it.",
+        "description": "Returns an existing snapshot for the requested version. If the snapshot is missing, the service creates it from sketch_current_states for the current version or from the stored full operation state for a historical committed version before returning it.",
         "parameters": [
           {
             "$ref": "#/components/parameters/SketchId"
@@ -424,6 +424,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SketchSnapshot"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Snapshot source state is not available for the requested version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }

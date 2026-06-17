@@ -29,6 +29,8 @@ inserted AS (
         op_type,
         payload,
         materialized_patch,
+        graph_state,
+        materialized_geometry,
         solve_status
     )
     SELECT
@@ -40,6 +42,8 @@ inserted AS (
         $5,
         $6::jsonb,
         $7::jsonb,
+        $8::jsonb,
+        $9::jsonb,
         $10::jsonb
     FROM authorized a
     WHERE NOT EXISTS (SELECT 1 FROM duplicate)

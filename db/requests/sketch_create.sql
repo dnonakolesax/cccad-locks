@@ -112,6 +112,24 @@ new_state AS (
         '[]'::jsonb
     FROM new_sketch
     RETURNING sketch_id
+),
+new_snapshot AS (
+    INSERT INTO sketch_snapshots (
+        sketch_id,
+        version,
+        graph_state,
+        materialized_geometry,
+        solve_status
+    )
+    SELECT
+        sketch_id,
+        version,
+        graph_state,
+        materialized_geometry,
+        solve_status
+    FROM sketch_current_states
+    WHERE sketch_id IN (SELECT id FROM new_sketch)
+    RETURNING sketch_id
 )
 SELECT
     ns.id::text,
@@ -125,3 +143,4 @@ SELECT
     ns.updated_at
 FROM new_sketch ns
 JOIN new_state st ON st.sketch_id = ns.id
+JOIN new_snapshot sn ON sn.sketch_id = ns.id

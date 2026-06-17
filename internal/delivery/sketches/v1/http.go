@@ -148,6 +148,10 @@ func (h *SketchesHandler) Snapshot(w http.ResponseWriter, r *http.Request) {
 
 	snapshot, err := h.service.Snapshot(r.Context(), sketchID, version)
 	if err != nil {
+		if strings.Contains(err.Error(), "get sketch snapshot returned no rows") {
+			writeError(w, http.StatusNotFound, "SNAPSHOT_NOT_FOUND", "snapshot source state is not available for requested version")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}

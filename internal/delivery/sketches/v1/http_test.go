@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +14,7 @@ import (
 type stubSketchesService struct {
 	getCalled    bool
 	createCalled bool
+	snapshotErr  error
 }
 
 func (s *stubSketchesService) Create(
@@ -34,6 +36,9 @@ func (s *stubSketchesService) Get(_ context.Context, _ string) (*model.SketchDoc
 }
 
 func (s *stubSketchesService) Snapshot(_ context.Context, _ string, _ int64) (*model.SketchSnapshot, error) {
+	if s.snapshotErr != nil {
+		return nil, s.snapshotErr
+	}
 	return &model.SketchSnapshot{}, nil
 }
 
@@ -117,5 +122,29 @@ func TestCreateRequiresPlane(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "plane is required") {
 		t.Fatalf("body = %q, want plane required message", rec.Body.String())
+	}
+}
+
+func TestSnapshotUnavailableReturnsNotFound(t *testing.T) {
+	service := &stubSketchesService{
+		snapshotErr: errors.New("get sketch snapshot returned no rows"),
+	}
+	mux := http.NewServeMux()
+	NewSketchesHandler(service).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/snapshots/11111111-1111-1111-1111-111111111111/22",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "SNAPSHOT_NOT_FOUND") {
+		t.Fatalf("body = %q, want SNAPSHOT_NOT_FOUND", rec.Body.String())
 	}
 }
