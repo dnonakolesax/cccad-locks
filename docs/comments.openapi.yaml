@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: cccAD Comments API Add-on
-  version: 0.1.0
-  description: REST contract add-on for comments and task comments attached to CAD entities.
+  version: 0.2.0
+  description: REST contract for comments/tasks adapted to the current DB schema: workspaces, sketches, parts and TEXT user ids.
 servers:
   - url: /api/v1
 security:
@@ -13,13 +13,19 @@ tags:
     description: Comments and task-comments attached to CAD/domain entities.
 
 paths:
-  /documents/{documentId}/comments:
+  /workspaces/{workspaceId}/comments:
     get:
       tags: [Comments]
-      summary: List comments for a document
-      operationId: listDocumentComments
+      summary: List comments in a workspace
+      operationId: listWorkspaceComments
       parameters:
-        - $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/WorkspaceId'
+        - name: sketchId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
         - name: partId
           in: query
           required: false
@@ -46,7 +52,7 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/CommentStatus'
-        - name: assigneeId
+        - name: assigneeUserId
           in: query
           required: false
           schema:
@@ -89,9 +95,9 @@ paths:
     post:
       tags: [Comments]
       summary: Create a comment or task-comment
-      operationId: createDocumentComment
+      operationId: createWorkspaceComment
       parameters:
-        - $ref: '#/components/parameters/DocumentId'
+        - $ref: '#/components/parameters/WorkspaceId'
       requestBody:
         required: true
         content:
@@ -287,8 +293,8 @@ components:
       bearerFormat: JWT
 
   parameters:
-    DocumentId:
-      name: documentId
+    WorkspaceId:
+      name: workspaceId
       in: path
       required: true
       schema:
@@ -306,36 +312,30 @@ components:
     CommentTargetType:
       type: string
       enum:
-        - document
-        - part
+        - workspace
         - sketch
         - sketch_entity
         - constraint
+        - part
         - feature_3d
         - body
         - face
         - edge
         - vertex
         - profile
-        - simulation_case
+        - topology_ref_3d
+        - representation_3d
+        - simulation_job
         - simulation_result
         - mesh_entity
 
     CommentKind:
       type: string
-      enum:
-        - comment
-        - task
+      enum: [comment, task]
 
     CommentStatus:
       type: string
-      enum:
-        - open
-        - in_progress
-        - resolved
-        - reopened
-        - closed
-        - rejected
+      enum: [open, in_progress, resolved, reopened, closed, rejected]
 
     JsonObject:
       type: object
@@ -346,13 +346,12 @@ components:
       required:
         - id
         - workspaceId
-        - documentId
         - targetType
         - targetId
         - kind
         - status
-        - authorId
-        - assigneeIds
+        - authorUserId
+        - assigneeUserIds
         - body
         - metadata
         - createdAt
@@ -364,9 +363,10 @@ components:
         workspaceId:
           type: string
           format: uuid
-        documentId:
+        sketchId:
           type: string
           format: uuid
+          nullable: true
         partId:
           type: string
           format: uuid
@@ -379,21 +379,23 @@ components:
           $ref: '#/components/schemas/CommentKind'
         status:
           $ref: '#/components/schemas/CommentStatus'
-        authorId:
+        authorUserId:
           type: string
-        assigneeIds:
+        assigneeUserIds:
           type: array
           items:
             type: string
         body:
           type: string
-        documentVersion:
+        sketchVersion:
           type: integer
-          minimum: 1
+          format: int64
+          minimum: 0
           nullable: true
         partVersion:
           type: integer
-          minimum: 1
+          format: int64
+          minimum: 0
           nullable: true
         anchor:
           allOf:
@@ -419,6 +421,10 @@ components:
         - targetId
         - body
       properties:
+        sketchId:
+          type: string
+          format: uuid
+          nullable: true
         partId:
           type: string
           format: uuid
@@ -435,7 +441,7 @@ components:
           type: string
           minLength: 1
           maxLength: 20000
-        assigneeIds:
+        assigneeUserIds:
           type: array
           default: []
           items:
@@ -444,13 +450,15 @@ components:
         status:
           $ref: '#/components/schemas/CommentStatus'
           default: open
-        documentVersion:
+        sketchVersion:
           type: integer
-          minimum: 1
+          format: int64
+          minimum: 0
           nullable: true
         partVersion:
           type: integer
-          minimum: 1
+          format: int64
+          minimum: 0
           nullable: true
         anchor:
           allOf:
@@ -475,8 +483,7 @@ components:
 
     ChangeCommentStatusRequest:
       type: object
-      required:
-        - status
+      required: [status]
       properties:
         status:
           $ref: '#/components/schemas/CommentStatus'
@@ -487,10 +494,9 @@ components:
 
     ReplaceCommentAssigneesRequest:
       type: object
-      required:
-        - assigneeIds
+      required: [assigneeUserIds]
       properties:
-        assigneeIds:
+        assigneeUserIds:
           type: array
           items:
             type: string
@@ -502,7 +508,7 @@ components:
         - id
         - commentId
         - newStatus
-        - changedBy
+        - changedByUserId
         - changedAt
       properties:
         id:
@@ -517,7 +523,7 @@ components:
           nullable: true
         newStatus:
           $ref: '#/components/schemas/CommentStatus'
-        changedBy:
+        changedByUserId:
           type: string
         changedAt:
           type: string
@@ -533,7 +539,7 @@ components:
         - commentId
         - oldBody
         - newBody
-        - editedBy
+        - editedByUserId
         - editedAt
       properties:
         id:
@@ -546,7 +552,7 @@ components:
           type: string
         newBody:
           type: string
-        editedBy:
+        editedByUserId:
           type: string
         editedAt:
           type: string
@@ -554,11 +560,7 @@ components:
 
     CommentListResponse:
       type: object
-      required:
-        - items
-        - limit
-        - offset
-        - total
+      required: [items, limit, offset, total]
       properties:
         items:
           type: array
@@ -573,8 +575,7 @@ components:
 
     CommentStatusHistoryResponse:
       type: object
-      required:
-        - items
+      required: [items]
       properties:
         items:
           type: array
@@ -583,8 +584,7 @@ components:
 
     CommentEditHistoryResponse:
       type: object
-      required:
-        - items
+      required: [items]
       properties:
         items:
           type: array
@@ -593,8 +593,7 @@ components:
 
     ErrorResponse:
       type: object
-      required:
-        - error
+      required: [error]
       properties:
         error:
           type: string

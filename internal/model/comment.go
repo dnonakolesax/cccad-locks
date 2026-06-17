@@ -9,16 +9,16 @@ import "github.com/mailru/easyjson"
 type CadComment struct {
 	ID              string              `json:"id"`
 	WorkspaceID     string              `json:"workspaceId"`
-	DocumentID      string              `json:"documentId"`
+	SketchID        *string             `json:"sketchId,omitempty"`
 	PartID          *string             `json:"partId,omitempty"`
 	TargetType      string              `json:"targetType"`
 	TargetID        string              `json:"targetId"`
 	Kind            string              `json:"kind"`
 	Status          string              `json:"status"`
-	AuthorID        string              `json:"authorId"`
-	AssigneeIDs     []string            `json:"assigneeIds"`
+	AuthorUserID    string              `json:"authorUserId"`
+	AssigneeUserIDs []string            `json:"assigneeUserIds"`
 	Body            string              `json:"body"`
-	DocumentVersion *int64              `json:"documentVersion,omitempty"`
+	SketchVersion   *int64              `json:"sketchVersion,omitempty"`
 	PartVersion     *int64              `json:"partVersion,omitempty"`
 	Anchor          easyjson.RawMessage `json:"anchor,omitempty"`
 	Metadata        easyjson.RawMessage `json:"metadata"`
@@ -29,14 +29,15 @@ type CadComment struct {
 
 //easyjson:json
 type CreateCommentRequest struct {
+	SketchID        *string             `json:"sketchId,omitempty"`
 	PartID          *string             `json:"partId,omitempty"`
 	TargetType      string              `json:"targetType"`
 	TargetID        string              `json:"targetId"`
 	Kind            string              `json:"kind,omitempty"`
 	Body            string              `json:"body"`
-	AssigneeIDs     []string            `json:"assigneeIds,omitempty"`
+	AssigneeUserIDs []string            `json:"assigneeUserIds,omitempty"`
 	Status          string              `json:"status,omitempty"`
-	DocumentVersion *int64              `json:"documentVersion,omitempty"`
+	SketchVersion   *int64              `json:"sketchVersion,omitempty"`
 	PartVersion     *int64              `json:"partVersion,omitempty"`
 	Anchor          easyjson.RawMessage `json:"anchor,omitempty"`
 	Metadata        easyjson.RawMessage `json:"metadata,omitempty"`
@@ -57,7 +58,7 @@ type ChangeCommentStatusRequest struct {
 
 //easyjson:json
 type ReplaceCommentAssigneesRequest struct {
-	AssigneeIDs []string `json:"assigneeIds"`
+	AssigneeUserIDs []string `json:"assigneeUserIds"`
 }
 
 //easyjson:json
@@ -69,13 +70,14 @@ type CommentListResponse struct {
 }
 
 type CommentListFilter struct {
-	DocumentID     string
+	WorkspaceID    string
+	SketchID       string
 	PartID         string
 	TargetType     string
 	TargetID       string
 	Kind           string
 	Status         string
-	AssigneeID     string
+	AssigneeUserID string
 	IncludeDeleted bool
 	Limit          int
 	Offset         int
@@ -83,13 +85,13 @@ type CommentListFilter struct {
 
 //easyjson:json
 type CommentStatusHistoryItem struct {
-	ID        string  `json:"id"`
-	CommentID string  `json:"commentId"`
-	OldStatus *string `json:"oldStatus,omitempty"`
-	NewStatus string  `json:"newStatus"`
-	ChangedBy string  `json:"changedBy"`
-	ChangedAt string  `json:"changedAt"`
-	Reason    *string `json:"reason,omitempty"`
+	ID              string  `json:"id"`
+	CommentID       string  `json:"commentId"`
+	OldStatus       *string `json:"oldStatus,omitempty"`
+	NewStatus       string  `json:"newStatus"`
+	ChangedByUserID string  `json:"changedByUserId"`
+	ChangedAt       string  `json:"changedAt"`
+	Reason          *string `json:"reason,omitempty"`
 }
 
 //easyjson:json
@@ -99,12 +101,12 @@ type CommentStatusHistoryResponse struct {
 
 //easyjson:json
 type CommentEditHistoryItem struct {
-	ID        string `json:"id"`
-	CommentID string `json:"commentId"`
-	OldBody   string `json:"oldBody"`
-	NewBody   string `json:"newBody"`
-	EditedBy  string `json:"editedBy"`
-	EditedAt  string `json:"editedAt"`
+	ID             string `json:"id"`
+	CommentID      string `json:"commentId"`
+	OldBody        string `json:"oldBody"`
+	NewBody        string `json:"newBody"`
+	EditedByUserID string `json:"editedByUserId"`
+	EditedAt       string `json:"editedAt"`
 }
 
 //easyjson:json

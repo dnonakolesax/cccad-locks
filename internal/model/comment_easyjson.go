@@ -137,20 +137,20 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel1(in *jle
 		key := in.UnsafeFieldName(false)
 		in.WantColon()
 		switch key {
-		case "assigneeIds":
+		case "assigneeUserIds":
 			if in.IsNull() {
 				in.Skip()
-				out.AssigneeIDs = nil
+				out.AssigneeUserIDs = nil
 			} else {
 				in.Delim('[')
-				if out.AssigneeIDs == nil {
+				if out.AssigneeUserIDs == nil {
 					if !in.IsDelim(']') {
-						out.AssigneeIDs = make([]string, 0, 4)
+						out.AssigneeUserIDs = make([]string, 0, 4)
 					} else {
-						out.AssigneeIDs = []string{}
+						out.AssigneeUserIDs = []string{}
 					}
 				} else {
-					out.AssigneeIDs = (out.AssigneeIDs)[:0]
+					out.AssigneeUserIDs = (out.AssigneeUserIDs)[:0]
 				}
 				for !in.IsDelim(']') {
 					var v1 string
@@ -159,7 +159,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel1(in *jle
 					} else {
 						v1 = string(in.String())
 					}
-					out.AssigneeIDs = append(out.AssigneeIDs, v1)
+					out.AssigneeUserIDs = append(out.AssigneeUserIDs, v1)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -179,13 +179,13 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel1(out *jw
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"assigneeIds\":"
+		const prefix string = ",\"assigneeUserIds\":"
 		out.RawString(prefix[1:])
-		if in.AssigneeIDs == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+		if in.AssigneeUserIDs == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v2, v3 := range in.AssigneeIDs {
+			for v2, v3 := range in.AssigneeUserIDs {
 				if v2 > 0 {
 					out.RawByte(',')
 				}
@@ -234,6 +234,20 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel2(in *jle
 		key := in.UnsafeFieldName(false)
 		in.WantColon()
 		switch key {
+		case "sketchId":
+			if in.IsNull() {
+				in.Skip()
+				out.SketchID = nil
+			} else {
+				if out.SketchID == nil {
+					out.SketchID = new(string)
+				}
+				if in.IsNull() {
+					in.Skip()
+				} else {
+					*out.SketchID = string(in.String())
+				}
+			}
 		case "partId":
 			if in.IsNull() {
 				in.Skip()
@@ -272,20 +286,20 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel2(in *jle
 			} else {
 				out.Body = string(in.String())
 			}
-		case "assigneeIds":
+		case "assigneeUserIds":
 			if in.IsNull() {
 				in.Skip()
-				out.AssigneeIDs = nil
+				out.AssigneeUserIDs = nil
 			} else {
 				in.Delim('[')
-				if out.AssigneeIDs == nil {
+				if out.AssigneeUserIDs == nil {
 					if !in.IsDelim(']') {
-						out.AssigneeIDs = make([]string, 0, 4)
+						out.AssigneeUserIDs = make([]string, 0, 4)
 					} else {
-						out.AssigneeIDs = []string{}
+						out.AssigneeUserIDs = []string{}
 					}
 				} else {
-					out.AssigneeIDs = (out.AssigneeIDs)[:0]
+					out.AssigneeUserIDs = (out.AssigneeUserIDs)[:0]
 				}
 				for !in.IsDelim(']') {
 					var v4 string
@@ -294,7 +308,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel2(in *jle
 					} else {
 						v4 = string(in.String())
 					}
-					out.AssigneeIDs = append(out.AssigneeIDs, v4)
+					out.AssigneeUserIDs = append(out.AssigneeUserIDs, v4)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -305,18 +319,18 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel2(in *jle
 			} else {
 				out.Status = string(in.String())
 			}
-		case "documentVersion":
+		case "sketchVersion":
 			if in.IsNull() {
 				in.Skip()
-				out.DocumentVersion = nil
+				out.SketchVersion = nil
 			} else {
-				if out.DocumentVersion == nil {
-					out.DocumentVersion = new(int64)
+				if out.SketchVersion == nil {
+					out.SketchVersion = new(int64)
 				}
 				if in.IsNull() {
 					in.Skip()
 				} else {
-					*out.DocumentVersion = int64(in.Int64())
+					*out.SketchVersion = int64(in.Int64())
 				}
 			}
 		case "partVersion":
@@ -359,10 +373,20 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel2(out *jw
 	out.RawByte('{')
 	first := true
 	_ = first
-	if in.PartID != nil {
-		const prefix string = ",\"partId\":"
+	if in.SketchID != nil {
+		const prefix string = ",\"sketchId\":"
 		first = false
 		out.RawString(prefix[1:])
+		out.String(string(*in.SketchID))
+	}
+	if in.PartID != nil {
+		const prefix string = ",\"partId\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
 		out.String(string(*in.PartID))
 	}
 	{
@@ -390,12 +414,12 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel2(out *jw
 		out.RawString(prefix)
 		out.String(string(in.Body))
 	}
-	if len(in.AssigneeIDs) != 0 {
-		const prefix string = ",\"assigneeIds\":"
+	if len(in.AssigneeUserIDs) != 0 {
+		const prefix string = ",\"assigneeUserIds\":"
 		out.RawString(prefix)
 		{
 			out.RawByte('[')
-			for v5, v6 := range in.AssigneeIDs {
+			for v5, v6 := range in.AssigneeUserIDs {
 				if v5 > 0 {
 					out.RawByte(',')
 				}
@@ -409,10 +433,10 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel2(out *jw
 		out.RawString(prefix)
 		out.String(string(in.Status))
 	}
-	if in.DocumentVersion != nil {
-		const prefix string = ",\"documentVersion\":"
+	if in.SketchVersion != nil {
+		const prefix string = ",\"sketchVersion\":"
 		out.RawString(prefix)
-		out.Int64(int64(*in.DocumentVersion))
+		out.Int64(int64(*in.SketchVersion))
 	}
 	if in.PartVersion != nil {
 		const prefix string = ",\"partVersion\":"
@@ -598,11 +622,11 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel4(in *jle
 			} else {
 				out.NewStatus = string(in.String())
 			}
-		case "changedBy":
+		case "changedByUserId":
 			if in.IsNull() {
 				in.Skip()
 			} else {
-				out.ChangedBy = string(in.String())
+				out.ChangedByUserID = string(in.String())
 			}
 		case "changedAt":
 			if in.IsNull() {
@@ -659,9 +683,9 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jw
 		out.String(string(in.NewStatus))
 	}
 	{
-		const prefix string = ",\"changedBy\":"
+		const prefix string = ",\"changedByUserId\":"
 		out.RawString(prefix)
-		out.String(string(in.ChangedBy))
+		out.String(string(in.ChangedByUserID))
 	}
 	{
 		const prefix string = ",\"changedAt\":"
@@ -843,11 +867,17 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(in *jle
 		key := in.UnsafeFieldName(false)
 		in.WantColon()
 		switch key {
-		case "DocumentID":
+		case "WorkspaceID":
 			if in.IsNull() {
 				in.Skip()
 			} else {
-				out.DocumentID = string(in.String())
+				out.WorkspaceID = string(in.String())
+			}
+		case "SketchID":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.SketchID = string(in.String())
 			}
 		case "PartID":
 			if in.IsNull() {
@@ -879,11 +909,11 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(in *jle
 			} else {
 				out.Status = string(in.String())
 			}
-		case "AssigneeID":
+		case "AssigneeUserID":
 			if in.IsNull() {
 				in.Skip()
 			} else {
-				out.AssigneeID = string(in.String())
+				out.AssigneeUserID = string(in.String())
 			}
 		case "IncludeDeleted":
 			if in.IsNull() {
@@ -918,9 +948,14 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(out *jw
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"DocumentID\":"
+		const prefix string = ",\"WorkspaceID\":"
 		out.RawString(prefix[1:])
-		out.String(string(in.DocumentID))
+		out.String(string(in.WorkspaceID))
+	}
+	{
+		const prefix string = ",\"SketchID\":"
+		out.RawString(prefix)
+		out.String(string(in.SketchID))
 	}
 	{
 		const prefix string = ",\"PartID\":"
@@ -948,9 +983,9 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(out *jw
 		out.String(string(in.Status))
 	}
 	{
-		const prefix string = ",\"AssigneeID\":"
+		const prefix string = ",\"AssigneeUserID\":"
 		out.RawString(prefix)
-		out.String(string(in.AssigneeID))
+		out.String(string(in.AssigneeUserID))
 	}
 	{
 		const prefix string = ",\"IncludeDeleted\":"
@@ -1128,11 +1163,11 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(in *jle
 			} else {
 				out.NewBody = string(in.String())
 			}
-		case "editedBy":
+		case "editedByUserId":
 			if in.IsNull() {
 				in.Skip()
 			} else {
-				out.EditedBy = string(in.String())
+				out.EditedByUserID = string(in.String())
 			}
 		case "editedAt":
 			if in.IsNull() {
@@ -1175,9 +1210,9 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(out *jw
 		out.String(string(in.NewBody))
 	}
 	{
-		const prefix string = ",\"editedBy\":"
+		const prefix string = ",\"editedByUserId\":"
 		out.RawString(prefix)
-		out.String(string(in.EditedBy))
+		out.String(string(in.EditedByUserID))
 	}
 	{
 		const prefix string = ",\"editedAt\":"
@@ -1320,11 +1355,19 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(in *jl
 			} else {
 				out.WorkspaceID = string(in.String())
 			}
-		case "documentId":
+		case "sketchId":
 			if in.IsNull() {
 				in.Skip()
+				out.SketchID = nil
 			} else {
-				out.DocumentID = string(in.String())
+				if out.SketchID == nil {
+					out.SketchID = new(string)
+				}
+				if in.IsNull() {
+					in.Skip()
+				} else {
+					*out.SketchID = string(in.String())
+				}
 			}
 		case "partId":
 			if in.IsNull() {
@@ -1364,26 +1407,26 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(in *jl
 			} else {
 				out.Status = string(in.String())
 			}
-		case "authorId":
+		case "authorUserId":
 			if in.IsNull() {
 				in.Skip()
 			} else {
-				out.AuthorID = string(in.String())
+				out.AuthorUserID = string(in.String())
 			}
-		case "assigneeIds":
+		case "assigneeUserIds":
 			if in.IsNull() {
 				in.Skip()
-				out.AssigneeIDs = nil
+				out.AssigneeUserIDs = nil
 			} else {
 				in.Delim('[')
-				if out.AssigneeIDs == nil {
+				if out.AssigneeUserIDs == nil {
 					if !in.IsDelim(']') {
-						out.AssigneeIDs = make([]string, 0, 4)
+						out.AssigneeUserIDs = make([]string, 0, 4)
 					} else {
-						out.AssigneeIDs = []string{}
+						out.AssigneeUserIDs = []string{}
 					}
 				} else {
-					out.AssigneeIDs = (out.AssigneeIDs)[:0]
+					out.AssigneeUserIDs = (out.AssigneeUserIDs)[:0]
 				}
 				for !in.IsDelim(']') {
 					var v16 string
@@ -1392,7 +1435,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(in *jl
 					} else {
 						v16 = string(in.String())
 					}
-					out.AssigneeIDs = append(out.AssigneeIDs, v16)
+					out.AssigneeUserIDs = append(out.AssigneeUserIDs, v16)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -1403,18 +1446,18 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(in *jl
 			} else {
 				out.Body = string(in.String())
 			}
-		case "documentVersion":
+		case "sketchVersion":
 			if in.IsNull() {
 				in.Skip()
-				out.DocumentVersion = nil
+				out.SketchVersion = nil
 			} else {
-				if out.DocumentVersion == nil {
-					out.DocumentVersion = new(int64)
+				if out.SketchVersion == nil {
+					out.SketchVersion = new(int64)
 				}
 				if in.IsNull() {
 					in.Skip()
 				} else {
-					*out.DocumentVersion = int64(in.Int64())
+					*out.SketchVersion = int64(in.Int64())
 				}
 			}
 		case "partVersion":
@@ -1493,10 +1536,10 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(out *j
 		out.RawString(prefix)
 		out.String(string(in.WorkspaceID))
 	}
-	{
-		const prefix string = ",\"documentId\":"
+	if in.SketchID != nil {
+		const prefix string = ",\"sketchId\":"
 		out.RawString(prefix)
-		out.String(string(in.DocumentID))
+		out.String(string(*in.SketchID))
 	}
 	if in.PartID != nil {
 		const prefix string = ",\"partId\":"
@@ -1524,18 +1567,18 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(out *j
 		out.String(string(in.Status))
 	}
 	{
-		const prefix string = ",\"authorId\":"
+		const prefix string = ",\"authorUserId\":"
 		out.RawString(prefix)
-		out.String(string(in.AuthorID))
+		out.String(string(in.AuthorUserID))
 	}
 	{
-		const prefix string = ",\"assigneeIds\":"
+		const prefix string = ",\"assigneeUserIds\":"
 		out.RawString(prefix)
-		if in.AssigneeIDs == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+		if in.AssigneeUserIDs == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v17, v18 := range in.AssigneeIDs {
+			for v17, v18 := range in.AssigneeUserIDs {
 				if v17 > 0 {
 					out.RawByte(',')
 				}
@@ -1549,10 +1592,10 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(out *j
 		out.RawString(prefix)
 		out.String(string(in.Body))
 	}
-	if in.DocumentVersion != nil {
-		const prefix string = ",\"documentVersion\":"
+	if in.SketchVersion != nil {
+		const prefix string = ",\"sketchVersion\":"
 		out.RawString(prefix)
-		out.Int64(int64(*in.DocumentVersion))
+		out.Int64(int64(*in.SketchVersion))
 	}
 	if in.PartVersion != nil {
 		const prefix string = ",\"partVersion\":"

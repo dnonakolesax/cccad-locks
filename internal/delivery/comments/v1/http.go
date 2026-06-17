@@ -24,7 +24,7 @@ const (
 type CommentsService interface {
 	List(ctx context.Context, filter model.CommentListFilter) (*model.CommentListResponse, error)
 	Get(ctx context.Context, commentID string) (*model.CadComment, error)
-	Create(ctx context.Context, documentID string, request *model.CreateCommentRequest) (*model.CadComment, error)
+	Create(ctx context.Context, workspaceID string, request *model.CreateCommentRequest) (*model.CadComment, error)
 	Update(ctx context.Context, commentID string, request *model.UpdateCommentRequest) (*model.CadComment, error)
 	Delete(ctx context.Context, commentID string) error
 	ChangeStatus(
@@ -50,8 +50,8 @@ func NewCommentsHandler(service CommentsService) *CommentsHandler {
 }
 
 func (h *CommentsHandler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /documents/{documentId}/comments", h.List)
-	mux.HandleFunc("POST /documents/{documentId}/comments", h.Create)
+	mux.HandleFunc("GET /workspaces/{workspaceId}/comments", h.List)
+	mux.HandleFunc("POST /workspaces/{workspaceId}/comments", h.Create)
 	mux.HandleFunc("GET /comments/{commentId}", h.Get)
 	mux.HandleFunc("PATCH /comments/{commentId}", h.Update)
 	mux.HandleFunc("DELETE /comments/{commentId}", h.Delete)
@@ -62,23 +62,28 @@ func (h *CommentsHandler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
-	documentID := r.PathValue("documentId")
-	if !validateUUIDParam(w, "documentId", documentID) {
+	workspaceID := r.PathValue("workspaceId")
+	if !validateUUIDParam(w, "workspaceId", workspaceID) {
 		return
 	}
 
 	query := r.URL.Query()
 	filter := model.CommentListFilter{
-		DocumentID:     documentID,
+		WorkspaceID:    workspaceID,
+		SketchID:       strings.TrimSpace(query.Get("sketchId")),
 		PartID:         strings.TrimSpace(query.Get("partId")),
 		TargetType:     strings.TrimSpace(query.Get("targetType")),
 		TargetID:       strings.TrimSpace(query.Get("targetId")),
 		Kind:           strings.TrimSpace(query.Get("kind")),
 		Status:         strings.TrimSpace(query.Get("status")),
-		AssigneeID:     strings.TrimSpace(query.Get("assigneeId")),
+		AssigneeUserID: strings.TrimSpace(query.Get("assigneeUserId")),
 		IncludeDeleted: query.Get("includeDeleted") == "true",
 		Limit:          parseIntDefault(query.Get("limit"), 50),
 		Offset:         parseIntDefault(query.Get("offset"), 0),
+	}
+	if filter.SketchID != "" && !isValidUUID(filter.SketchID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
+		return
 	}
 	if filter.PartID != "" && !isValidUUID(filter.PartID) {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "partId must be a valid uuid")
@@ -94,8 +99,8 @@ func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
-	documentID := r.PathValue("documentId")
-	if !validateUUIDParam(w, "documentId", documentID) {
+	workspaceID := r.PathValue("workspaceId")
+	if !validateUUIDParam(w, "workspaceId", workspaceID) {
 		return
 	}
 
@@ -108,8 +113,12 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "partId must be a valid uuid")
 		return
 	}
+	if request.SketchID != nil && !isValidUUID(*request.SketchID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
+		return
+	}
 
-	comment, err := h.service.Create(r.Context(), documentID, &request)
+	comment, err := h.service.Create(r.Context(), workspaceID, &request)
 	if err != nil {
 		writeError(w, statusFromError(err), codeFromStatus(statusFromError(err)), err.Error())
 		return

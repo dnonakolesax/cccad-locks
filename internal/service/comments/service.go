@@ -21,7 +21,7 @@ const (
 type Repository interface {
 	List(ctx context.Context, filter model.CommentListFilter, userID string) (*model.CommentListResponse, error)
 	Get(ctx context.Context, commentID string, userID string) (*model.CadComment, error)
-	Create(ctx context.Context, documentID string, request *model.CreateCommentRequest, actorUserID string) (*model.CadComment, error)
+	Create(ctx context.Context, workspaceID string, request *model.CreateCommentRequest, actorUserID string) (*model.CadComment, error)
 	Update(ctx context.Context, commentID string, request *model.UpdateCommentRequest, actorUserID string) (*model.CadComment, error)
 	Delete(ctx context.Context, commentID string, actorUserID string) error
 	ChangeStatus(ctx context.Context, commentID string, request *model.ChangeCommentStatusRequest, actorUserID string) (*model.CadComment, error)
@@ -39,16 +39,17 @@ func NewService(repo Repository) *Service {
 }
 
 func (s *Service) List(ctx context.Context, filter model.CommentListFilter) (*model.CommentListResponse, error) {
-	filter.DocumentID = strings.TrimSpace(filter.DocumentID)
-	if filter.DocumentID == "" {
-		return nil, errors.New("documentID is required")
+	filter.WorkspaceID = strings.TrimSpace(filter.WorkspaceID)
+	if filter.WorkspaceID == "" {
+		return nil, errors.New("workspaceID is required")
 	}
+	filter.SketchID = strings.TrimSpace(filter.SketchID)
 	filter.PartID = strings.TrimSpace(filter.PartID)
 	filter.TargetType = strings.TrimSpace(filter.TargetType)
 	filter.TargetID = strings.TrimSpace(filter.TargetID)
 	filter.Kind = strings.TrimSpace(filter.Kind)
 	filter.Status = strings.TrimSpace(filter.Status)
-	filter.AssigneeID = strings.TrimSpace(filter.AssigneeID)
+	filter.AssigneeUserID = strings.TrimSpace(filter.AssigneeUserID)
 	if filter.Limit <= 0 {
 		filter.Limit = defaultLimit
 	}
@@ -90,16 +91,18 @@ func (s *Service) Get(ctx context.Context, commentID string) (*model.CadComment,
 
 func (s *Service) Create(
 	ctx context.Context,
-	documentID string,
+	workspaceID string,
 	request *model.CreateCommentRequest,
 ) (*model.CadComment, error) {
-	documentID = strings.TrimSpace(documentID)
-	if documentID == "" {
-		return nil, errors.New("documentID is required")
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return nil, errors.New("workspaceID is required")
 	}
 	if request == nil {
 		return nil, errors.New("request is required")
 	}
+	trimOptionalString(&request.SketchID)
+	trimOptionalString(&request.PartID)
 	request.TargetType = strings.TrimSpace(request.TargetType)
 	request.TargetID = strings.TrimSpace(request.TargetID)
 	request.Body = strings.TrimSpace(request.Body)
@@ -126,6 +129,12 @@ func (s *Service) Create(
 	if request.Body == "" {
 		return nil, errors.New("body is required")
 	}
+	if request.SketchVersion != nil && *request.SketchVersion < 0 {
+		return nil, errors.New("sketchVersion must be nonnegative")
+	}
+	if request.PartVersion != nil && *request.PartVersion < 0 {
+		return nil, errors.New("partVersion must be nonnegative")
+	}
 	if err := validateJSONObject(request.Anchor, true, "anchor"); err != nil {
 		return nil, err
 	}
@@ -135,13 +144,13 @@ func (s *Service) Create(
 	if err := validateJSONObject(request.Metadata, false, "metadata"); err != nil {
 		return nil, err
 	}
-	normalizeAssignees(&request.AssigneeIDs)
+	normalizeAssignees(&request.AssigneeUserIDs)
 
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
 	}
-	return s.repo.Create(ctx, documentID, request, userID)
+	return s.repo.Create(ctx, workspaceID, request, userID)
 }
 
 func (s *Service) Update(
@@ -234,7 +243,7 @@ func (s *Service) ReplaceAssignees(
 	if request == nil {
 		return nil, errors.New("request is required")
 	}
-	normalizeAssignees(&request.AssigneeIDs)
+	normalizeAssignees(&request.AssigneeUserIDs)
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
@@ -303,6 +312,18 @@ func normalizeAssignees(values *[]string) {
 	*values = normalized
 }
 
+func trimOptionalString(value **string) {
+	if *value == nil {
+		return
+	}
+	trimmed := strings.TrimSpace(**value)
+	if trimmed == "" {
+		*value = nil
+		return
+	}
+	*value = &trimmed
+}
+
 func isValidKind(kind string) bool {
 	return kind == "comment" || kind == "task"
 }
@@ -318,8 +339,9 @@ func isValidStatus(status string) bool {
 
 func isValidTargetType(targetType string) bool {
 	switch targetType {
-	case "document", "part", "sketch", "sketch_entity", "constraint", "feature_3d",
-		"body", "face", "edge", "vertex", "profile", "simulation_case",
+	case "workspace", "sketch", "sketch_entity", "constraint", "part", "feature_3d",
+		"body", "face", "edge", "vertex", "profile", "topology_ref_3d",
+		"representation_3d", "simulation_job",
 		"simulation_result", "mesh_entity":
 		return true
 	default:

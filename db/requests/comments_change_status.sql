@@ -1,14 +1,19 @@
 WITH existing AS (
     SELECT c.*
     FROM cad_comments c
+    JOIN workspaces w ON w.id = c.workspace_id
     WHERE c.id = $1::uuid
         AND c.deleted_at IS NULL
-        AND EXISTS (
-            SELECT 1
-            FROM sketch_permissions sp
-            WHERE sp.sketch_id = c.document_id
-                AND sp.user_id = $2
-                AND sp.role IN ('editor', 'admin')
+        AND w.deleted_at IS NULL
+        AND (
+            w.created_by_user_id = $2
+            OR EXISTS (
+                SELECT 1
+                FROM sketch_permissions sp
+                WHERE sp.sketch_id = c.sketch_id
+                    AND sp.user_id = $2
+                    AND sp.role IN ('editor', 'admin')
+            )
         )
 ),
 updated AS (
@@ -23,7 +28,7 @@ status_history AS (
         comment_id,
         old_status,
         new_status,
-        changed_by,
+        changed_by_user_id,
         reason
     )
     SELECT
@@ -39,15 +44,15 @@ status_history AS (
 SELECT
     u.id::text,
     u.workspace_id::text,
-    u.document_id::text,
+    u.sketch_id::text,
     u.part_id::text,
     u.target_type::text,
     u.target_id,
     u.kind::text,
     u.status::text,
-    u.author_id,
+    u.author_user_id,
     u.body,
-    u.document_version::bigint,
+    u.sketch_version::bigint,
     u.part_version::bigint,
     u.anchor,
     u.metadata,
@@ -64,15 +69,15 @@ LEFT JOIN comment_assignees ca ON ca.comment_id = u.id
 GROUP BY
     u.id,
     u.workspace_id,
-    u.document_id,
+    u.sketch_id,
     u.part_id,
     u.target_type,
     u.target_id,
     u.kind,
     u.status,
-    u.author_id,
+    u.author_user_id,
     u.body,
-    u.document_version,
+    u.sketch_version,
     u.part_version,
     u.anchor,
     u.metadata,

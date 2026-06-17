@@ -1,8 +1,8 @@
 asyncapi: 2.6.0
 info:
   title: cccAD Comments Realtime API Add-on
-  version: 0.1.0
-  description: WebSocket events for realtime propagation of comment/task changes.
+  version: 0.2.0
+  description: WebSocket events for realtime propagation of comment/task changes, adapted to workspace-scoped schema.
 servers:
   production:
     url: /ws
@@ -14,16 +14,16 @@ servers:
 defaultContentType: application/json
 
 channels:
-  documents/{documentId}/comments:
+  workspaces/{workspaceId}/comments:
     parameters:
-      documentId:
-        description: Document UUID.
+      workspaceId:
+        description: Workspace UUID.
         schema:
           type: string
           format: uuid
     subscribe:
-      summary: Receive realtime comment/task events for an opened document.
-      operationId: subscribeDocumentCommentEvents
+      summary: Receive realtime comment/task events for an opened workspace.
+      operationId: subscribeWorkspaceCommentEvents
       message:
         oneOf:
           - $ref: '#/components/messages/CommentCreated'
@@ -36,31 +36,22 @@ components:
   messages:
     CommentCreated:
       name: comment.created
-      title: Comment created
       payload:
         $ref: '#/components/schemas/CommentCreatedEvent'
-
     CommentUpdated:
       name: comment.updated
-      title: Comment body/anchor/metadata updated
       payload:
         $ref: '#/components/schemas/CommentUpdatedEvent'
-
     CommentDeleted:
       name: comment.deleted
-      title: Comment soft-deleted
       payload:
         $ref: '#/components/schemas/CommentDeletedEvent'
-
     CommentStatusChanged:
       name: comment.statusChanged
-      title: Comment status changed
       payload:
         $ref: '#/components/schemas/CommentStatusChangedEvent'
-
     CommentAssigneesChanged:
       name: comment.assigneesChanged
-      title: Comment assignees changed
       payload:
         $ref: '#/components/schemas/CommentAssigneesChangedEvent'
 
@@ -71,9 +62,8 @@ components:
         - type
         - eventId
         - workspaceId
-        - documentId
         - occurredAt
-        - actorId
+        - actorUserId
       properties:
         type:
           type: string
@@ -83,48 +73,39 @@ components:
         workspaceId:
           type: string
           format: uuid
-        documentId:
-          type: string
-          format: uuid
         occurredAt:
           type: string
           format: date-time
-        actorId:
+        actorUserId:
           type: string
 
     CommentTargetType:
       type: string
       enum:
-        - document
-        - part
+        - workspace
         - sketch
         - sketch_entity
         - constraint
+        - part
         - feature_3d
         - body
         - face
         - edge
         - vertex
         - profile
-        - simulation_case
+        - topology_ref_3d
+        - representation_3d
+        - simulation_job
         - simulation_result
         - mesh_entity
 
     CommentKind:
       type: string
-      enum:
-        - comment
-        - task
+      enum: [comment, task]
 
     CommentStatus:
       type: string
-      enum:
-        - open
-        - in_progress
-        - resolved
-        - reopened
-        - closed
-        - rejected
+      enum: [open, in_progress, resolved, reopened, closed, rejected]
 
     JsonObject:
       type: object
@@ -135,13 +116,12 @@ components:
       required:
         - id
         - workspaceId
-        - documentId
         - targetType
         - targetId
         - kind
         - status
-        - authorId
-        - assigneeIds
+        - authorUserId
+        - assigneeUserIds
         - body
         - metadata
         - createdAt
@@ -153,9 +133,10 @@ components:
         workspaceId:
           type: string
           format: uuid
-        documentId:
+        sketchId:
           type: string
           format: uuid
+          nullable: true
         partId:
           type: string
           format: uuid
@@ -168,21 +149,21 @@ components:
           $ref: '#/components/schemas/CommentKind'
         status:
           $ref: '#/components/schemas/CommentStatus'
-        authorId:
+        authorUserId:
           type: string
-        assigneeIds:
+        assigneeUserIds:
           type: array
           items:
             type: string
         body:
           type: string
-        documentVersion:
+        sketchVersion:
           type: integer
-          minimum: 1
+          format: int64
           nullable: true
         partVersion:
           type: integer
-          minimum: 1
+          format: int64
           nullable: true
         anchor:
           allOf:
@@ -205,17 +186,14 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelopeBase'
         - type: object
-          required:
-            - type
-            - payload
+          required: [type, payload]
           properties:
             type:
               type: string
               enum: [comment.created]
             payload:
               type: object
-              required:
-                - comment
+              required: [comment]
               properties:
                 comment:
                   $ref: '#/components/schemas/CadComment'
@@ -224,18 +202,14 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelopeBase'
         - type: object
-          required:
-            - type
-            - payload
+          required: [type, payload]
           properties:
             type:
               type: string
               enum: [comment.updated]
             payload:
               type: object
-              required:
-                - commentId
-                - comment
+              required: [commentId, comment]
               properties:
                 commentId:
                   type: string
@@ -247,18 +221,14 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelopeBase'
         - type: object
-          required:
-            - type
-            - payload
+          required: [type, payload]
           properties:
             type:
               type: string
               enum: [comment.deleted]
             payload:
               type: object
-              required:
-                - commentId
-                - deletedAt
+              required: [commentId, deletedAt]
               properties:
                 commentId:
                   type: string
@@ -271,9 +241,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelopeBase'
         - type: object
-          required:
-            - type
-            - payload
+          required: [type, payload]
           properties:
             type:
               type: string
@@ -284,7 +252,7 @@ components:
                 - commentId
                 - oldStatus
                 - newStatus
-                - changedBy
+                - changedByUserId
                 - changedAt
               properties:
                 commentId:
@@ -296,7 +264,7 @@ components:
                   nullable: true
                 newStatus:
                   $ref: '#/components/schemas/CommentStatus'
-                changedBy:
+                changedByUserId:
                   type: string
                 changedAt:
                   type: string
@@ -309,23 +277,19 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelopeBase'
         - type: object
-          required:
-            - type
-            - payload
+          required: [type, payload]
           properties:
             type:
               type: string
               enum: [comment.assigneesChanged]
             payload:
               type: object
-              required:
-                - commentId
-                - assigneeIds
+              required: [commentId, assigneeUserIds]
               properties:
                 commentId:
                   type: string
                   format: uuid
-                assigneeIds:
+                assigneeUserIds:
                   type: array
                   items:
                     type: string

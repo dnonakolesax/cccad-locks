@@ -46,14 +46,15 @@ func (r *Repository) List(
 	rows, err := r.db.Query(
 		ctx,
 		sqlRequest,
-		filter.DocumentID,
+		filter.WorkspaceID,
 		userID,
+		filter.SketchID,
 		filter.PartID,
 		filter.TargetType,
 		filter.TargetID,
 		filter.Kind,
 		filter.Status,
-		filter.AssigneeID,
+		filter.AssigneeUserID,
 		filter.IncludeDeleted,
 		filter.Limit,
 		filter.Offset,
@@ -92,7 +93,7 @@ func (r *Repository) Get(ctx context.Context, commentID string, userID string) (
 
 func (r *Repository) Create(
 	ctx context.Context,
-	documentID string,
+	workspaceID string,
 	request *model.CreateCommentRequest,
 	actorUserID string,
 ) (*model.CadComment, error) {
@@ -114,7 +115,8 @@ func (r *Repository) Create(
 		row := tx.QueryRow(
 			txCtx,
 			sqlRequest,
-			documentID,
+			workspaceID,
+			nullableString(request.SketchID),
 			nullableString(request.PartID),
 			request.TargetType,
 			request.TargetID,
@@ -122,7 +124,7 @@ func (r *Repository) Create(
 			actorUserID,
 			request.Body,
 			request.Status,
-			request.DocumentVersion,
+			request.SketchVersion,
 			request.PartVersion,
 			nullableRaw(request.Anchor),
 			string(request.Metadata),
@@ -131,7 +133,7 @@ func (r *Repository) Create(
 		if scanErr != nil {
 			return scanErr
 		}
-		if execErr := execAuthorized(txCtx, tx, replaceAssigneesSQL, commentID, actorUserID, request.AssigneeIDs); execErr != nil {
+		if execErr := execAuthorized(txCtx, tx, replaceAssigneesSQL, commentID, actorUserID, request.AssigneeUserIDs); execErr != nil {
 			return execErr
 		}
 		found, getErr := queryTxComment(txCtx, tx, getSQL, commentID, actorUserID)
@@ -219,7 +221,7 @@ func (r *Repository) ReplaceAssignees(
 
 	var comment *model.CadComment
 	err = r.db.WithTx(ctx, func(txCtx context.Context, tx pgx.Tx) error {
-		if execErr := execAuthorized(txCtx, tx, sqlRequest, commentID, actorUserID, request.AssigneeIDs); execErr != nil {
+		if execErr := execAuthorized(txCtx, tx, sqlRequest, commentID, actorUserID, request.AssigneeUserIDs); execErr != nil {
 			return execErr
 		}
 		found, getErr := queryTxComment(txCtx, tx, getSQL, commentID, actorUserID)
@@ -362,8 +364,9 @@ func scanCommentFields(scanner commentScanner) (*model.CadComment, error) {
 
 func scanCommentFieldsWithTotal(scanner commentScanner) (*model.CadComment, int, error) {
 	var comment model.CadComment
+	var sketchID *string
 	var partID *string
-	var documentVersion *int64
+	var sketchVersion *int64
 	var partVersion *int64
 	var anchor []byte
 	var metadata []byte
@@ -376,15 +379,15 @@ func scanCommentFieldsWithTotal(scanner commentScanner) (*model.CadComment, int,
 	if err := scanner.Scan(
 		&comment.ID,
 		&comment.WorkspaceID,
-		&comment.DocumentID,
+		&sketchID,
 		&partID,
 		&comment.TargetType,
 		&comment.TargetID,
 		&comment.Kind,
 		&comment.Status,
-		&comment.AuthorID,
+		&comment.AuthorUserID,
 		&comment.Body,
-		&documentVersion,
+		&sketchVersion,
 		&partVersion,
 		&anchor,
 		&metadata,
@@ -397,15 +400,16 @@ func scanCommentFieldsWithTotal(scanner commentScanner) (*model.CadComment, int,
 		return nil, 0, fmt.Errorf("scan comment: %w", err)
 	}
 
+	comment.SketchID = sketchID
 	comment.PartID = partID
-	comment.DocumentVersion = documentVersion
+	comment.SketchVersion = sketchVersion
 	comment.PartVersion = partVersion
 	comment.Anchor = easyjson.RawMessage(anchor)
 	comment.Metadata = easyjson.RawMessage(metadata)
 	if len(comment.Metadata) == 0 {
 		comment.Metadata = easyjson.RawMessage(`{}`)
 	}
-	if err := json.Unmarshal(assignees, &comment.AssigneeIDs); err != nil {
+	if err := json.Unmarshal(assignees, &comment.AssigneeUserIDs); err != nil {
 		return nil, 0, fmt.Errorf("scan comment assignees: %w", err)
 	}
 	comment.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
@@ -433,7 +437,7 @@ func scanStatusHistory(rows *dbsql.PGXResponse) (*model.CommentStatusHistoryItem
 		&item.CommentID,
 		&item.OldStatus,
 		&item.NewStatus,
-		&item.ChangedBy,
+		&item.ChangedByUserID,
 		&changedAt,
 		&item.Reason,
 	); err != nil {
@@ -451,7 +455,7 @@ func scanEditHistory(rows *dbsql.PGXResponse) (*model.CommentEditHistoryItem, er
 		&item.CommentID,
 		&item.OldBody,
 		&item.NewBody,
-		&item.EditedBy,
+		&item.EditedByUserID,
 		&editedAt,
 	); err != nil {
 		return nil, fmt.Errorf("scan comment edit history: %w", err)
