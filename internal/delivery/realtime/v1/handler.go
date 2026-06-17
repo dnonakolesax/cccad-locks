@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultRoutePrefix     = "/api/v1/sketches/realtime"
+	defaultRoutePrefix     = "/api/v1/sketches"
 	defaultWSRouteSuffix   = "/ws"
 	defaultWriteWait       = 10 * time.Second
 	defaultPongWait        = 60 * time.Second
@@ -94,7 +94,7 @@ func NewHandler(service Service, userResolver UserResolver, opts ...HandlerOptio
 // It expects paths like: /api/v1/sketches/{sketchId}/ws.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	if h.routePrefix == "/" {
-		mux.HandleFunc("GET /{sketchId}/ws", h.handleSketchWebSocket)
+		mux.HandleFunc("GET /realtime/{sketchId}/ws", h.handleSketchWebSocket)
 		return
 	}
 	mux.HandleFunc(h.routePrefix, h.handleSketchWebSocket)
