@@ -20,7 +20,11 @@ const (
 	updateCommentRequest            = "comments_update"
 	deleteCommentRequest            = "comments_delete"
 	changeCommentStatusRequest      = "comments_change_status"
-	replaceCommentAssigneesRequest  = "comments_replace_assignees"
+	setCommentAssigneesRequest      = "comments_set_assignees"
+	clearCommentAssigneesRequest    = "comments_clear_assignees"
+	assigneesSystemMessageRequest   = "comments_assignees_system_message"
+	listCommentRepliesRequest       = "comments_replies"
+	commentThreadRequest            = "comments_thread"
 	listCommentStatusHistoryRequest = "comments_status_history"
 	listCommentEditHistoryRequest   = "comments_edit_history"
 	commentDocumentAccessRequest    = "comments_document_access"
@@ -55,7 +59,12 @@ func (r *Repository) List(
 		filter.TargetID,
 		filter.Kind,
 		filter.Status,
+		filter.MessageType,
+		filter.SystemEventType,
 		filter.AssigneeUserID,
+		filter.ParentCommentID,
+		filter.ThreadRootID,
+		filter.RootsOnly,
 		filter.IncludeDeleted,
 		filter.Limit,
 		filter.Offset,
@@ -127,9 +136,9 @@ func (r *Repository) Create(
 	if err != nil {
 		return nil, fmt.Errorf("create comment request: %w", err)
 	}
-	replaceAssigneesSQL, err := r.db.Request(replaceCommentAssigneesRequest)
+	setAssigneesSQL, err := r.db.Request(setCommentAssigneesRequest)
 	if err != nil {
-		return nil, fmt.Errorf("replace comment assignees request: %w", err)
+		return nil, fmt.Errorf("set comment assignees request: %w", err)
 	}
 	getSQL, err := r.db.Request(getCommentRequest)
 	if err != nil {
@@ -142,6 +151,7 @@ func (r *Repository) Create(
 			txCtx,
 			sqlRequest,
 			workspaceID,
+			nullableString(request.ParentCommentID),
 			nullableString(request.SketchID),
 			nullableString(request.PartID),
 			request.TargetType,
@@ -159,7 +169,7 @@ func (r *Repository) Create(
 		if scanErr != nil {
 			return scanErr
 		}
-		if execErr := execAuthorized(txCtx, tx, replaceAssigneesSQL, commentID, actorUserID, request.AssigneeUserIDs); execErr != nil {
+		if execErr := execAuthorized(txCtx, tx, setAssigneesSQL, commentID, actorUserID, request.AssigneeUserIDs); execErr != nil {
 			return execErr
 		}
 		found, getErr := queryTxComment(txCtx, tx, getSQL, commentID, actorUserID)
@@ -173,6 +183,70 @@ func (r *Repository) Create(
 		return nil, fmt.Errorf("create comment: %w", err)
 	}
 	return comment, nil
+}
+
+func (r *Repository) ListReplies(
+	ctx context.Context,
+	commentID string,
+	filter model.CommentListFilter,
+	userID string,
+) (*model.CommentListResponse, error) {
+	sqlRequest, err := r.db.Request(listCommentRepliesRequest)
+	if err != nil {
+		return nil, fmt.Errorf("list comment replies request: %w", err)
+	}
+	rows, err := r.db.Query(ctx, sqlRequest, commentID, userID, filter.IncludeSystem, filter.IncludeDeleted, filter.Limit, filter.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("list comment replies: %w", err)
+	}
+	response := &model.CommentListResponse{
+		Items:  make([]model.CadComment, 0),
+		Limit:  filter.Limit,
+		Offset: filter.Offset,
+	}
+	for rows.Next() {
+		comment, total, scanErr := scanCommentWithTotal(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		response.Total = total
+		response.Items = append(response.Items, *comment)
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("list comment replies rows: %w", closeErr)
+	}
+	return response, nil
+}
+
+func (r *Repository) Thread(
+	ctx context.Context,
+	commentID string,
+	filter model.CommentListFilter,
+	userID string,
+) (*model.CommentThreadResponse, error) {
+	sqlRequest, err := r.db.Request(commentThreadRequest)
+	if err != nil {
+		return nil, fmt.Errorf("comment thread request: %w", err)
+	}
+	rows, err := r.db.Query(ctx, sqlRequest, commentID, userID, filter.IncludeSystem, filter.MaxDepth)
+	if err != nil {
+		return nil, fmt.Errorf("comment thread: %w", err)
+	}
+	items := make([]model.CadComment, 0)
+	for rows.Next() {
+		comment, scanErr := scanComment(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		items = append(items, *comment)
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("comment thread rows: %w", closeErr)
+	}
+	if len(items) == 0 {
+		return nil, errors.New("comment thread returned no rows")
+	}
+	return &model.CommentThreadResponse{Root: items[0], Items: items}, nil
 }
 
 func (r *Repository) Update(
@@ -222,12 +296,16 @@ func (r *Repository) ChangeStatus(
 	commentID string,
 	request *model.ChangeCommentStatusRequest,
 	actorUserID string,
-) (*model.CadComment, error) {
+) (*model.ChangeCommentStatusResponse, error) {
 	sqlRequest, err := r.db.Request(changeCommentStatusRequest)
 	if err != nil {
 		return nil, fmt.Errorf("change comment status request: %w", err)
 	}
-	return r.queryOneComment(ctx, sqlRequest, commentID, actorUserID, request.Status, request.Reason)
+	comment, systemMessage, err := r.queryCommentPair(ctx, sqlRequest, commentID, actorUserID, request.Status, request.Reason)
+	if err != nil {
+		return nil, err
+	}
+	return &model.ChangeCommentStatusResponse{Comment: *comment, SystemMessage: *systemMessage}, nil
 }
 
 func (r *Repository) ReplaceAssignees(
@@ -235,10 +313,18 @@ func (r *Repository) ReplaceAssignees(
 	commentID string,
 	request *model.ReplaceCommentAssigneesRequest,
 	actorUserID string,
-) (*model.CadComment, error) {
-	sqlRequest, err := r.db.Request(replaceCommentAssigneesRequest)
+) (*model.ChangeCommentAssigneesResponse, error) {
+	clearSQL, err := r.db.Request(clearCommentAssigneesRequest)
 	if err != nil {
-		return nil, fmt.Errorf("replace comment assignees request: %w", err)
+		return nil, fmt.Errorf("clear comment assignees request: %w", err)
+	}
+	setSQL, err := r.db.Request(setCommentAssigneesRequest)
+	if err != nil {
+		return nil, fmt.Errorf("set comment assignees request: %w", err)
+	}
+	systemSQL, err := r.db.Request(assigneesSystemMessageRequest)
+	if err != nil {
+		return nil, fmt.Errorf("assignees system message request: %w", err)
 	}
 	getSQL, err := r.db.Request(getCommentRequest)
 	if err != nil {
@@ -246,21 +332,34 @@ func (r *Repository) ReplaceAssignees(
 	}
 
 	var comment *model.CadComment
+	var systemMessage *model.CadComment
 	err = r.db.WithTx(ctx, func(txCtx context.Context, tx pgx.Tx) error {
-		if execErr := execAuthorized(txCtx, tx, sqlRequest, commentID, actorUserID, request.AssigneeUserIDs); execErr != nil {
+		if execErr := execAuthorized(txCtx, tx, clearSQL, commentID, actorUserID); execErr != nil {
 			return execErr
 		}
-		found, getErr := queryTxComment(txCtx, tx, getSQL, commentID, actorUserID)
+		if execErr := execAuthorized(txCtx, tx, setSQL, commentID, actorUserID, request.AssigneeUserIDs); execErr != nil {
+			return execErr
+		}
+		systemID, scanErr := scanCommentID(tx.QueryRow(txCtx, systemSQL, commentID, actorUserID, request.AssigneeUserIDs))
+		if scanErr != nil {
+			return scanErr
+		}
+		foundComment, getErr := queryTxComment(txCtx, tx, getSQL, commentID, actorUserID)
 		if getErr != nil {
 			return getErr
 		}
-		comment = found
+		foundSystem, getErr := queryTxComment(txCtx, tx, getSQL, systemID, actorUserID)
+		if getErr != nil {
+			return getErr
+		}
+		comment = foundComment
+		systemMessage = foundSystem
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("replace comment assignees: %w", err)
 	}
-	return comment, nil
+	return &model.ChangeCommentAssigneesResponse{Comment: *comment, SystemMessage: *systemMessage}, nil
 }
 
 func (r *Repository) StatusHistory(
@@ -338,6 +437,28 @@ func (r *Repository) queryOneComment(ctx context.Context, sqlRequest string, arg
 	return comment, nil
 }
 
+func (r *Repository) queryCommentPair(ctx context.Context, sqlRequest string, args ...any) (*model.CadComment, *model.CadComment, error) {
+	rows, err := r.db.Query(ctx, sqlRequest, args...)
+	if err != nil {
+		return nil, nil, err
+	}
+	comments := make([]*model.CadComment, 0, 2)
+	for rows.Next() {
+		comment, scanErr := scanComment(rows)
+		if scanErr != nil {
+			return nil, nil, scanErr
+		}
+		comments = append(comments, comment)
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, nil, closeErr
+	}
+	if len(comments) != 2 {
+		return nil, nil, errors.New("comment mutation returned incomplete rows")
+	}
+	return comments[0], comments[1], nil
+}
+
 func queryTxComment(ctx context.Context, tx pgx.Tx, sqlRequest string, args ...any) (*model.CadComment, error) {
 	rows, err := tx.Query(ctx, sqlRequest, args...)
 	if err != nil {
@@ -392,9 +513,12 @@ func scanCommentFieldsWithTotal(scanner commentScanner) (*model.CadComment, int,
 	var comment model.CadComment
 	var sketchID *string
 	var partID *string
+	var parentCommentID *string
+	var systemEventType *string
 	var sketchVersion *int64
 	var partVersion *int64
 	var anchor []byte
+	var eventPayload []byte
 	var metadata []byte
 	var assignees []byte
 	var createdAt time.Time
@@ -407,6 +531,13 @@ func scanCommentFieldsWithTotal(scanner commentScanner) (*model.CadComment, int,
 		&comment.WorkspaceID,
 		&sketchID,
 		&partID,
+		&parentCommentID,
+		&comment.ThreadRootID,
+		&comment.ReplyDepth,
+		&comment.ReplyCount,
+		&comment.MessageType,
+		&systemEventType,
+		&eventPayload,
 		&comment.TargetType,
 		&comment.TargetID,
 		&comment.Kind,
@@ -428,9 +559,15 @@ func scanCommentFieldsWithTotal(scanner commentScanner) (*model.CadComment, int,
 
 	comment.SketchID = sketchID
 	comment.PartID = partID
+	comment.ParentCommentID = parentCommentID
+	comment.SystemEventType = systemEventType
 	comment.SketchVersion = sketchVersion
 	comment.PartVersion = partVersion
 	comment.Anchor = easyjson.RawMessage(anchor)
+	comment.EventPayload = easyjson.RawMessage(eventPayload)
+	if len(comment.EventPayload) == 0 {
+		comment.EventPayload = easyjson.RawMessage(`{}`)
+	}
 	comment.Metadata = easyjson.RawMessage(metadata)
 	if len(comment.Metadata) == 0 {
 		comment.Metadata = easyjson.RawMessage(`{}`)

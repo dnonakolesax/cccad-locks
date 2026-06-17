@@ -234,6 +234,20 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel2(in *jle
 		key := in.UnsafeFieldName(false)
 		in.WantColon()
 		switch key {
+		case "parentCommentId":
+			if in.IsNull() {
+				in.Skip()
+				out.ParentCommentID = nil
+			} else {
+				if out.ParentCommentID == nil {
+					out.ParentCommentID = new(string)
+				}
+				if in.IsNull() {
+					in.Skip()
+				} else {
+					*out.ParentCommentID = string(in.String())
+				}
+			}
 		case "sketchId":
 			if in.IsNull() {
 				in.Skip()
@@ -373,10 +387,20 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel2(out *jw
 	out.RawByte('{')
 	first := true
 	_ = first
-	if in.SketchID != nil {
-		const prefix string = ",\"sketchId\":"
+	if in.ParentCommentID != nil {
+		const prefix string = ",\"parentCommentId\":"
 		first = false
 		out.RawString(prefix[1:])
+		out.String(string(*in.ParentCommentID))
+	}
+	if in.SketchID != nil {
+		const prefix string = ",\"sketchId\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
 		out.String(string(*in.SketchID))
 	}
 	if in.PartID != nil {
@@ -389,7 +413,7 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel2(out *jw
 		}
 		out.String(string(*in.PartID))
 	}
-	{
+	if in.TargetType != "" {
 		const prefix string = ",\"targetType\":"
 		if first {
 			first = false
@@ -399,19 +423,34 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel2(out *jw
 		}
 		out.String(string(in.TargetType))
 	}
-	{
+	if in.TargetID != "" {
 		const prefix string = ",\"targetId\":"
-		out.RawString(prefix)
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
 		out.String(string(in.TargetID))
 	}
 	if in.Kind != "" {
 		const prefix string = ",\"kind\":"
-		out.RawString(prefix)
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
 		out.String(string(in.Kind))
 	}
 	{
 		const prefix string = ",\"body\":"
-		out.RawString(prefix)
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
 		out.String(string(in.Body))
 	}
 	if len(in.AssigneeUserIDs) != 0 {
@@ -479,7 +518,243 @@ func (v *CreateCommentRequest) UnmarshalJSON(data []byte) error {
 func (v *CreateCommentRequest) UnmarshalEasyJSON(l *jlexer.Lexer) {
 	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel2(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel3(in *jlexer.Lexer, out *CommentStatusHistoryResponse) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel3(in *jlexer.Lexer, out *CreateCommentReplyRequest) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		switch key {
+		case "body":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.Body = string(in.String())
+			}
+		case "assigneeUserIds":
+			if in.IsNull() {
+				in.Skip()
+				out.AssigneeUserIDs = nil
+			} else {
+				in.Delim('[')
+				if out.AssigneeUserIDs == nil {
+					if !in.IsDelim(']') {
+						out.AssigneeUserIDs = make([]string, 0, 4)
+					} else {
+						out.AssigneeUserIDs = []string{}
+					}
+				} else {
+					out.AssigneeUserIDs = (out.AssigneeUserIDs)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v7 string
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						v7 = string(in.String())
+					}
+					out.AssigneeUserIDs = append(out.AssigneeUserIDs, v7)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		case "anchor":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				(out.Anchor).UnmarshalEasyJSON(in)
+			}
+		case "metadata":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				(out.Metadata).UnmarshalEasyJSON(in)
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel3(out *jwriter.Writer, in CreateCommentReplyRequest) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"body\":"
+		out.RawString(prefix[1:])
+		out.String(string(in.Body))
+	}
+	if len(in.AssigneeUserIDs) != 0 {
+		const prefix string = ",\"assigneeUserIds\":"
+		out.RawString(prefix)
+		{
+			out.RawByte('[')
+			for v8, v9 := range in.AssigneeUserIDs {
+				if v8 > 0 {
+					out.RawByte(',')
+				}
+				out.String(string(v9))
+			}
+			out.RawByte(']')
+		}
+	}
+	if (in.Anchor).IsDefined() {
+		const prefix string = ",\"anchor\":"
+		out.RawString(prefix)
+		(in.Anchor).MarshalEasyJSON(out)
+	}
+	if (in.Metadata).IsDefined() {
+		const prefix string = ",\"metadata\":"
+		out.RawString(prefix)
+		(in.Metadata).MarshalEasyJSON(out)
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v CreateCommentReplyRequest) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel3(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v CreateCommentReplyRequest) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel3(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *CreateCommentReplyRequest) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel3(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *CreateCommentReplyRequest) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel3(l, v)
+}
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel4(in *jlexer.Lexer, out *CommentThreadResponse) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		switch key {
+		case "root":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				(out.Root).UnmarshalEasyJSON(in)
+			}
+		case "items":
+			if in.IsNull() {
+				in.Skip()
+				out.Items = nil
+			} else {
+				in.Delim('[')
+				if out.Items == nil {
+					if !in.IsDelim(']') {
+						out.Items = make([]CadComment, 0, 0)
+					} else {
+						out.Items = []CadComment{}
+					}
+				} else {
+					out.Items = (out.Items)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v10 CadComment
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						(v10).UnmarshalEasyJSON(in)
+					}
+					out.Items = append(out.Items, v10)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jwriter.Writer, in CommentThreadResponse) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"root\":"
+		out.RawString(prefix[1:])
+		(in.Root).MarshalEasyJSON(out)
+	}
+	{
+		const prefix string = ",\"items\":"
+		out.RawString(prefix)
+		if in.Items == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+			out.RawString("null")
+		} else {
+			out.RawByte('[')
+			for v11, v12 := range in.Items {
+				if v11 > 0 {
+					out.RawByte(',')
+				}
+				(v12).MarshalEasyJSON(out)
+			}
+			out.RawByte(']')
+		}
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v CommentThreadResponse) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel4(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v CommentThreadResponse) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel4(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *CommentThreadResponse) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel4(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *CommentThreadResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel4(l, v)
+}
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel5(in *jlexer.Lexer, out *CommentStatusHistoryResponse) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -509,13 +784,13 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel3(in *jle
 					out.Items = (out.Items)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v7 CommentStatusHistoryItem
+					var v13 CommentStatusHistoryItem
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						(v7).UnmarshalEasyJSON(in)
+						(v13).UnmarshalEasyJSON(in)
 					}
-					out.Items = append(out.Items, v7)
+					out.Items = append(out.Items, v13)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -530,7 +805,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel3(in *jle
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel3(out *jwriter.Writer, in CommentStatusHistoryResponse) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel5(out *jwriter.Writer, in CommentStatusHistoryResponse) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -541,11 +816,11 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel3(out *jw
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v8, v9 := range in.Items {
-				if v8 > 0 {
+			for v14, v15 := range in.Items {
+				if v14 > 0 {
 					out.RawByte(',')
 				}
-				(v9).MarshalEasyJSON(out)
+				(v15).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -556,27 +831,27 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel3(out *jw
 // MarshalJSON supports json.Marshaler interface
 func (v CommentStatusHistoryResponse) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel3(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel5(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v CommentStatusHistoryResponse) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel3(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel5(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *CommentStatusHistoryResponse) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel3(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel5(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *CommentStatusHistoryResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel3(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel5(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel4(in *jlexer.Lexer, out *CommentStatusHistoryItem) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(in *jlexer.Lexer, out *CommentStatusHistoryItem) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -658,7 +933,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel4(in *jle
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jwriter.Writer, in CommentStatusHistoryItem) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(out *jwriter.Writer, in CommentStatusHistoryItem) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -703,27 +978,27 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel4(out *jw
 // MarshalJSON supports json.Marshaler interface
 func (v CommentStatusHistoryItem) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel4(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v CommentStatusHistoryItem) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel4(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *CommentStatusHistoryItem) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel4(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *CommentStatusHistoryItem) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel4(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel5(in *jlexer.Lexer, out *CommentRealtimeEvent) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel7(in *jlexer.Lexer, out *CommentRealtimeEvent) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -783,7 +1058,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel5(in *jle
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel5(out *jwriter.Writer, in CommentRealtimeEvent) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel7(out *jwriter.Writer, in CommentRealtimeEvent) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -823,27 +1098,27 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel5(out *jw
 // MarshalJSON supports json.Marshaler interface
 func (v CommentRealtimeEvent) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel5(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel7(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v CommentRealtimeEvent) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel5(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel7(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *CommentRealtimeEvent) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel5(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel7(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *CommentRealtimeEvent) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel5(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel7(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(in *jlexer.Lexer, out *CommentListResponse) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(in *jlexer.Lexer, out *CommentListResponse) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -873,13 +1148,13 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(in *jle
 					out.Items = (out.Items)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v10 CadComment
+					var v16 CadComment
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						(v10).UnmarshalEasyJSON(in)
+						(v16).UnmarshalEasyJSON(in)
 					}
-					out.Items = append(out.Items, v10)
+					out.Items = append(out.Items, v16)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -912,7 +1187,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(in *jle
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(out *jwriter.Writer, in CommentListResponse) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(out *jwriter.Writer, in CommentListResponse) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -923,11 +1198,11 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(out *jw
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v11, v12 := range in.Items {
-				if v11 > 0 {
+			for v17, v18 := range in.Items {
+				if v17 > 0 {
 					out.RawByte(',')
 				}
-				(v12).MarshalEasyJSON(out)
+				(v18).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -953,27 +1228,27 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(out *jw
 // MarshalJSON supports json.Marshaler interface
 func (v CommentListResponse) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v CommentListResponse) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel6(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *CommentListResponse) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *CommentListResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel6(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel7(in *jlexer.Lexer, out *CommentListFilter) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel9(in *jlexer.Lexer, out *CommentListFilter) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -1029,17 +1304,59 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel7(in *jle
 			} else {
 				out.Status = string(in.String())
 			}
+		case "MessageType":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.MessageType = string(in.String())
+			}
+		case "SystemEventType":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.SystemEventType = string(in.String())
+			}
 		case "AssigneeUserID":
 			if in.IsNull() {
 				in.Skip()
 			} else {
 				out.AssigneeUserID = string(in.String())
 			}
+		case "ParentCommentID":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ParentCommentID = string(in.String())
+			}
+		case "ThreadRootID":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ThreadRootID = string(in.String())
+			}
+		case "RootsOnly":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.RootsOnly = bool(in.Bool())
+			}
 		case "IncludeDeleted":
 			if in.IsNull() {
 				in.Skip()
 			} else {
 				out.IncludeDeleted = bool(in.Bool())
+			}
+		case "IncludeSystem":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.IncludeSystem = bool(in.Bool())
+			}
+		case "MaxDepth":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.MaxDepth = int(in.Int())
 			}
 		case "Limit":
 			if in.IsNull() {
@@ -1063,7 +1380,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel7(in *jle
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel7(out *jwriter.Writer, in CommentListFilter) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel9(out *jwriter.Writer, in CommentListFilter) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -1103,14 +1420,49 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel7(out *jw
 		out.String(string(in.Status))
 	}
 	{
+		const prefix string = ",\"MessageType\":"
+		out.RawString(prefix)
+		out.String(string(in.MessageType))
+	}
+	{
+		const prefix string = ",\"SystemEventType\":"
+		out.RawString(prefix)
+		out.String(string(in.SystemEventType))
+	}
+	{
 		const prefix string = ",\"AssigneeUserID\":"
 		out.RawString(prefix)
 		out.String(string(in.AssigneeUserID))
 	}
 	{
+		const prefix string = ",\"ParentCommentID\":"
+		out.RawString(prefix)
+		out.String(string(in.ParentCommentID))
+	}
+	{
+		const prefix string = ",\"ThreadRootID\":"
+		out.RawString(prefix)
+		out.String(string(in.ThreadRootID))
+	}
+	{
+		const prefix string = ",\"RootsOnly\":"
+		out.RawString(prefix)
+		out.Bool(bool(in.RootsOnly))
+	}
+	{
 		const prefix string = ",\"IncludeDeleted\":"
 		out.RawString(prefix)
 		out.Bool(bool(in.IncludeDeleted))
+	}
+	{
+		const prefix string = ",\"IncludeSystem\":"
+		out.RawString(prefix)
+		out.Bool(bool(in.IncludeSystem))
+	}
+	{
+		const prefix string = ",\"MaxDepth\":"
+		out.RawString(prefix)
+		out.Int(int(in.MaxDepth))
 	}
 	{
 		const prefix string = ",\"Limit\":"
@@ -1128,27 +1480,27 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel7(out *jw
 // MarshalJSON supports json.Marshaler interface
 func (v CommentListFilter) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel7(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel9(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v CommentListFilter) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel7(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel9(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *CommentListFilter) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel7(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel9(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *CommentListFilter) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel7(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel9(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(in *jlexer.Lexer, out *CommentEditHistoryResponse) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(in *jlexer.Lexer, out *CommentEditHistoryResponse) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -1178,13 +1530,13 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(in *jle
 					out.Items = (out.Items)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v13 CommentEditHistoryItem
+					var v19 CommentEditHistoryItem
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						(v13).UnmarshalEasyJSON(in)
+						(v19).UnmarshalEasyJSON(in)
 					}
-					out.Items = append(out.Items, v13)
+					out.Items = append(out.Items, v19)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -1199,7 +1551,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(in *jle
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(out *jwriter.Writer, in CommentEditHistoryResponse) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(out *jwriter.Writer, in CommentEditHistoryResponse) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -1210,11 +1562,11 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(out *jw
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v14, v15 := range in.Items {
-				if v14 > 0 {
+			for v20, v21 := range in.Items {
+				if v20 > 0 {
 					out.RawByte(',')
 				}
-				(v15).MarshalEasyJSON(out)
+				(v21).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -1225,27 +1577,27 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(out *jw
 // MarshalJSON supports json.Marshaler interface
 func (v CommentEditHistoryResponse) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v CommentEditHistoryResponse) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel8(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *CommentEditHistoryResponse) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *CommentEditHistoryResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel8(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel9(in *jlexer.Lexer, out *CommentEditHistoryItem) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(in *jlexer.Lexer, out *CommentEditHistoryItem) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -1305,7 +1657,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel9(in *jle
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel9(out *jwriter.Writer, in CommentEditHistoryItem) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(out *jwriter.Writer, in CommentEditHistoryItem) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -1345,27 +1697,103 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel9(out *jw
 // MarshalJSON supports json.Marshaler interface
 func (v CommentEditHistoryItem) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel9(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v CommentEditHistoryItem) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel9(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *CommentEditHistoryItem) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel9(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *CommentEditHistoryItem) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel9(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(in *jlexer.Lexer, out *ChangeCommentStatusRequest) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel12(in *jlexer.Lexer, out *ChangeCommentStatusResponse) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		switch key {
+		case "comment":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				(out.Comment).UnmarshalEasyJSON(in)
+			}
+		case "systemMessage":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				(out.SystemMessage).UnmarshalEasyJSON(in)
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel12(out *jwriter.Writer, in ChangeCommentStatusResponse) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"comment\":"
+		out.RawString(prefix[1:])
+		(in.Comment).MarshalEasyJSON(out)
+	}
+	{
+		const prefix string = ",\"systemMessage\":"
+		out.RawString(prefix)
+		(in.SystemMessage).MarshalEasyJSON(out)
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v ChangeCommentStatusResponse) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel12(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v ChangeCommentStatusResponse) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel12(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *ChangeCommentStatusResponse) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel12(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *ChangeCommentStatusResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel12(l, v)
+}
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel13(in *jlexer.Lexer, out *ChangeCommentStatusRequest) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -1409,7 +1837,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(in *jl
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(out *jwriter.Writer, in ChangeCommentStatusRequest) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel13(out *jwriter.Writer, in ChangeCommentStatusRequest) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -1429,27 +1857,103 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(out *j
 // MarshalJSON supports json.Marshaler interface
 func (v ChangeCommentStatusRequest) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel13(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v ChangeCommentStatusRequest) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel10(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel13(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *ChangeCommentStatusRequest) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel13(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *ChangeCommentStatusRequest) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel10(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel13(l, v)
 }
-func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(in *jlexer.Lexer, out *CadComment) {
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel14(in *jlexer.Lexer, out *ChangeCommentAssigneesResponse) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		switch key {
+		case "comment":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				(out.Comment).UnmarshalEasyJSON(in)
+			}
+		case "systemMessage":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				(out.SystemMessage).UnmarshalEasyJSON(in)
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel14(out *jwriter.Writer, in ChangeCommentAssigneesResponse) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"comment\":"
+		out.RawString(prefix[1:])
+		(in.Comment).MarshalEasyJSON(out)
+	}
+	{
+		const prefix string = ",\"systemMessage\":"
+		out.RawString(prefix)
+		(in.SystemMessage).MarshalEasyJSON(out)
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v ChangeCommentAssigneesResponse) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel14(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v ChangeCommentAssigneesResponse) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel14(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *ChangeCommentAssigneesResponse) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel14(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *ChangeCommentAssigneesResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel14(l, v)
+}
+func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel15(in *jlexer.Lexer, out *CadComment) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -1503,6 +2007,64 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(in *jl
 					*out.PartID = string(in.String())
 				}
 			}
+		case "parentCommentId":
+			if in.IsNull() {
+				in.Skip()
+				out.ParentCommentID = nil
+			} else {
+				if out.ParentCommentID == nil {
+					out.ParentCommentID = new(string)
+				}
+				if in.IsNull() {
+					in.Skip()
+				} else {
+					*out.ParentCommentID = string(in.String())
+				}
+			}
+		case "threadRootId":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ThreadRootID = string(in.String())
+			}
+		case "replyDepth":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ReplyDepth = int(in.Int())
+			}
+		case "replyCount":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.ReplyCount = int(in.Int())
+			}
+		case "messageType":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				out.MessageType = string(in.String())
+			}
+		case "systemEventType":
+			if in.IsNull() {
+				in.Skip()
+				out.SystemEventType = nil
+			} else {
+				if out.SystemEventType == nil {
+					out.SystemEventType = new(string)
+				}
+				if in.IsNull() {
+					in.Skip()
+				} else {
+					*out.SystemEventType = string(in.String())
+				}
+			}
+		case "eventPayload":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				(out.EventPayload).UnmarshalEasyJSON(in)
+			}
 		case "targetType":
 			if in.IsNull() {
 				in.Skip()
@@ -1549,13 +2111,13 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(in *jl
 					out.AssigneeUserIDs = (out.AssigneeUserIDs)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v16 string
+					var v22 string
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						v16 = string(in.String())
+						v22 = string(in.String())
 					}
-					out.AssigneeUserIDs = append(out.AssigneeUserIDs, v16)
+					out.AssigneeUserIDs = append(out.AssigneeUserIDs, v22)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -1642,7 +2204,7 @@ func easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(in *jl
 		in.Consumed()
 	}
 }
-func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(out *jwriter.Writer, in CadComment) {
+func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel15(out *jwriter.Writer, in CadComment) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -1665,6 +2227,41 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(out *j
 		const prefix string = ",\"partId\":"
 		out.RawString(prefix)
 		out.String(string(*in.PartID))
+	}
+	if in.ParentCommentID != nil {
+		const prefix string = ",\"parentCommentId\":"
+		out.RawString(prefix)
+		out.String(string(*in.ParentCommentID))
+	}
+	{
+		const prefix string = ",\"threadRootId\":"
+		out.RawString(prefix)
+		out.String(string(in.ThreadRootID))
+	}
+	{
+		const prefix string = ",\"replyDepth\":"
+		out.RawString(prefix)
+		out.Int(int(in.ReplyDepth))
+	}
+	if in.ReplyCount != 0 {
+		const prefix string = ",\"replyCount\":"
+		out.RawString(prefix)
+		out.Int(int(in.ReplyCount))
+	}
+	{
+		const prefix string = ",\"messageType\":"
+		out.RawString(prefix)
+		out.String(string(in.MessageType))
+	}
+	if in.SystemEventType != nil {
+		const prefix string = ",\"systemEventType\":"
+		out.RawString(prefix)
+		out.String(string(*in.SystemEventType))
+	}
+	{
+		const prefix string = ",\"eventPayload\":"
+		out.RawString(prefix)
+		(in.EventPayload).MarshalEasyJSON(out)
 	}
 	{
 		const prefix string = ",\"targetType\":"
@@ -1698,11 +2295,11 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(out *j
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v17, v18 := range in.AssigneeUserIDs {
-				if v17 > 0 {
+			for v23, v24 := range in.AssigneeUserIDs {
+				if v23 > 0 {
 					out.RawByte(',')
 				}
-				out.String(string(v18))
+				out.String(string(v24))
 			}
 			out.RawByte(']')
 		}
@@ -1753,23 +2350,23 @@ func easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(out *j
 // MarshalJSON supports json.Marshaler interface
 func (v CadComment) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(&w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel15(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v CadComment) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel11(w, v)
+	easyjsonE9abebc9EncodeGithubComDnonakolesaxCccadLocksInternalModel15(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *CadComment) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(&r, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel15(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *CadComment) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel11(l, v)
+	easyjsonE9abebc9DecodeGithubComDnonakolesaxCccadLocksInternalModel15(l, v)
 }

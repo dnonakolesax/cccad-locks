@@ -27,10 +27,12 @@ type Repository interface {
 	Get(ctx context.Context, commentID string, userID string) (*model.CadComment, error)
 	DocumentWorkspace(ctx context.Context, documentID string, userID string) (string, error)
 	Create(ctx context.Context, workspaceID string, request *model.CreateCommentRequest, actorUserID string) (*model.CadComment, error)
+	ListReplies(ctx context.Context, commentID string, filter model.CommentListFilter, userID string) (*model.CommentListResponse, error)
+	Thread(ctx context.Context, commentID string, filter model.CommentListFilter, userID string) (*model.CommentThreadResponse, error)
 	Update(ctx context.Context, commentID string, request *model.UpdateCommentRequest, actorUserID string) (*model.CadComment, error)
 	Delete(ctx context.Context, commentID string, actorUserID string) error
-	ChangeStatus(ctx context.Context, commentID string, request *model.ChangeCommentStatusRequest, actorUserID string) (*model.CadComment, error)
-	ReplaceAssignees(ctx context.Context, commentID string, request *model.ReplaceCommentAssigneesRequest, actorUserID string) (*model.CadComment, error)
+	ChangeStatus(ctx context.Context, commentID string, request *model.ChangeCommentStatusRequest, actorUserID string) (*model.ChangeCommentStatusResponse, error)
+	ReplaceAssignees(ctx context.Context, commentID string, request *model.ReplaceCommentAssigneesRequest, actorUserID string) (*model.ChangeCommentAssigneesResponse, error)
 	StatusHistory(ctx context.Context, commentID string, userID string) ([]model.CommentStatusHistoryItem, error)
 	EditHistory(ctx context.Context, commentID string, userID string) ([]model.CommentEditHistoryItem, error)
 }
@@ -60,7 +62,11 @@ func (s *Service) List(ctx context.Context, filter model.CommentListFilter) (*mo
 	filter.TargetID = strings.TrimSpace(filter.TargetID)
 	filter.Kind = strings.TrimSpace(filter.Kind)
 	filter.Status = strings.TrimSpace(filter.Status)
+	filter.MessageType = strings.TrimSpace(filter.MessageType)
+	filter.SystemEventType = strings.TrimSpace(filter.SystemEventType)
 	filter.AssigneeUserID = strings.TrimSpace(filter.AssigneeUserID)
+	filter.ParentCommentID = strings.TrimSpace(filter.ParentCommentID)
+	filter.ThreadRootID = strings.TrimSpace(filter.ThreadRootID)
 	if filter.Limit <= 0 {
 		filter.Limit = defaultLimit
 	}
@@ -78,6 +84,12 @@ func (s *Service) List(ctx context.Context, filter model.CommentListFilter) (*mo
 	}
 	if filter.Status != "" && !isValidStatus(filter.Status) {
 		return nil, errors.New("status is invalid")
+	}
+	if filter.MessageType != "" && !isValidMessageType(filter.MessageType) {
+		return nil, errors.New("messageType is invalid")
+	}
+	if filter.SystemEventType != "" && !isValidSystemEventType(filter.SystemEventType) {
+		return nil, errors.New("systemEventType is invalid")
 	}
 
 	userID, ok := auth.UserIDFromContext(ctx)
@@ -98,6 +110,50 @@ func (s *Service) Get(ctx context.Context, commentID string) (*model.CadComment,
 		return nil, errors.New("authenticated user id is required")
 	}
 	return s.repo.Get(ctx, commentID, userID)
+}
+
+func (s *Service) ListReplies(
+	ctx context.Context,
+	commentID string,
+	filter model.CommentListFilter,
+) (*model.CommentListResponse, error) {
+	commentID = strings.TrimSpace(commentID)
+	if commentID == "" {
+		return nil, errors.New("commentID is required")
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = defaultLimit
+	}
+	if filter.Limit > maxLimit {
+		filter.Limit = maxLimit
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authenticated user id is required")
+	}
+	return s.repo.ListReplies(ctx, commentID, filter, userID)
+}
+
+func (s *Service) Thread(
+	ctx context.Context,
+	commentID string,
+	filter model.CommentListFilter,
+) (*model.CommentThreadResponse, error) {
+	commentID = strings.TrimSpace(commentID)
+	if commentID == "" {
+		return nil, errors.New("commentID is required")
+	}
+	if filter.MaxDepth <= 0 || filter.MaxDepth > 50 {
+		filter.MaxDepth = 50
+	}
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authenticated user id is required")
+	}
+	return s.repo.Thread(ctx, commentID, filter, userID)
 }
 
 type Subscription struct {
@@ -178,6 +234,7 @@ func (s *Service) Create(
 	}
 	trimOptionalString(&request.SketchID)
 	trimOptionalString(&request.PartID)
+	trimOptionalString(&request.ParentCommentID)
 	request.TargetType = strings.TrimSpace(request.TargetType)
 	request.TargetID = strings.TrimSpace(request.TargetID)
 	request.Body = strings.TrimSpace(request.Body)
@@ -189,11 +246,17 @@ func (s *Service) Create(
 	if request.Status == "" {
 		request.Status = defaultStatus
 	}
-	if !isValidTargetType(request.TargetType) {
-		return nil, errors.New("targetType is invalid")
-	}
-	if request.TargetID == "" {
-		return nil, errors.New("targetId is required")
+	if request.ParentCommentID == nil {
+		if !isValidTargetType(request.TargetType) {
+			return nil, errors.New("targetType is invalid")
+		}
+		if request.TargetID == "" {
+			return nil, errors.New("targetId is required")
+		}
+	} else {
+		if request.TargetType != "" && !isValidTargetType(request.TargetType) {
+			return nil, errors.New("targetType is invalid")
+		}
 	}
 	if !isValidKind(request.Kind) {
 		return nil, errors.New("kind is invalid")
@@ -294,7 +357,7 @@ func (s *Service) ChangeStatus(
 	ctx context.Context,
 	commentID string,
 	request *model.ChangeCommentStatusRequest,
-) (*model.CadComment, error) {
+) (*model.ChangeCommentStatusResponse, error) {
 	commentID = strings.TrimSpace(commentID)
 	if commentID == "" {
 		return nil, errors.New("commentID is required")
@@ -318,20 +381,20 @@ func (s *Service) ChangeStatus(
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
 	}
-	oldComment, _ := s.repo.Get(ctx, commentID, userID)
-	comment, err := s.repo.ChangeStatus(ctx, commentID, request, userID)
+	response, err := s.repo.ChangeStatus(ctx, commentID, request, userID)
 	if err != nil {
 		return nil, err
 	}
-	s.publishCommentStatusChanged(userID, oldComment, comment, request.Reason)
-	return comment, nil
+	s.publishCommentStatusChanged(userID, response)
+	s.publishSystemMessageCreated(userID, &response.SystemMessage)
+	return response, nil
 }
 
 func (s *Service) ReplaceAssignees(
 	ctx context.Context,
 	commentID string,
 	request *model.ReplaceCommentAssigneesRequest,
-) (*model.CadComment, error) {
+) (*model.ChangeCommentAssigneesResponse, error) {
 	commentID = strings.TrimSpace(commentID)
 	if commentID == "" {
 		return nil, errors.New("commentID is required")
@@ -344,12 +407,13 @@ func (s *Service) ReplaceAssignees(
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
 	}
-	comment, err := s.repo.ReplaceAssignees(ctx, commentID, request, userID)
+	response, err := s.repo.ReplaceAssignees(ctx, commentID, request, userID)
 	if err != nil {
 		return nil, err
 	}
-	s.publishCommentAssigneesChanged(userID, comment)
-	return comment, nil
+	s.publishCommentAssigneesChanged(userID, response)
+	s.publishSystemMessageCreated(userID, &response.SystemMessage)
+	return response, nil
 }
 
 func (s *Service) publishCommentCreated(actorUserID string, comment *model.CadComment) {
@@ -371,41 +435,50 @@ func (s *Service) publishCommentDeleted(actorUserID string, comment *model.CadCo
 		return
 	}
 	s.publishCommentEvent(actorUserID, comment, "comment.deleted", map[string]any{
-		"commentId": comment.ID,
-		"deletedAt": time.Now().UTC().Format(time.RFC3339Nano),
+		"commentId":    comment.ID,
+		"threadRootId": comment.ThreadRootID,
+		"deletedAt":    time.Now().UTC().Format(time.RFC3339Nano),
 	})
 }
 
-func (s *Service) publishCommentStatusChanged(
-	actorUserID string,
-	oldComment *model.CadComment,
-	comment *model.CadComment,
-	reason *string,
-) {
-	if comment == nil {
+func (s *Service) publishSystemMessageCreated(actorUserID string, message *model.CadComment) {
+	s.publishCommentEvent(actorUserID, message, "comment.systemMessageCreated", map[string]any{"message": message})
+}
+
+func (s *Service) publishCommentStatusChanged(actorUserID string, response *model.ChangeCommentStatusResponse) {
+	if response == nil {
 		return
 	}
 	var oldStatus *string
-	if oldComment != nil {
-		oldStatus = &oldComment.Status
+	if len(response.SystemMessage.EventPayload) > 0 {
+		var payload map[string]any
+		if json.Unmarshal(response.SystemMessage.EventPayload, &payload) == nil {
+			if value, ok := payload["oldStatus"].(string); ok {
+				oldStatus = &value
+			}
+		}
 	}
-	s.publishCommentEvent(actorUserID, comment, "comment.statusChanged", map[string]any{
-		"commentId":       comment.ID,
+	s.publishCommentEvent(actorUserID, &response.Comment, "comment.statusChanged", map[string]any{
+		"commentId":       response.Comment.ID,
+		"threadRootId":    response.Comment.ThreadRootID,
 		"oldStatus":       oldStatus,
-		"newStatus":       comment.Status,
+		"newStatus":       response.Comment.Status,
 		"changedByUserId": actorUserID,
 		"changedAt":       time.Now().UTC().Format(time.RFC3339Nano),
-		"reason":          reason,
+		"reason":          stringValueFromRaw(response.SystemMessage.EventPayload, "reason"),
+		"systemMessage":   response.SystemMessage,
 	})
 }
 
-func (s *Service) publishCommentAssigneesChanged(actorUserID string, comment *model.CadComment) {
-	if comment == nil {
+func (s *Service) publishCommentAssigneesChanged(actorUserID string, response *model.ChangeCommentAssigneesResponse) {
+	if response == nil {
 		return
 	}
-	s.publishCommentEvent(actorUserID, comment, "comment.assigneesChanged", map[string]any{
-		"commentId":       comment.ID,
-		"assigneeUserIds": comment.AssigneeUserIDs,
+	s.publishCommentEvent(actorUserID, &response.Comment, "comment.assigneesChanged", map[string]any{
+		"commentId":       response.Comment.ID,
+		"threadRootId":    response.Comment.ThreadRootID,
+		"assigneeUserIds": response.Comment.AssigneeUserIDs,
+		"systemMessage":   response.SystemMessage,
 	})
 }
 
@@ -517,6 +590,21 @@ func trimOptionalString(value **string) {
 	*value = &trimmed
 }
 
+func stringValueFromRaw(raw easyjson.RawMessage, key string) *string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var payload map[string]any
+	if json.Unmarshal(raw, &payload) != nil {
+		return nil
+	}
+	value, ok := payload[key].(string)
+	if !ok {
+		return nil
+	}
+	return &value
+}
+
 func newID() string {
 	var raw [16]byte
 	if _, err := rand.Read(raw[:]); err != nil {
@@ -545,6 +633,20 @@ func isValidKind(kind string) bool {
 func isValidStatus(status string) bool {
 	switch status {
 	case "open", "in_progress", "resolved", "reopened", "closed", "rejected":
+		return true
+	default:
+		return false
+	}
+}
+
+func isValidMessageType(messageType string) bool {
+	return messageType == "user" || messageType == "system"
+}
+
+func isValidSystemEventType(eventType string) bool {
+	switch eventType {
+	case "comment_created", "reply_created", "body_edited", "status_changed",
+		"assignees_changed", "comment_deleted", "comment_restored":
 		return true
 	default:
 		return false

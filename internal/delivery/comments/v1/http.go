@@ -26,18 +26,20 @@ type CommentsService interface {
 	Get(ctx context.Context, commentID string) (*model.CadComment, error)
 	SubscribeDocument(ctx context.Context, documentID string) (model.CommentSubscription, error)
 	Create(ctx context.Context, workspaceID string, request *model.CreateCommentRequest) (*model.CadComment, error)
+	ListReplies(ctx context.Context, commentID string, filter model.CommentListFilter) (*model.CommentListResponse, error)
+	Thread(ctx context.Context, commentID string, filter model.CommentListFilter) (*model.CommentThreadResponse, error)
 	Update(ctx context.Context, commentID string, request *model.UpdateCommentRequest) (*model.CadComment, error)
 	Delete(ctx context.Context, commentID string) error
 	ChangeStatus(
 		ctx context.Context,
 		commentID string,
 		request *model.ChangeCommentStatusRequest,
-	) (*model.CadComment, error)
+	) (*model.ChangeCommentStatusResponse, error)
 	ReplaceAssignees(
 		ctx context.Context,
 		commentID string,
 		request *model.ReplaceCommentAssigneesRequest,
-	) (*model.CadComment, error)
+	) (*model.ChangeCommentAssigneesResponse, error)
 	StatusHistory(ctx context.Context, commentID string) ([]model.CommentStatusHistoryItem, error)
 	EditHistory(ctx context.Context, commentID string) ([]model.CommentEditHistoryItem, error)
 }
@@ -55,9 +57,22 @@ func (h *CommentsHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /workspaces/{workspaceId}/comments", h.Create)
 	mux.HandleFunc("GET /realtime/ws/documents/{documentId}/comments", h.DocumentCommentsWebSocket)
 	mux.HandleFunc("GET /api/v1/sketches/realtime/ws/documents/{documentId}/comments", h.DocumentCommentsWebSocket)
+	mux.HandleFunc("GET /comments/{commentId}", h.Get)
+	mux.HandleFunc("PATCH /comments/{commentId}", h.Update)
+	mux.HandleFunc("DELETE /comments/{commentId}", h.Delete)
+	mux.HandleFunc("GET /comments/{commentId}/replies", h.ListReplies)
+	mux.HandleFunc("POST /comments/{commentId}/replies", h.CreateReply)
+	mux.HandleFunc("GET /comments/{commentId}/thread", h.Thread)
+	mux.HandleFunc("POST /comments/{commentId}/status", h.ChangeStatus)
+	mux.HandleFunc("PUT /comments/{commentId}/assignees", h.ReplaceAssignees)
+	mux.HandleFunc("GET /comments/{commentId}/status-history", h.StatusHistory)
+	mux.HandleFunc("GET /comments/{commentId}/edit-history", h.EditHistory)
 	mux.HandleFunc("GET /wsc/comments/{commentId}", h.Get)
 	mux.HandleFunc("PATCH /wsc/comments/{commentId}", h.Update)
 	mux.HandleFunc("DELETE /wsc/comments/{commentId}", h.Delete)
+	mux.HandleFunc("GET /wsc/comments/{commentId}/replies", h.ListReplies)
+	mux.HandleFunc("POST /wsc/comments/{commentId}/replies", h.CreateReply)
+	mux.HandleFunc("GET /wsc/comments/{commentId}/thread", h.Thread)
 	mux.HandleFunc("POST /wsc/comments/{commentId}/status", h.ChangeStatus)
 	mux.HandleFunc("PUT /wsc/comments/{commentId}/assignees", h.ReplaceAssignees)
 	mux.HandleFunc("GET /wsc/comments/{commentId}/status-history", h.StatusHistory)
@@ -72,17 +87,22 @@ func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	query := r.URL.Query()
 	filter := model.CommentListFilter{
-		WorkspaceID:    workspaceID,
-		SketchID:       strings.TrimSpace(query.Get("sketchId")),
-		PartID:         strings.TrimSpace(query.Get("partId")),
-		TargetType:     strings.TrimSpace(query.Get("targetType")),
-		TargetID:       strings.TrimSpace(query.Get("targetId")),
-		Kind:           strings.TrimSpace(query.Get("kind")),
-		Status:         strings.TrimSpace(query.Get("status")),
-		AssigneeUserID: strings.TrimSpace(query.Get("assigneeUserId")),
-		IncludeDeleted: query.Get("includeDeleted") == "true",
-		Limit:          parseIntDefault(query.Get("limit"), 50),
-		Offset:         parseIntDefault(query.Get("offset"), 0),
+		WorkspaceID:     workspaceID,
+		SketchID:        strings.TrimSpace(query.Get("sketchId")),
+		PartID:          strings.TrimSpace(query.Get("partId")),
+		TargetType:      strings.TrimSpace(query.Get("targetType")),
+		TargetID:        strings.TrimSpace(query.Get("targetId")),
+		Kind:            strings.TrimSpace(query.Get("kind")),
+		Status:          strings.TrimSpace(query.Get("status")),
+		MessageType:     strings.TrimSpace(query.Get("messageType")),
+		SystemEventType: strings.TrimSpace(query.Get("systemEventType")),
+		AssigneeUserID:  strings.TrimSpace(query.Get("assigneeUserId")),
+		ParentCommentID: strings.TrimSpace(query.Get("parentCommentId")),
+		ThreadRootID:    strings.TrimSpace(query.Get("threadRootId")),
+		RootsOnly:       query.Get("rootsOnly") == "true",
+		IncludeDeleted:  query.Get("includeDeleted") == "true",
+		Limit:           parseIntDefault(query.Get("limit"), 50),
+		Offset:          parseIntDefault(query.Get("offset"), 0),
 	}
 	if filter.SketchID != "" && !isValidUUID(filter.SketchID) {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
@@ -90,6 +110,14 @@ func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	if filter.PartID != "" && !isValidUUID(filter.PartID) {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "partId must be a valid uuid")
+		return
+	}
+	if filter.ParentCommentID != "" && !isValidUUID(filter.ParentCommentID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "parentCommentId must be a valid uuid")
+		return
+	}
+	if filter.ThreadRootID != "" && !isValidUUID(filter.ThreadRootID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "threadRootId must be a valid uuid")
 		return
 	}
 
@@ -120,6 +148,10 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
 		return
 	}
+	if request.ParentCommentID != nil && !isValidUUID(*request.ParentCommentID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "parentCommentId must be a valid uuid")
+		return
+	}
 
 	comment, err := h.service.Create(r.Context(), workspaceID, &request)
 	if err != nil {
@@ -127,6 +159,74 @@ func (h *CommentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, comment)
+}
+
+func (h *CommentsHandler) ListReplies(w http.ResponseWriter, r *http.Request) {
+	commentID := r.PathValue("commentId")
+	if !validateUUIDParam(w, "commentId", commentID) {
+		return
+	}
+	query := r.URL.Query()
+	filter := model.CommentListFilter{
+		IncludeSystem:  query.Get("includeSystem") != "false",
+		IncludeDeleted: query.Get("includeDeleted") == "true",
+		Limit:          parseIntDefault(query.Get("limit"), 50),
+		Offset:         parseIntDefault(query.Get("offset"), 0),
+	}
+	response, err := h.service.ListReplies(r.Context(), commentID, filter)
+	if err != nil {
+		writeError(w, statusFromError(err), codeFromStatus(statusFromError(err)), err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h *CommentsHandler) CreateReply(w http.ResponseWriter, r *http.Request) {
+	commentID := r.PathValue("commentId")
+	if !validateUUIDParam(w, "commentId", commentID) {
+		return
+	}
+	var request model.CreateCommentReplyRequest
+	if err := readJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", err.Error())
+		return
+	}
+	parent, err := h.service.Get(r.Context(), commentID)
+	if err != nil {
+		writeError(w, statusFromError(err), codeFromStatus(statusFromError(err)), err.Error())
+		return
+	}
+	createRequest := model.CreateCommentRequest{
+		ParentCommentID: &commentID,
+		Body:            request.Body,
+		AssigneeUserIDs: request.AssigneeUserIDs,
+		Anchor:          request.Anchor,
+		Metadata:        request.Metadata,
+	}
+	comment, err := h.service.Create(r.Context(), parent.WorkspaceID, &createRequest)
+	if err != nil {
+		writeError(w, statusFromError(err), codeFromStatus(statusFromError(err)), err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, comment)
+}
+
+func (h *CommentsHandler) Thread(w http.ResponseWriter, r *http.Request) {
+	commentID := r.PathValue("commentId")
+	if !validateUUIDParam(w, "commentId", commentID) {
+		return
+	}
+	query := r.URL.Query()
+	filter := model.CommentListFilter{
+		IncludeSystem: query.Get("includeSystem") != "false",
+		MaxDepth:      parseIntDefault(query.Get("maxDepth"), 50),
+	}
+	response, err := h.service.Thread(r.Context(), commentID, filter)
+	if err != nil {
+		writeError(w, statusFromError(err), codeFromStatus(statusFromError(err)), err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (h *CommentsHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -182,12 +282,12 @@ func (h *CommentsHandler) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", err.Error())
 		return
 	}
-	comment, err := h.service.ChangeStatus(r.Context(), commentID, &request)
+	response, err := h.service.ChangeStatus(r.Context(), commentID, &request)
 	if err != nil {
 		writeError(w, statusFromError(err), codeFromStatus(statusFromError(err)), err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, comment)
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (h *CommentsHandler) ReplaceAssignees(w http.ResponseWriter, r *http.Request) {
@@ -200,12 +300,12 @@ func (h *CommentsHandler) ReplaceAssignees(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", err.Error())
 		return
 	}
-	comment, err := h.service.ReplaceAssignees(r.Context(), commentID, &request)
+	response, err := h.service.ReplaceAssignees(r.Context(), commentID, &request)
 	if err != nil {
 		writeError(w, statusFromError(err), codeFromStatus(statusFromError(err)), err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, comment)
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (h *CommentsHandler) StatusHistory(w http.ResponseWriter, r *http.Request) {

@@ -11,6 +11,13 @@ type CadComment struct {
 	WorkspaceID     string              `json:"workspaceId"`
 	SketchID        *string             `json:"sketchId,omitempty"`
 	PartID          *string             `json:"partId,omitempty"`
+	ParentCommentID *string             `json:"parentCommentId,omitempty"`
+	ThreadRootID    string              `json:"threadRootId"`
+	ReplyDepth      int                 `json:"replyDepth"`
+	ReplyCount      int                 `json:"replyCount,omitempty"`
+	MessageType     string              `json:"messageType"`
+	SystemEventType *string             `json:"systemEventType,omitempty"`
+	EventPayload    easyjson.RawMessage `json:"eventPayload"`
 	TargetType      string              `json:"targetType"`
 	TargetID        string              `json:"targetId"`
 	Kind            string              `json:"kind"`
@@ -29,10 +36,11 @@ type CadComment struct {
 
 //easyjson:json
 type CreateCommentRequest struct {
+	ParentCommentID *string             `json:"parentCommentId,omitempty"`
 	SketchID        *string             `json:"sketchId,omitempty"`
 	PartID          *string             `json:"partId,omitempty"`
-	TargetType      string              `json:"targetType"`
-	TargetID        string              `json:"targetId"`
+	TargetType      string              `json:"targetType,omitempty"`
+	TargetID        string              `json:"targetId,omitempty"`
 	Kind            string              `json:"kind,omitempty"`
 	Body            string              `json:"body"`
 	AssigneeUserIDs []string            `json:"assigneeUserIds,omitempty"`
@@ -62,6 +70,14 @@ type ReplaceCommentAssigneesRequest struct {
 }
 
 //easyjson:json
+type CreateCommentReplyRequest struct {
+	Body            string              `json:"body"`
+	AssigneeUserIDs []string            `json:"assigneeUserIds,omitempty"`
+	Anchor          easyjson.RawMessage `json:"anchor,omitempty"`
+	Metadata        easyjson.RawMessage `json:"metadata,omitempty"`
+}
+
+//easyjson:json
 type CommentListResponse struct {
 	Items  []CadComment `json:"items"`
 	Limit  int          `json:"limit"`
@@ -70,17 +86,42 @@ type CommentListResponse struct {
 }
 
 type CommentListFilter struct {
-	WorkspaceID    string
-	SketchID       string
-	PartID         string
-	TargetType     string
-	TargetID       string
-	Kind           string
-	Status         string
-	AssigneeUserID string
-	IncludeDeleted bool
-	Limit          int
-	Offset         int
+	WorkspaceID     string
+	SketchID        string
+	PartID          string
+	TargetType      string
+	TargetID        string
+	Kind            string
+	Status          string
+	MessageType     string
+	SystemEventType string
+	AssigneeUserID  string
+	ParentCommentID string
+	ThreadRootID    string
+	RootsOnly       bool
+	IncludeDeleted  bool
+	IncludeSystem   bool
+	MaxDepth        int
+	Limit           int
+	Offset          int
+}
+
+//easyjson:json
+type ChangeCommentStatusResponse struct {
+	Comment       CadComment `json:"comment"`
+	SystemMessage CadComment `json:"systemMessage"`
+}
+
+//easyjson:json
+type ChangeCommentAssigneesResponse struct {
+	Comment       CadComment `json:"comment"`
+	SystemMessage CadComment `json:"systemMessage"`
+}
+
+//easyjson:json
+type CommentThreadResponse struct {
+	Root  CadComment   `json:"root"`
+	Items []CadComment `json:"items"`
 }
 
 //easyjson:json

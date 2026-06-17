@@ -1,8 +1,9 @@
+
 asyncapi: 2.6.0
 info:
   title: cccAD Comments Realtime API Add-on
-  version: 0.2.0
-  description: WebSocket events for realtime propagation of comment/task changes, adapted to workspace-scoped schema.
+  version: 0.4.0
+  description: WebSocket events for threaded comments/tasks and client-visible system messages.
 servers:
   production:
     url: /ws
@@ -14,19 +15,20 @@ servers:
 defaultContentType: application/json
 
 channels:
-  /api/v1/sketches/realtime/ws/documents/{documentId}/comments:
+  workspaces/{workspaceId}/comments:
     parameters:
-      documentId:
-        description: Document/sketch UUID whose comment events are streamed.
+      workspaceId:
+        description: Workspace UUID.
         schema:
           type: string
           format: uuid
     subscribe:
-      summary: Receive realtime comment/task events for an opened document.
-      operationId: subscribeDocumentCommentEvents
+      summary: Receive realtime comment/task/system-message events for an opened workspace.
+      operationId: subscribeWorkspaceCommentEvents
       message:
         oneOf:
           - $ref: '#/components/messages/CommentCreated'
+          - $ref: '#/components/messages/CommentSystemMessageCreated'
           - $ref: '#/components/messages/CommentUpdated'
           - $ref: '#/components/messages/CommentDeleted'
           - $ref: '#/components/messages/CommentStatusChanged'
@@ -38,6 +40,10 @@ components:
       name: comment.created
       payload:
         $ref: '#/components/schemas/CommentCreatedEvent'
+    CommentSystemMessageCreated:
+      name: comment.systemMessageCreated
+      payload:
+        $ref: '#/components/schemas/CommentSystemMessageCreatedEvent'
     CommentUpdated:
       name: comment.updated
       payload:
@@ -58,26 +64,28 @@ components:
   schemas:
     EventEnvelopeBase:
       type: object
-      required:
-        - type
-        - eventId
-        - workspaceId
-        - occurredAt
-        - actorUserId
+      required: [type, eventId, workspaceId, occurredAt, actorUserId]
       properties:
-        type:
-          type: string
-        eventId:
-          type: string
-          format: uuid
-        workspaceId:
-          type: string
-          format: uuid
-        occurredAt:
-          type: string
-          format: date-time
-        actorUserId:
-          type: string
+        type: { type: string }
+        eventId: { type: string, format: uuid }
+        workspaceId: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        actorUserId: { type: string }
+
+    CommentMessageType:
+      type: string
+      enum: [user, system]
+
+    CommentSystemEventType:
+      type: string
+      enum:
+        - comment_created
+        - reply_created
+        - body_edited
+        - status_changed
+        - assignees_changed
+        - comment_deleted
+        - comment_restored
 
     CommentTargetType:
       type: string
@@ -116,6 +124,9 @@ components:
       required:
         - id
         - workspaceId
+        - messageType
+        - threadRootId
+        - replyDepth
         - targetType
         - targetId
         - kind
@@ -123,64 +134,43 @@ components:
         - authorUserId
         - assigneeUserIds
         - body
+        - eventPayload
         - metadata
         - createdAt
         - updatedAt
       properties:
-        id:
-          type: string
-          format: uuid
-        workspaceId:
-          type: string
-          format: uuid
-        sketchId:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        workspaceId: { type: string, format: uuid }
+        sketchId: { type: string, format: uuid, nullable: true }
+        partId: { type: string, format: uuid, nullable: true }
+        parentCommentId: { type: string, format: uuid, nullable: true }
+        threadRootId: { type: string, format: uuid }
+        replyDepth: { type: integer, minimum: 0, maximum: 50 }
+        messageType: { $ref: '#/components/schemas/CommentMessageType' }
+        systemEventType:
+          allOf:
+            - $ref: '#/components/schemas/CommentSystemEventType'
           nullable: true
-        partId:
-          type: string
-          format: uuid
-          nullable: true
-        targetType:
-          $ref: '#/components/schemas/CommentTargetType'
-        targetId:
-          type: string
-        kind:
-          $ref: '#/components/schemas/CommentKind'
-        status:
-          $ref: '#/components/schemas/CommentStatus'
-        authorUserId:
-          type: string
+        eventPayload: { $ref: '#/components/schemas/JsonObject' }
+        targetType: { $ref: '#/components/schemas/CommentTargetType' }
+        targetId: { type: string }
+        kind: { $ref: '#/components/schemas/CommentKind' }
+        status: { $ref: '#/components/schemas/CommentStatus' }
+        authorUserId: { type: string }
         assigneeUserIds:
           type: array
-          items:
-            type: string
-        body:
-          type: string
-        sketchVersion:
-          type: integer
-          format: int64
-          nullable: true
-        partVersion:
-          type: integer
-          format: int64
-          nullable: true
+          items: { type: string }
+        body: { type: string }
+        sketchVersion: { type: integer, format: int64, nullable: true }
+        partVersion: { type: integer, format: int64, nullable: true }
         anchor:
           allOf:
             - $ref: '#/components/schemas/JsonObject'
           nullable: true
-        metadata:
-          $ref: '#/components/schemas/JsonObject'
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        deletedAt:
-          type: string
-          format: date-time
-          nullable: true
+        metadata: { $ref: '#/components/schemas/JsonObject' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
 
     CommentCreatedEvent:
       allOf:
@@ -195,8 +185,22 @@ components:
               type: object
               required: [comment]
               properties:
-                comment:
-                  $ref: '#/components/schemas/CadComment'
+                comment: { $ref: '#/components/schemas/CadComment' }
+
+    CommentSystemMessageCreatedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelopeBase'
+        - type: object
+          required: [type, payload]
+          properties:
+            type:
+              type: string
+              enum: [comment.systemMessageCreated]
+            payload:
+              type: object
+              required: [message]
+              properties:
+                message: { $ref: '#/components/schemas/CadComment' }
 
     CommentUpdatedEvent:
       allOf:
@@ -211,11 +215,8 @@ components:
               type: object
               required: [commentId, comment]
               properties:
-                commentId:
-                  type: string
-                  format: uuid
-                comment:
-                  $ref: '#/components/schemas/CadComment'
+                commentId: { type: string, format: uuid }
+                comment: { $ref: '#/components/schemas/CadComment' }
 
     CommentDeletedEvent:
       allOf:
@@ -228,14 +229,11 @@ components:
               enum: [comment.deleted]
             payload:
               type: object
-              required: [commentId, deletedAt]
+              required: [commentId, threadRootId, deletedAt]
               properties:
-                commentId:
-                  type: string
-                  format: uuid
-                deletedAt:
-                  type: string
-                  format: date-time
+                commentId: { type: string, format: uuid }
+                threadRootId: { type: string, format: uuid }
+                deletedAt: { type: string, format: date-time }
 
     CommentStatusChangedEvent:
       allOf:
@@ -248,30 +246,19 @@ components:
               enum: [comment.statusChanged]
             payload:
               type: object
-              required:
-                - commentId
-                - oldStatus
-                - newStatus
-                - changedByUserId
-                - changedAt
+              required: [commentId, threadRootId, oldStatus, newStatus, changedByUserId, changedAt, systemMessage]
               properties:
-                commentId:
-                  type: string
-                  format: uuid
+                commentId: { type: string, format: uuid }
+                threadRootId: { type: string, format: uuid }
                 oldStatus:
                   allOf:
                     - $ref: '#/components/schemas/CommentStatus'
                   nullable: true
-                newStatus:
-                  $ref: '#/components/schemas/CommentStatus'
-                changedByUserId:
-                  type: string
-                changedAt:
-                  type: string
-                  format: date-time
-                reason:
-                  type: string
-                  nullable: true
+                newStatus: { $ref: '#/components/schemas/CommentStatus' }
+                changedByUserId: { type: string }
+                changedAt: { type: string, format: date-time }
+                reason: { type: string, nullable: true }
+                systemMessage: { $ref: '#/components/schemas/CadComment' }
 
     CommentAssigneesChangedEvent:
       allOf:
@@ -284,12 +271,11 @@ components:
               enum: [comment.assigneesChanged]
             payload:
               type: object
-              required: [commentId, assigneeUserIds]
+              required: [commentId, threadRootId, assigneeUserIds, systemMessage]
               properties:
-                commentId:
-                  type: string
-                  format: uuid
+                commentId: { type: string, format: uuid }
+                threadRootId: { type: string, format: uuid }
                 assigneeUserIds:
                   type: array
-                  items:
-                    type: string
+                  items: { type: string }
+                systemMessage: { $ref: '#/components/schemas/CadComment' }

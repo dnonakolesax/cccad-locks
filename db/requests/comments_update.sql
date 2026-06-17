@@ -4,6 +4,7 @@ WITH existing AS (
     JOIN workspaces w ON w.id = c.workspace_id
     WHERE c.id = $1::uuid
         AND c.deleted_at IS NULL
+        AND c.message_type = 'user'
         AND w.deleted_at IS NULL
         AND (
             w.created_by_user_id = $2
@@ -48,6 +49,18 @@ SELECT
     u.workspace_id::text,
     u.sketch_id::text,
     u.part_id::text,
+    u.parent_comment_id::text,
+    u.thread_root_id::text,
+    u.reply_depth,
+    (
+        SELECT count(*)::integer
+        FROM cad_comments child
+        WHERE child.parent_comment_id = u.id
+            AND child.deleted_at IS NULL
+    ),
+    u.message_type::text,
+    u.system_event_type::text,
+    u.event_payload,
     u.target_type::text,
     u.target_id,
     u.kind::text,
@@ -73,6 +86,12 @@ GROUP BY
     u.workspace_id,
     u.sketch_id,
     u.part_id,
+    u.parent_comment_id,
+    u.thread_root_id,
+    u.reply_depth,
+    u.message_type,
+    u.system_event_type,
+    u.event_payload,
     u.target_type,
     u.target_id,
     u.kind,

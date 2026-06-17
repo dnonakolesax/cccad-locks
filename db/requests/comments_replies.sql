@@ -1,54 +1,36 @@
-WITH filtered AS (
+WITH parent AS (
     SELECT c.*
     FROM cad_comments c
-    WHERE c.workspace_id = $1::uuid
+    JOIN workspaces w ON w.id = c.workspace_id
+    WHERE c.id = $1::uuid
+        AND w.deleted_at IS NULL
         AND EXISTS (
             SELECT 1
-            FROM workspaces w
+            FROM workspaces w2
             LEFT JOIN sketches s
-                ON s.workspace_id = w.id
+                ON s.workspace_id = w2.id
                 AND s.deleted_at IS NULL
             LEFT JOIN sketch_permissions sp
                 ON sp.sketch_id = s.id
                 AND sp.user_id = $2
                 AND sp.role IN ('reader', 'editor', 'admin')
-            WHERE w.id = c.workspace_id
-                AND w.deleted_at IS NULL
+            WHERE w2.id = c.workspace_id
+                AND w2.deleted_at IS NULL
                 AND (
-                    w.created_by_user_id = $2
+                    w2.created_by_user_id = $2
                     OR sp.user_id IS NOT NULL
                 )
         )
-        AND ($3 = '' OR c.sketch_id = NULLIF($3, '')::uuid)
-        AND ($4 = '' OR c.part_id = NULLIF($4, '')::uuid)
-        AND ($5 = '' OR c.target_type = NULLIF($5, '')::cad_comment_target_type)
-        AND ($6 = '' OR c.target_id = $6)
-        AND ($7 = '' OR c.kind = NULLIF($7, '')::cad_comment_kind)
-        AND ($8 = '' OR c.status = NULLIF($8, '')::cad_comment_status)
-        AND ($9 = '' OR c.message_type = NULLIF($9, '')::cad_comment_message_type)
-        AND ($10 = '' OR c.system_event_type = NULLIF($10, '')::cad_comment_system_event_type)
-        AND (
-            $11 = ''
-            OR EXISTS (
-                SELECT 1
-                FROM comment_assignees ca
-                WHERE ca.comment_id = c.id
-                    AND ca.user_id = $11
-            )
-        )
-        AND ($12 = '' OR c.parent_comment_id = NULLIF($12, '')::uuid)
-        AND ($13 = '' OR c.thread_root_id = NULLIF($13, '')::uuid)
-        AND (NOT $14::boolean OR c.parent_comment_id IS NULL)
-        AND ($15::boolean OR c.deleted_at IS NULL)
 ),
-counted AS (
-    SELECT
-        filtered.*,
-        count(*) OVER ()::integer AS total_count
-    FROM filtered
-    ORDER BY filtered.created_at DESC
-    LIMIT $16::integer
-    OFFSET $17::integer
+filtered AS (
+    SELECT c.*, count(*) OVER ()::integer AS total_count
+    FROM cad_comments c
+    JOIN parent p ON p.id = c.parent_comment_id
+    WHERE ($3::boolean OR c.message_type = 'user')
+        AND ($4::boolean OR c.deleted_at IS NULL)
+    ORDER BY c.created_at ASC
+    LIMIT $5::integer
+    OFFSET $6::integer
 )
 SELECT
     c.id::text,
@@ -85,7 +67,7 @@ SELECT
     c.updated_at,
     c.deleted_at,
     c.total_count
-FROM counted c
+FROM filtered c
 LEFT JOIN comment_assignees ca ON ca.comment_id = c.id
 GROUP BY
     c.id,
@@ -112,4 +94,4 @@ GROUP BY
     c.updated_at,
     c.deleted_at,
     c.total_count
-ORDER BY c.created_at DESC
+ORDER BY c.created_at ASC

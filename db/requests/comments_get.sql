@@ -3,6 +3,18 @@ SELECT
     c.workspace_id::text,
     c.sketch_id::text,
     c.part_id::text,
+    c.parent_comment_id::text,
+    c.thread_root_id::text,
+    c.reply_depth,
+    (
+        SELECT count(*)::integer
+        FROM cad_comments child
+        WHERE child.parent_comment_id = c.id
+            AND child.deleted_at IS NULL
+    ),
+    c.message_type::text,
+    c.system_event_type::text,
+    c.event_payload,
     c.target_type::text,
     c.target_id,
     c.kind::text,
@@ -46,6 +58,12 @@ GROUP BY
     c.workspace_id,
     c.sketch_id,
     c.part_id,
+    c.parent_comment_id,
+    c.thread_root_id,
+    c.reply_depth,
+    c.message_type,
+    c.system_event_type,
+    c.event_payload,
     c.target_type,
     c.target_id,
     c.kind,

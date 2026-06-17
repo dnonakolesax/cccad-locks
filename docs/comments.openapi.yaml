@@ -1,8 +1,9 @@
+
 openapi: 3.0.3
 info:
   title: cccAD Comments API Add-on
-  version: 0.2.0
-  description: REST contract for comments/tasks adapted to the current DB schema: workspaces, sketches, parts and TEXT user ids.
+  version: 0.4.0
+  description: Threaded comments/tasks with client-visible system messages.
 servers:
   - url: /api/v1
 security:
@@ -10,91 +11,90 @@ security:
 
 tags:
   - name: Comments
-    description: Comments and task-comments attached to CAD/domain entities.
+    description: Threaded comments, task-comments and system timeline messages.
 
 paths:
   /workspaces/{workspaceId}/comments:
     get:
       tags: [Comments]
-      summary: List comments in a workspace
+      summary: List comments and system messages in a workspace
       operationId: listWorkspaceComments
       parameters:
         - $ref: '#/components/parameters/WorkspaceId'
         - name: sketchId
           in: query
           required: false
-          schema:
-            type: string
-            format: uuid
+          schema: { type: string, format: uuid }
         - name: partId
           in: query
           required: false
-          schema:
-            type: string
-            format: uuid
+          schema: { type: string, format: uuid }
         - name: targetType
           in: query
           required: false
-          schema:
-            $ref: '#/components/schemas/CommentTargetType'
+          schema: { $ref: '#/components/schemas/CommentTargetType' }
         - name: targetId
           in: query
           required: false
-          schema:
-            type: string
+          schema: { type: string }
         - name: kind
           in: query
           required: false
-          schema:
-            $ref: '#/components/schemas/CommentKind'
+          schema: { $ref: '#/components/schemas/CommentKind' }
         - name: status
           in: query
           required: false
-          schema:
-            $ref: '#/components/schemas/CommentStatus'
+          schema: { $ref: '#/components/schemas/CommentStatus' }
+        - name: messageType
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/CommentMessageType' }
+        - name: systemEventType
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/CommentSystemEventType' }
         - name: assigneeUserId
           in: query
           required: false
-          schema:
-            type: string
+          schema: { type: string }
+        - name: parentCommentId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: threadRootId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: rootsOnly
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
         - name: includeDeleted
           in: query
           required: false
-          schema:
-            type: boolean
-            default: false
+          schema: { type: boolean, default: false }
         - name: limit
           in: query
           required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 200
-            default: 50
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
         - name: offset
           in: query
           required: false
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
+          schema: { type: integer, minimum: 0, default: 0 }
       responses:
         '200':
           description: Comments list
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/CommentListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              schema: { $ref: '#/components/schemas/CommentListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
     post:
       tags: [Comments]
-      summary: Create a comment or task-comment
+      summary: Create a root comment/task or a nested reply
+      description: System messages should not be created by the browser client through this endpoint.
       operationId: createWorkspaceComment
       parameters:
         - $ref: '#/components/parameters/WorkspaceId'
@@ -102,48 +102,39 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/CreateCommentRequest'
+            schema: { $ref: '#/components/schemas/CreateCommentRequest' }
       responses:
         '201':
           description: Comment created
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/CadComment'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              schema: { $ref: '#/components/schemas/CadComment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /comments/{commentId}:
     get:
       tags: [Comments]
-      summary: Get a comment by id
+      summary: Get comment/message by id
       operationId: getComment
       parameters:
         - $ref: '#/components/parameters/CommentId'
       responses:
         '200':
-          description: Comment
+          description: Comment or system message
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/CadComment'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              schema: { $ref: '#/components/schemas/CadComment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
     patch:
       tags: [Comments]
-      summary: Update comment body, anchor or metadata
+      summary: Update user comment body, anchor or metadata
+      description: System messages are immutable and should not be edited through this endpoint.
       operationId: updateComment
       parameters:
         - $ref: '#/components/parameters/CommentId'
@@ -151,44 +142,114 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateCommentRequest'
+            schema: { $ref: '#/components/schemas/UpdateCommentRequest' }
       responses:
         '200':
           description: Updated comment
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/CadComment'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              schema: { $ref: '#/components/schemas/CadComment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
     delete:
       tags: [Comments]
-      summary: Soft-delete a comment
+      summary: Soft-delete a user comment/message
       operationId: deleteComment
       parameters:
         - $ref: '#/components/parameters/CommentId'
       responses:
-        '204':
-          description: Comment deleted
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '204': { description: Comment deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /comments/{commentId}/replies:
+    get:
+      tags: [Comments]
+      summary: List direct replies and system messages under a comment
+      operationId: listCommentReplies
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+        - name: includeSystem
+          in: query
+          required: false
+          schema: { type: boolean, default: true }
+        - name: includeDeleted
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Direct replies/messages
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommentListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    post:
+      tags: [Comments]
+      summary: Create a direct reply to a comment
+      operationId: createCommentReply
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCommentReplyRequest' }
+      responses:
+        '201':
+          description: Reply created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CadComment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /comments/{commentId}/thread:
+    get:
+      tags: [Comments]
+      summary: Get full thread containing the comment
+      operationId: getCommentThread
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+        - name: includeSystem
+          in: query
+          required: false
+          schema: { type: boolean, default: true }
+        - name: maxDepth
+          in: query
+          required: false
+          schema: { type: integer, minimum: 0, maximum: 50, default: 50 }
+      responses:
+        '200':
+          description: Thread as flat ordered list with parent links
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommentThreadResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /comments/{commentId}/status:
     post:
       tags: [Comments]
-      summary: Change comment status and append status history record
+      summary: Change comment/task status and create a visible system message
       operationId: changeCommentStatus
       parameters:
         - $ref: '#/components/parameters/CommentId'
@@ -196,28 +257,22 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/ChangeCommentStatusRequest'
+            schema: { $ref: '#/components/schemas/ChangeCommentStatusRequest' }
       responses:
         '200':
-          description: Updated comment
+          description: Updated comment plus generated system message
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/CadComment'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              schema: { $ref: '#/components/schemas/ChangeCommentStatusResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /comments/{commentId}/assignees:
     put:
       tags: [Comments]
-      summary: Replace comment assignees
+      summary: Replace comment assignees and create a visible system message
       operationId: replaceCommentAssignees
       parameters:
         - $ref: '#/components/parameters/CommentId'
@@ -225,23 +280,17 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/ReplaceCommentAssigneesRequest'
+            schema: { $ref: '#/components/schemas/ReplaceCommentAssigneesRequest' }
       responses:
         '200':
-          description: Updated comment
+          description: Updated comment plus generated system message
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/CadComment'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              schema: { $ref: '#/components/schemas/ChangeCommentAssigneesResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /comments/{commentId}/status-history:
     get:
@@ -255,14 +304,10 @@ paths:
           description: Status history
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/CommentStatusHistoryResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              schema: { $ref: '#/components/schemas/CommentStatusHistoryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /comments/{commentId}/edit-history:
     get:
@@ -276,14 +321,10 @@ paths:
           description: Edit history
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/CommentEditHistoryResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+              schema: { $ref: '#/components/schemas/CommentEditHistoryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
 components:
   securitySchemes:
@@ -297,18 +338,29 @@ components:
       name: workspaceId
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
+      schema: { type: string, format: uuid }
     CommentId:
       name: commentId
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
+      schema: { type: string, format: uuid }
 
   schemas:
+    CommentMessageType:
+      type: string
+      enum: [user, system]
+
+    CommentSystemEventType:
+      type: string
+      enum:
+        - comment_created
+        - reply_created
+        - body_edited
+        - status_changed
+        - assignees_changed
+        - comment_deleted
+        - comment_restored
+
     CommentTargetType:
       type: string
       enum:
@@ -346,6 +398,9 @@ components:
       required:
         - id
         - workspaceId
+        - messageType
+        - threadRootId
+        - replyDepth
         - targetType
         - targetId
         - kind
@@ -353,144 +408,117 @@ components:
         - authorUserId
         - assigneeUserIds
         - body
+        - eventPayload
         - metadata
         - createdAt
         - updatedAt
       properties:
-        id:
-          type: string
-          format: uuid
-        workspaceId:
-          type: string
-          format: uuid
-        sketchId:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        workspaceId: { type: string, format: uuid }
+        sketchId: { type: string, format: uuid, nullable: true }
+        partId: { type: string, format: uuid, nullable: true }
+        parentCommentId: { type: string, format: uuid, nullable: true }
+        threadRootId: { type: string, format: uuid }
+        replyDepth: { type: integer, minimum: 0, maximum: 50 }
+        replyCount:
+          type: integer
+          minimum: 0
+          description: Optional computed value, not necessarily stored in DB.
+        messageType: { $ref: '#/components/schemas/CommentMessageType' }
+        systemEventType:
+          allOf:
+            - $ref: '#/components/schemas/CommentSystemEventType'
           nullable: true
-        partId:
-          type: string
-          format: uuid
-          nullable: true
-        targetType:
-          $ref: '#/components/schemas/CommentTargetType'
-        targetId:
-          type: string
-        kind:
-          $ref: '#/components/schemas/CommentKind'
-        status:
-          $ref: '#/components/schemas/CommentStatus'
-        authorUserId:
-          type: string
+        eventPayload: { $ref: '#/components/schemas/JsonObject' }
+        targetType: { $ref: '#/components/schemas/CommentTargetType' }
+        targetId: { type: string }
+        kind: { $ref: '#/components/schemas/CommentKind' }
+        status: { $ref: '#/components/schemas/CommentStatus' }
+        authorUserId: { type: string }
         assigneeUserIds:
           type: array
-          items:
-            type: string
-        body:
-          type: string
-        sketchVersion:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        partVersion:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
+          items: { type: string }
+        body: { type: string }
+        sketchVersion: { type: integer, format: int64, minimum: 0, nullable: true }
+        partVersion: { type: integer, format: int64, minimum: 0, nullable: true }
         anchor:
           allOf:
             - $ref: '#/components/schemas/JsonObject'
           nullable: true
-        metadata:
-          $ref: '#/components/schemas/JsonObject'
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        deletedAt:
-          type: string
-          format: date-time
-          nullable: true
+        metadata: { $ref: '#/components/schemas/JsonObject' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
 
     CreateCommentRequest:
       type: object
-      required:
-        - targetType
-        - targetId
-        - body
+      required: [body]
       properties:
-        sketchId:
+        parentCommentId:
           type: string
           format: uuid
           nullable: true
-        partId:
-          type: string
-          format: uuid
-          nullable: true
+          description: If set, creates a reply and inherits scope/target from parent.
+        sketchId: { type: string, format: uuid, nullable: true }
+        partId: { type: string, format: uuid, nullable: true }
         targetType:
-          $ref: '#/components/schemas/CommentTargetType'
+          allOf:
+            - $ref: '#/components/schemas/CommentTargetType'
+          nullable: true
+          description: Required for root comments. Optional for replies.
         targetId:
           type: string
           minLength: 1
-        kind:
-          $ref: '#/components/schemas/CommentKind'
-          default: comment
-        body:
-          type: string
-          minLength: 1
-          maxLength: 20000
+          nullable: true
+          description: Required for root comments. Optional for replies.
+        kind: { $ref: '#/components/schemas/CommentKind', default: comment }
+        body: { type: string, minLength: 1, maxLength: 20000 }
         assigneeUserIds:
           type: array
           default: []
-          items:
-            type: string
+          items: { type: string }
           uniqueItems: true
-        status:
-          $ref: '#/components/schemas/CommentStatus'
-          default: open
-        sketchVersion:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        partVersion:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
+        status: { $ref: '#/components/schemas/CommentStatus', default: open }
+        sketchVersion: { type: integer, format: int64, minimum: 0, nullable: true }
+        partVersion: { type: integer, format: int64, minimum: 0, nullable: true }
         anchor:
           allOf:
             - $ref: '#/components/schemas/JsonObject'
           nullable: true
-        metadata:
-          $ref: '#/components/schemas/JsonObject'
+        metadata: { $ref: '#/components/schemas/JsonObject' }
+
+    CreateCommentReplyRequest:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1, maxLength: 20000 }
+        assigneeUserIds:
+          type: array
+          default: []
+          items: { type: string }
+          uniqueItems: true
+        anchor:
+          allOf:
+            - $ref: '#/components/schemas/JsonObject'
+          nullable: true
+        metadata: { $ref: '#/components/schemas/JsonObject' }
 
     UpdateCommentRequest:
       type: object
       properties:
-        body:
-          type: string
-          minLength: 1
-          maxLength: 20000
+        body: { type: string, minLength: 1, maxLength: 20000 }
         anchor:
           allOf:
             - $ref: '#/components/schemas/JsonObject'
           nullable: true
-        metadata:
-          $ref: '#/components/schemas/JsonObject'
+        metadata: { $ref: '#/components/schemas/JsonObject' }
 
     ChangeCommentStatusRequest:
       type: object
       required: [status]
       properties:
-        status:
-          $ref: '#/components/schemas/CommentStatus'
-        reason:
-          type: string
-          nullable: true
-          maxLength: 2000
+        status: { $ref: '#/components/schemas/CommentStatus' }
+        reason: { type: string, nullable: true, maxLength: 2000 }
 
     ReplaceCommentAssigneesRequest:
       type: object
@@ -498,65 +526,48 @@ components:
       properties:
         assigneeUserIds:
           type: array
-          items:
-            type: string
+          items: { type: string }
           uniqueItems: true
+
+    ChangeCommentStatusResponse:
+      type: object
+      required: [comment, systemMessage]
+      properties:
+        comment: { $ref: '#/components/schemas/CadComment' }
+        systemMessage: { $ref: '#/components/schemas/CadComment' }
+
+    ChangeCommentAssigneesResponse:
+      type: object
+      required: [comment, systemMessage]
+      properties:
+        comment: { $ref: '#/components/schemas/CadComment' }
+        systemMessage: { $ref: '#/components/schemas/CadComment' }
 
     CommentStatusHistoryItem:
       type: object
-      required:
-        - id
-        - commentId
-        - newStatus
-        - changedByUserId
-        - changedAt
+      required: [id, commentId, newStatus, changedByUserId, changedAt]
       properties:
-        id:
-          type: string
-          format: uuid
-        commentId:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        commentId: { type: string, format: uuid }
         oldStatus:
           allOf:
             - $ref: '#/components/schemas/CommentStatus'
           nullable: true
-        newStatus:
-          $ref: '#/components/schemas/CommentStatus'
-        changedByUserId:
-          type: string
-        changedAt:
-          type: string
-          format: date-time
-        reason:
-          type: string
-          nullable: true
+        newStatus: { $ref: '#/components/schemas/CommentStatus' }
+        changedByUserId: { type: string }
+        changedAt: { type: string, format: date-time }
+        reason: { type: string, nullable: true }
 
     CommentEditHistoryItem:
       type: object
-      required:
-        - id
-        - commentId
-        - oldBody
-        - newBody
-        - editedByUserId
-        - editedAt
+      required: [id, commentId, oldBody, newBody, editedByUserId, editedAt]
       properties:
-        id:
-          type: string
-          format: uuid
-        commentId:
-          type: string
-          format: uuid
-        oldBody:
-          type: string
-        newBody:
-          type: string
-        editedByUserId:
-          type: string
-        editedAt:
-          type: string
-          format: date-time
+        id: { type: string, format: uuid }
+        commentId: { type: string, format: uuid }
+        oldBody: { type: string }
+        newBody: { type: string }
+        editedByUserId: { type: string }
+        editedAt: { type: string, format: date-time }
 
     CommentListResponse:
       type: object
@@ -564,14 +575,20 @@ components:
       properties:
         items:
           type: array
-          items:
-            $ref: '#/components/schemas/CadComment'
-        limit:
-          type: integer
-        offset:
-          type: integer
-        total:
-          type: integer
+          items: { $ref: '#/components/schemas/CadComment' }
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer }
+
+    CommentThreadResponse:
+      type: object
+      required: [root, items]
+      properties:
+        root: { $ref: '#/components/schemas/CadComment' }
+        items:
+          type: array
+          description: Flat ordered list. Client builds tree by id and parentCommentId.
+          items: { $ref: '#/components/schemas/CadComment' }
 
     CommentStatusHistoryResponse:
       type: object
@@ -579,8 +596,7 @@ components:
       properties:
         items:
           type: array
-          items:
-            $ref: '#/components/schemas/CommentStatusHistoryItem'
+          items: { $ref: '#/components/schemas/CommentStatusHistoryItem' }
 
     CommentEditHistoryResponse:
       type: object
@@ -588,15 +604,13 @@ components:
       properties:
         items:
           type: array
-          items:
-            $ref: '#/components/schemas/CommentEditHistoryItem'
+          items: { $ref: '#/components/schemas/CommentEditHistoryItem' }
 
     ErrorResponse:
       type: object
       required: [error]
       properties:
-        error:
-          type: string
+        error: { type: string }
         details:
           type: object
           additionalProperties: true
@@ -606,23 +620,19 @@ components:
       description: Bad request
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     Unauthorized:
       description: Unauthorized
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     Forbidden:
       description: Forbidden
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     NotFound:
       description: Not found
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
