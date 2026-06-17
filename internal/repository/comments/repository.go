@@ -23,6 +23,7 @@ const (
 	replaceCommentAssigneesRequest  = "comments_replace_assignees"
 	listCommentStatusHistoryRequest = "comments_status_history"
 	listCommentEditHistoryRequest   = "comments_edit_history"
+	commentDocumentAccessRequest    = "comments_document_access"
 )
 
 type Repository struct {
@@ -89,6 +90,31 @@ func (r *Repository) Get(ctx context.Context, commentID string, userID string) (
 		return nil, fmt.Errorf("get comment request: %w", err)
 	}
 	return r.queryOneComment(ctx, sqlRequest, commentID, userID)
+}
+
+func (r *Repository) DocumentWorkspace(ctx context.Context, documentID string, userID string) (string, error) {
+	sqlRequest, err := r.db.Request(commentDocumentAccessRequest)
+	if err != nil {
+		return "", fmt.Errorf("comment document access request: %w", err)
+	}
+	rows, err := r.db.Query(ctx, sqlRequest, documentID, userID)
+	if err != nil {
+		return "", fmt.Errorf("comment document access: %w", err)
+	}
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return "", fmt.Errorf("comment document access rows: %w", closeErr)
+		}
+		return "", errors.New("comment document access returned no rows")
+	}
+	var workspaceID string
+	if err := rows.Scan(&workspaceID); err != nil {
+		return "", fmt.Errorf("scan comment document access: %w", err)
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return "", fmt.Errorf("comment document access rows: %w", closeErr)
+	}
+	return workspaceID, nil
 }
 
 func (r *Repository) Create(

@@ -113,3 +113,20 @@ type CommentEditHistoryItem struct {
 type CommentEditHistoryResponse struct {
 	Items []CommentEditHistoryItem `json:"items"`
 }
+
+//easyjson:json
+type CommentRealtimeEvent struct {
+	Type        string              `json:"type"`
+	EventID     string              `json:"eventId"`
+	WorkspaceID string              `json:"workspaceId"`
+	OccurredAt  string              `json:"occurredAt"`
+	ActorUserID string              `json:"actorUserId"`
+	Payload     easyjson.RawMessage `json:"payload"`
+}
+
+type CommentSubscription interface {
+	ID() string
+	DocumentID() string
+	Events() <-chan CommentRealtimeEvent
+	Close()
+}

@@ -24,6 +24,7 @@ const (
 type CommentsService interface {
 	List(ctx context.Context, filter model.CommentListFilter) (*model.CommentListResponse, error)
 	Get(ctx context.Context, commentID string) (*model.CadComment, error)
+	SubscribeDocument(ctx context.Context, documentID string) (model.CommentSubscription, error)
 	Create(ctx context.Context, workspaceID string, request *model.CreateCommentRequest) (*model.CadComment, error)
 	Update(ctx context.Context, commentID string, request *model.UpdateCommentRequest) (*model.CadComment, error)
 	Delete(ctx context.Context, commentID string) error
@@ -52,6 +53,8 @@ func NewCommentsHandler(service CommentsService) *CommentsHandler {
 func (h *CommentsHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /workspaces/{workspaceId}/comments", h.List)
 	mux.HandleFunc("POST /workspaces/{workspaceId}/comments", h.Create)
+	mux.HandleFunc("GET /realtime/ws/documents/{documentId}/comments", h.DocumentCommentsWebSocket)
+	mux.HandleFunc("GET /api/v1/sketches/realtime/ws/documents/{documentId}/comments", h.DocumentCommentsWebSocket)
 	mux.HandleFunc("GET /wsc/comments/{commentId}", h.Get)
 	mux.HandleFunc("PATCH /wsc/comments/{commentId}", h.Update)
 	mux.HandleFunc("DELETE /wsc/comments/{commentId}", h.Delete)

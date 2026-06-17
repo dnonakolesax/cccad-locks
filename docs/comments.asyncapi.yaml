@@ -14,16 +14,16 @@ servers:
 defaultContentType: application/json
 
 channels:
-  workspaces/{workspaceId}/comments:
+  /api/v1/sketches/realtime/ws/documents/{documentId}/comments:
     parameters:
-      workspaceId:
-        description: Workspace UUID.
+      documentId:
+        description: Document/sketch UUID whose comment events are streamed.
         schema:
           type: string
           format: uuid
     subscribe:
-      summary: Receive realtime comment/task events for an opened workspace.
-      operationId: subscribeWorkspaceCommentEvents
+      summary: Receive realtime comment/task events for an opened document.
+      operationId: subscribeDocumentCommentEvents
       message:
         oneOf:
           - $ref: '#/components/messages/CommentCreated'

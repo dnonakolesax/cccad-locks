@@ -2,9 +2,13 @@ package comments
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/model"
@@ -21,6 +25,7 @@ const (
 type Repository interface {
 	List(ctx context.Context, filter model.CommentListFilter, userID string) (*model.CommentListResponse, error)
 	Get(ctx context.Context, commentID string, userID string) (*model.CadComment, error)
+	DocumentWorkspace(ctx context.Context, documentID string, userID string) (string, error)
 	Create(ctx context.Context, workspaceID string, request *model.CreateCommentRequest, actorUserID string) (*model.CadComment, error)
 	Update(ctx context.Context, commentID string, request *model.UpdateCommentRequest, actorUserID string) (*model.CadComment, error)
 	Delete(ctx context.Context, commentID string, actorUserID string) error
@@ -32,10 +37,16 @@ type Repository interface {
 
 type Service struct {
 	repo Repository
+
+	mu          sync.Mutex
+	subscribers map[string]map[string]chan model.CommentRealtimeEvent
 }
 
 func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+	return &Service{
+		repo:        repo,
+		subscribers: make(map[string]map[string]chan model.CommentRealtimeEvent),
+	}
 }
 
 func (s *Service) List(ctx context.Context, filter model.CommentListFilter) (*model.CommentListResponse, error) {
@@ -87,6 +98,70 @@ func (s *Service) Get(ctx context.Context, commentID string) (*model.CadComment,
 		return nil, errors.New("authenticated user id is required")
 	}
 	return s.repo.Get(ctx, commentID, userID)
+}
+
+type Subscription struct {
+	id         string
+	documentID string
+	events     <-chan model.CommentRealtimeEvent
+	close      func()
+	closeOnce  sync.Once
+}
+
+func (s *Subscription) ID() string {
+	return s.id
+}
+
+func (s *Subscription) DocumentID() string {
+	return s.documentID
+}
+
+func (s *Subscription) Events() <-chan model.CommentRealtimeEvent {
+	return s.events
+}
+
+func (s *Subscription) Close() {
+	s.closeOnce.Do(s.close)
+}
+
+func (s *Service) SubscribeDocument(ctx context.Context, documentID string) (model.CommentSubscription, error) {
+	documentID = strings.TrimSpace(documentID)
+	if documentID == "" {
+		return nil, errors.New("documentID is required")
+	}
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authenticated user id is required")
+	}
+	if _, err := s.repo.DocumentWorkspace(ctx, documentID, userID); err != nil {
+		return nil, err
+	}
+
+	id := newID()
+	events := make(chan model.CommentRealtimeEvent, 32)
+	s.mu.Lock()
+	if s.subscribers[documentID] == nil {
+		s.subscribers[documentID] = make(map[string]chan model.CommentRealtimeEvent)
+	}
+	s.subscribers[documentID][id] = events
+	s.mu.Unlock()
+
+	return &Subscription{
+		id:         id,
+		documentID: documentID,
+		events:     events,
+		close: func() {
+			s.mu.Lock()
+			if documentSubscribers := s.subscribers[documentID]; documentSubscribers != nil {
+				delete(documentSubscribers, id)
+				if len(documentSubscribers) == 0 {
+					delete(s.subscribers, documentID)
+				}
+			}
+			s.mu.Unlock()
+			close(events)
+		},
+	}, nil
 }
 
 func (s *Service) Create(
@@ -150,7 +225,12 @@ func (s *Service) Create(
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
 	}
-	return s.repo.Create(ctx, workspaceID, request, userID)
+	comment, err := s.repo.Create(ctx, workspaceID, request, userID)
+	if err != nil {
+		return nil, err
+	}
+	s.publishCommentCreated(userID, comment)
+	return comment, nil
 }
 
 func (s *Service) Update(
@@ -185,7 +265,12 @@ func (s *Service) Update(
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
 	}
-	return s.repo.Update(ctx, commentID, request, userID)
+	comment, err := s.repo.Update(ctx, commentID, request, userID)
+	if err != nil {
+		return nil, err
+	}
+	s.publishCommentUpdated(userID, comment)
+	return comment, nil
 }
 
 func (s *Service) Delete(ctx context.Context, commentID string) error {
@@ -197,7 +282,12 @@ func (s *Service) Delete(ctx context.Context, commentID string) error {
 	if !ok {
 		return errors.New("authenticated user id is required")
 	}
-	return s.repo.Delete(ctx, commentID, userID)
+	comment, _ := s.repo.Get(ctx, commentID, userID)
+	if err := s.repo.Delete(ctx, commentID, userID); err != nil {
+		return err
+	}
+	s.publishCommentDeleted(userID, comment)
+	return nil
 }
 
 func (s *Service) ChangeStatus(
@@ -228,7 +318,13 @@ func (s *Service) ChangeStatus(
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
 	}
-	return s.repo.ChangeStatus(ctx, commentID, request, userID)
+	oldComment, _ := s.repo.Get(ctx, commentID, userID)
+	comment, err := s.repo.ChangeStatus(ctx, commentID, request, userID)
+	if err != nil {
+		return nil, err
+	}
+	s.publishCommentStatusChanged(userID, oldComment, comment, request.Reason)
+	return comment, nil
 }
 
 func (s *Service) ReplaceAssignees(
@@ -248,7 +344,104 @@ func (s *Service) ReplaceAssignees(
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
 	}
-	return s.repo.ReplaceAssignees(ctx, commentID, request, userID)
+	comment, err := s.repo.ReplaceAssignees(ctx, commentID, request, userID)
+	if err != nil {
+		return nil, err
+	}
+	s.publishCommentAssigneesChanged(userID, comment)
+	return comment, nil
+}
+
+func (s *Service) publishCommentCreated(actorUserID string, comment *model.CadComment) {
+	s.publishCommentEvent(actorUserID, comment, "comment.created", map[string]any{"comment": comment})
+}
+
+func (s *Service) publishCommentUpdated(actorUserID string, comment *model.CadComment) {
+	if comment == nil {
+		return
+	}
+	s.publishCommentEvent(actorUserID, comment, "comment.updated", map[string]any{
+		"commentId": comment.ID,
+		"comment":   comment,
+	})
+}
+
+func (s *Service) publishCommentDeleted(actorUserID string, comment *model.CadComment) {
+	if comment == nil {
+		return
+	}
+	s.publishCommentEvent(actorUserID, comment, "comment.deleted", map[string]any{
+		"commentId": comment.ID,
+		"deletedAt": time.Now().UTC().Format(time.RFC3339Nano),
+	})
+}
+
+func (s *Service) publishCommentStatusChanged(
+	actorUserID string,
+	oldComment *model.CadComment,
+	comment *model.CadComment,
+	reason *string,
+) {
+	if comment == nil {
+		return
+	}
+	var oldStatus *string
+	if oldComment != nil {
+		oldStatus = &oldComment.Status
+	}
+	s.publishCommentEvent(actorUserID, comment, "comment.statusChanged", map[string]any{
+		"commentId":       comment.ID,
+		"oldStatus":       oldStatus,
+		"newStatus":       comment.Status,
+		"changedByUserId": actorUserID,
+		"changedAt":       time.Now().UTC().Format(time.RFC3339Nano),
+		"reason":          reason,
+	})
+}
+
+func (s *Service) publishCommentAssigneesChanged(actorUserID string, comment *model.CadComment) {
+	if comment == nil {
+		return
+	}
+	s.publishCommentEvent(actorUserID, comment, "comment.assigneesChanged", map[string]any{
+		"commentId":       comment.ID,
+		"assigneeUserIds": comment.AssigneeUserIDs,
+	})
+}
+
+func (s *Service) publishCommentEvent(actorUserID string, comment *model.CadComment, eventType string, payload any) {
+	if comment == nil || comment.SketchID == nil || strings.TrimSpace(*comment.SketchID) == "" {
+		return
+	}
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	event := model.CommentRealtimeEvent{
+		Type:        eventType,
+		EventID:     newID(),
+		WorkspaceID: comment.WorkspaceID,
+		OccurredAt:  time.Now().UTC().Format(time.RFC3339Nano),
+		ActorUserID: actorUserID,
+		Payload:     easyjson.RawMessage(payloadBody),
+	}
+	s.broadcastDocument(*comment.SketchID, event)
+}
+
+func (s *Service) broadcastDocument(documentID string, event model.CommentRealtimeEvent) {
+	s.mu.Lock()
+	recipients := make([]chan model.CommentRealtimeEvent, 0, len(s.subscribers[documentID]))
+	for _, ch := range s.subscribers[documentID] {
+		recipients = append(recipients, ch)
+	}
+	s.mu.Unlock()
+
+	for _, ch := range recipients {
+		select {
+		case ch <- event:
+		default:
+		}
+	}
 }
 
 func (s *Service) StatusHistory(ctx context.Context, commentID string) ([]model.CommentStatusHistoryItem, error) {
@@ -322,6 +515,27 @@ func trimOptionalString(value **string) {
 		return
 	}
 	*value = &trimmed
+}
+
+func newID() string {
+	var raw [16]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return time.Now().UTC().Format("20060102150405.000000000")
+	}
+	raw[6] = (raw[6] & 0x0f) | 0x40
+	raw[8] = (raw[8] & 0x3f) | 0x80
+
+	encoded := make([]byte, 36)
+	hex.Encode(encoded[0:8], raw[0:4])
+	encoded[8] = '-'
+	hex.Encode(encoded[9:13], raw[4:6])
+	encoded[13] = '-'
+	hex.Encode(encoded[14:18], raw[6:8])
+	encoded[18] = '-'
+	hex.Encode(encoded[19:23], raw[8:10])
+	encoded[23] = '-'
+	hex.Encode(encoded[24:36], raw[10:16])
+	return string(encoded)
 }
 
 func isValidKind(kind string) bool {
