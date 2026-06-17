@@ -38,10 +38,7 @@ CREATE TABLE IF NOT EXISTS cad_comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    -- Public contracts call this documentId. In this service the editable
-    -- document source of truth is sketches(id), so keep the API name while
-    -- enforcing the local sketch FK.
-    document_id UUID NOT NULL REFERENCES sketches(id) ON DELETE CASCADE,
+    document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     part_id UUID REFERENCES parts(id) ON DELETE CASCADE,
 
     -- Universal target reference.
@@ -52,7 +49,7 @@ CREATE TABLE IF NOT EXISTS cad_comments (
 
     kind cad_comment_kind NOT NULL DEFAULT 'comment',
 
-    author_id TEXT NOT NULL,
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
 
     body TEXT NOT NULL,
     status cad_comment_status NOT NULL DEFAULT 'open',
@@ -114,9 +111,9 @@ WHERE deleted_at IS NULL AND kind = 'task';
 
 CREATE TABLE IF NOT EXISTS comment_assignees (
     comment_id UUID NOT NULL REFERENCES cad_comments(id) ON DELETE CASCADE,
-    user_id TEXT NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
-    assigned_by TEXT NOT NULL,
+    assigned_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     PRIMARY KEY (comment_id, user_id)
@@ -136,7 +133,7 @@ CREATE TABLE IF NOT EXISTS comment_status_history (
     old_status cad_comment_status,
     new_status cad_comment_status NOT NULL,
 
-    changed_by TEXT NOT NULL,
+    changed_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     reason TEXT,
@@ -157,7 +154,7 @@ CREATE TABLE IF NOT EXISTS comment_edit_history (
     old_body TEXT NOT NULL,
     new_body TEXT NOT NULL,
 
-    edited_by TEXT NOT NULL,
+    edited_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     edited_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT comment_edit_history_old_body_nonempty CHECK (length(trim(old_body)) > 0),
@@ -168,6 +165,8 @@ CREATE TABLE IF NOT EXISTS comment_edit_history (
 CREATE INDEX IF NOT EXISTS idx_comment_edit_history_comment
 ON comment_edit_history(comment_id, edited_at ASC);
 
+-- goose must not split PL/pgSQL function bodies by internal semicolons.
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION cad_comments_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -175,12 +174,14 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 CREATE TRIGGER trg_cad_comments_updated_at
 BEFORE UPDATE ON cad_comments
 FOR EACH ROW
 EXECUTE FUNCTION cad_comments_set_updated_at();
 
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION cad_comments_insert_initial_status_history()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -202,6 +203,7 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 CREATE TRIGGER trg_cad_comments_initial_status_history
 AFTER INSERT ON cad_comments
