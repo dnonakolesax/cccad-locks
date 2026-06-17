@@ -91,7 +91,8 @@ func NewHandler(service Service, userResolver UserResolver, opts ...HandlerOptio
 }
 
 // RegisterRoutes registers the realtime websocket endpoint on the provided mux.
-// It expects paths like: /api/v1/sketches/{sketchId}/ws.
+// With the default service mount it accepts paths like:
+// /api/v1/sketches/realtime/{sketchId}/ws.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	if h.routePrefix == "/" {
 		mux.HandleFunc("GET /realtime/{sketchId}/ws", h.handleSketchWebSocket)
@@ -101,7 +102,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 }
 
 func (h *Handler) handleSketchWebSocket(w http.ResponseWriter, r *http.Request) {
-	sketchID, ok := h.extractSketchID(r.URL.Path)
+	sketchID, ok := h.sketchIDFromRequest(r)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -175,6 +176,13 @@ func (h *Handler) handleSketchWebSocket(w http.ResponseWriter, r *http.Request) 
 		)
 	}
 	cancel()
+}
+
+func (h *Handler) sketchIDFromRequest(r *http.Request) (string, bool) {
+	if sketchID := strings.TrimSpace(r.PathValue("sketchId")); sketchID != "" {
+		return sketchID, true
+	}
+	return h.extractSketchID(r.URL.Path)
 }
 
 func (h *Handler) readLoop(ctx context.Context, ws *websocket.Conn, conn Connection, errc chan<- error) {

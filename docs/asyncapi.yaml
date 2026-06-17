@@ -25,7 +25,7 @@ servers:
   local:
     host: localhost:8080
     protocol: ws
-    pathname: /api/v1/sketches/{sketchId}/ws
+    pathname: /api/v1/sketches/realtime/{sketchId}/ws
     description: Local development server.
     variables:
       sketchId:
@@ -34,7 +34,7 @@ servers:
   production:
     host: api.cccad.example.com
     protocol: wss
-    pathname: /api/v1/sketches/{sketchId}/ws
+    pathname: /api/v1/sketches/realtime/{sketchId}/ws
     description: Production server.
     variables:
       sketchId:
@@ -42,7 +42,7 @@ servers:
         description: Sketch identifier.
 channels:
   sketchRealtime:
-    address: /api/v1/sketches/{sketchId}/ws
+    address: /api/v1/sketches/realtime/{sketchId}/ws
     description: "Bidirectional WebSocket channel for one sketch document.\n\nClient should first load initial state through\
       \ REST:\n  GET /api/v1/sketches/{sketchId}\n\nThen it should connect to this WebSocket and send session.join.\n"
     parameters:

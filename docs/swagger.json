@@ -700,7 +700,7 @@
         }
       }
     },
-    "/api/v1/sketches/{sketchId}/ws": {
+    "/api/v1/sketches/realtime/{sketchId}/ws": {
       "get": {
         "tags": [
           "Realtime"
