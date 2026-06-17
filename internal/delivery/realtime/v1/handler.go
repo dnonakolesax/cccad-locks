@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultRoutePrefix     = "/api/v1/sketches/"
+	defaultRoutePrefix     = "/api/v1/sketches/realtime"
 	defaultWSRouteSuffix   = "/ws"
 	defaultWriteWait       = 10 * time.Second
 	defaultPongWait        = 60 * time.Second
