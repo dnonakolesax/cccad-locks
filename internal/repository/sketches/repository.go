@@ -15,6 +15,7 @@ const (
 	createSketchRequest          = "sketch_create"
 	listAvailableSketchesRequest = "sketch_list_available"
 	getSketchRequest             = "sketch_get"
+	getSketchSnapshotRequest     = "sketch_snapshot_get"
 	updateSketchMetadataRequest  = "sketch_update_metadata"
 	deleteSketchRequest          = "sketch_delete"
 )
@@ -119,6 +120,35 @@ func (r *Repository) Get(ctx context.Context, sketchID string) (*model.SketchDoc
 	}
 
 	return document, nil
+}
+
+func (r *Repository) Snapshot(ctx context.Context, sketchID string, version int64, userID string) (*model.SketchSnapshot, error) {
+	sqlRequest, err := r.db.Request(getSketchSnapshotRequest)
+	if err != nil {
+		return nil, fmt.Errorf("get sketch snapshot request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, sketchID, version, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get sketch snapshot: %w", err)
+	}
+
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("get sketch snapshot rows: %w", closeErr)
+		}
+		return nil, errors.New("get sketch snapshot returned no rows")
+	}
+
+	snapshot, err := scanSnapshot(rows)
+	if err != nil {
+		return nil, err
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("get sketch snapshot rows: %w", closeErr)
+	}
+
+	return snapshot, nil
 }
 
 func (r *Repository) UpdateMetadata(
@@ -263,6 +293,32 @@ func scanAvailableSketch(rows *dbsql.PGXResponse) (*model.AvailableSketch, error
 	}
 
 	return &sketch, nil
+}
+
+func scanSnapshot(rows *dbsql.PGXResponse) (*model.SketchSnapshot, error) {
+	var snapshot model.SketchSnapshot
+	var graphState []byte
+	var materializedGeometry []byte
+	var solveStatus []byte
+	var createdAt time.Time
+
+	if err := rows.Scan(
+		&snapshot.SketchID,
+		&snapshot.Version,
+		&graphState,
+		&materializedGeometry,
+		&solveStatus,
+		&createdAt,
+	); err != nil {
+		return nil, fmt.Errorf("scan sketch snapshot: %w", err)
+	}
+
+	snapshot.GraphState = append(snapshot.GraphState, graphState...)
+	snapshot.MaterializedGeometry = append(snapshot.MaterializedGeometry, materializedGeometry...)
+	snapshot.SolveStatus = append(snapshot.SolveStatus, solveStatus...)
+	snapshot.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
+
+	return &snapshot, nil
 }
 
 func scanMetadata(rows *dbsql.PGXResponse) (*model.SketchMetadata, error) {

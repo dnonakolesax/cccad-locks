@@ -33,6 +33,10 @@ func (s *stubSketchesService) Get(_ context.Context, _ string) (*model.SketchDoc
 	return &model.SketchDocument{}, nil
 }
 
+func (s *stubSketchesService) Snapshot(_ context.Context, _ string, _ int64) (*model.SketchSnapshot, error) {
+	return &model.SketchSnapshot{}, nil
+}
+
 func (s *stubSketchesService) UpdateMetadata(
 	_ context.Context,
 	_ string,

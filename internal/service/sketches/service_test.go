@@ -36,6 +36,10 @@ func (r *repositoryStub) Get(context.Context, string) (*model.SketchDocument, er
 	return &model.SketchDocument{}, nil
 }
 
+func (r *repositoryStub) Snapshot(context.Context, string, int64, string) (*model.SketchSnapshot, error) {
+	return &model.SketchSnapshot{}, nil
+}
+
 func (r *repositoryStub) UpdateMetadata(
 	context.Context,
 	string,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/dnonakolesax/cccad-locks/internal/model"
@@ -24,6 +25,7 @@ type SketchesService interface {
 	Create(ctx context.Context, workspaceID string, request *model.CreateSketchRequest) (*model.SketchMetadata, error)
 	ListAvailable(ctx context.Context) ([]model.AvailableSketch, error)
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
+	Snapshot(ctx context.Context, sketchID string, version int64) (*model.SketchSnapshot, error)
 	UpdateMetadata(
 		ctx context.Context,
 		sketchID string,
@@ -46,6 +48,7 @@ func (h *SketchesHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /workspaces/{workspaceId}/sketches", h.Create)
 	mux.HandleFunc("GET /", h.ListAvailable)
 	mux.HandleFunc("GET /{sketchId}", h.Get)
+	mux.HandleFunc("GET /snapshots/{sketchId}/{version}", h.Snapshot)
 	mux.HandleFunc("PATCH /{sketchId}", h.UpdateMetadata)
 	mux.HandleFunc("DELETE /{sketchId}", h.Delete)
 }
@@ -124,6 +127,36 @@ func (h *SketchesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, document)
+}
+
+func (h *SketchesHandler) Snapshot(w http.ResponseWriter, r *http.Request) {
+	sketchID := r.PathValue("sketchId")
+	if strings.TrimSpace(sketchID) == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId is required")
+		return
+	}
+	if !isValidUUID(sketchID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
+		return
+	}
+
+	version, err := strconv.ParseInt(r.PathValue("version"), 10, 64)
+	if err != nil || version < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "version must be a non-negative integer")
+		return
+	}
+
+	snapshot, err := h.service.Snapshot(r.Context(), sketchID, version)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	if snapshot == nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "sketches service returned nil snapshot")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, snapshot)
 }
 
 func (h *SketchesHandler) UpdateMetadata(w http.ResponseWriter, r *http.Request) {

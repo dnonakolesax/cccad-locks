@@ -81,3 +81,13 @@ type SketchDocument struct {
 	Profiles        []easyjson.RawMessage          `json:"profiles"`
 	Conflicts       []easyjson.RawMessage          `json:"conflicts,omitempty"`
 }
+
+//easyjson:json
+type SketchSnapshot struct {
+	SketchID             string              `json:"sketchId"`
+	Version              int64               `json:"version"`
+	GraphState           easyjson.RawMessage `json:"graphState"`
+	MaterializedGeometry easyjson.RawMessage `json:"materializedGeometry"`
+	SolveStatus          easyjson.RawMessage `json:"solveStatus"`
+	CreatedAt            string              `json:"createdAt"`
+}
