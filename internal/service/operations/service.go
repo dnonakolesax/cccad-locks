@@ -24,6 +24,7 @@ type Repository interface {
 		afterVersion int64,
 		limit int,
 	) (*model.SketchOperationPage, error)
+	History(ctx context.Context, userID string, sketchID string, limit int) (*model.SketchOperationPage, error)
 	GetSubmitState(ctx context.Context, userID string, sketchID string) (*model.SubmitState, error)
 	Submit(
 		ctx context.Context,
@@ -82,6 +83,27 @@ func (s *Service) List(
 	}
 
 	return s.repo.List(ctx, userID, sketchID, afterVersion, limit)
+}
+
+func (s *Service) History(
+	ctx context.Context,
+	sketchID string,
+	limit int,
+) (*model.SketchOperationPage, error) {
+	sketchID = strings.TrimSpace(sketchID)
+	if sketchID == "" {
+		return nil, errors.New("sketchID is required")
+	}
+	if limit < 1 {
+		return nil, errors.New("limit must be greater than 0")
+	}
+
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authenticated user id is required")
+	}
+
+	return s.repo.History(ctx, userID, sketchID, limit)
 }
 
 func (s *Service) Submit(

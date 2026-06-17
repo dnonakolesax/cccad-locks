@@ -93,6 +93,18 @@ func (r *repositoryStub) List(
 	return r.listResult, nil
 }
 
+func (r *repositoryStub) History(
+	_ context.Context,
+	userID string,
+	sketchID string,
+	limit int,
+) (*model.SketchOperationPage, error) {
+	r.listUserID = userID
+	r.listSketchID = sketchID
+	r.listLimit = limit
+	return r.listResult, nil
+}
+
 func (r *repositoryStub) GetSubmitState(
 	_ context.Context,
 	userID string,
@@ -156,6 +168,31 @@ func TestServiceListUsesAuthenticatedUser(t *testing.T) {
 	}
 	if repo.listLimit != 50 {
 		t.Fatalf("List limit = %d, want 50", repo.listLimit)
+	}
+}
+
+func TestServiceHistoryUsesAuthenticatedUserAndLimit(t *testing.T) {
+	repo := &repositoryStub{
+		listResult: &model.SketchOperationPage{SketchID: "sketch-id"},
+	}
+	service := NewService(repo)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	page, err := service.History(ctx, "sketch-id", 25)
+	if err != nil {
+		t.Fatalf("History returned error: %v", err)
+	}
+	if page != repo.listResult {
+		t.Fatalf("History returned unexpected page")
+	}
+	if repo.listUserID != "user-id" {
+		t.Fatalf("userID = %q, want user-id", repo.listUserID)
+	}
+	if repo.listSketchID != "sketch-id" {
+		t.Fatalf("sketchID = %q, want sketch-id", repo.listSketchID)
+	}
+	if repo.listLimit != 25 {
+		t.Fatalf("limit = %d, want 25", repo.listLimit)
 	}
 }
 

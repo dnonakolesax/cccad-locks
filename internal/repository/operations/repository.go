@@ -12,6 +12,7 @@ import (
 
 const (
 	listOperationsRequest      = "operations_list"
+	historyOperationsRequest   = "operations_history"
 	getOperationStateRequest   = "operations_get_submit_state"
 	submitOperationRequestName = "operations_submit"
 )
@@ -58,6 +59,47 @@ func (r *Repository) List(
 	}
 	if closeErr := rows.Close(); closeErr != nil {
 		return nil, fmt.Errorf("list operations rows: %w", closeErr)
+	}
+
+	return page, nil
+}
+
+func (r *Repository) History(
+	ctx context.Context,
+	userID string,
+	sketchID string,
+	limit int,
+) (*model.SketchOperationPage, error) {
+	sqlRequest, err := r.db.Request(historyOperationsRequest)
+	if err != nil {
+		return nil, fmt.Errorf("history operations request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, sketchID, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("history operations: %w", err)
+	}
+
+	page := &model.SketchOperationPage{
+		SketchID:             sketchID,
+		FromVersionExclusive: 0,
+		ToVersion:            0,
+		Ops:                  make([]model.CommittedOperation, 0),
+	}
+
+	for rows.Next() {
+		operation, scanErr := scanCommittedOperation(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		page.Ops = append(page.Ops, *operation)
+		page.ToVersion = operation.Version
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("history operations rows: %w", closeErr)
+	}
+	if len(page.Ops) > 0 {
+		page.FromVersionExclusive = page.Ops[0].Version - 1
 	}
 
 	return page, nil

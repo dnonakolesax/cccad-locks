@@ -15,6 +15,7 @@ import (
 
 type OperationsService interface {
 	List(ctx context.Context, sketchID string, afterVersion int64, limit int) (*model.SketchOperationPage, error)
+	History(ctx context.Context, sketchID string, limit int) (*model.SketchOperationPage, error)
 	Submit(
 		ctx context.Context,
 		sketchID string,
@@ -41,6 +42,7 @@ func NewOperationsHandler(service OperationsService) *OperationsHandler {
 
 func (h *OperationsHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{sketchId}/ops", h.List)
+	mux.HandleFunc("GET /{sketchId}/model-history", h.History)
 }
 
 func (h *OperationsHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -68,6 +70,32 @@ func (h *OperationsHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	if page == nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "operations service returned nil page")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, page)
+}
+
+func (h *OperationsHandler) History(w http.ResponseWriter, r *http.Request) {
+	sketchID := r.PathValue("sketchId")
+	if strings.TrimSpace(sketchID) == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId is required")
+		return
+	}
+
+	limit, err := parseIntQuery(r, "limit", defaultOperationLimit, minOperationLimit, maxOperationLimit)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", err.Error())
+		return
+	}
+
+	page, err := h.service.History(r.Context(), sketchID, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	if page == nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "operations service returned nil history page")
 		return
 	}
 

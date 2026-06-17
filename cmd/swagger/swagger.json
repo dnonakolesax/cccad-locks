@@ -394,6 +394,47 @@
         }
       }
     },
+    "/api/v1/sketches/{sketchId}/model-history": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "getSketchModelHistory",
+        "summary": "Get latest model history entries",
+        "description": "Returns the latest committed sketch model operations up to the requested limit. The response is ordered by ascending operation version.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest model history page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchOperationPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/api/v1/sketches/{sketchId}/ops": {
       "get": {
         "tags": [
