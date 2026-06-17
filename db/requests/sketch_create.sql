@@ -111,7 +111,12 @@ new_state AS (
         }'::jsonb,
         '[]'::jsonb
     FROM new_sketch
-    RETURNING sketch_id
+    RETURNING
+        sketch_id,
+        version,
+        graph_state,
+        materialized_geometry,
+        solve_status
 ),
 new_snapshot AS (
     INSERT INTO sketch_snapshots (
@@ -127,8 +132,7 @@ new_snapshot AS (
         graph_state,
         materialized_geometry,
         solve_status
-    FROM sketch_current_states
-    WHERE sketch_id IN (SELECT id FROM new_sketch)
+    FROM new_state
     RETURNING sketch_id
 )
 SELECT
