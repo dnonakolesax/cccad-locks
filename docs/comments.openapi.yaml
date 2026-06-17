@@ -114,7 +114,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /comments/{commentId}:
+  /wsc/comments/{commentId}:
     get:
       tags: [Comments]
       summary: Get comment/message by id
@@ -166,7 +166,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /comments/{commentId}/replies:
+  /wsc/comments/{commentId}/replies:
     get:
       tags: [Comments]
       summary: List direct replies and system messages under a comment
@@ -221,7 +221,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /comments/{commentId}/thread:
+  /wsc/comments/{commentId}/thread:
     get:
       tags: [Comments]
       summary: Get full thread containing the comment
@@ -246,7 +246,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /comments/{commentId}/status:
+  /wsc/comments/{commentId}/status:
     post:
       tags: [Comments]
       summary: Change comment/task status and create a visible system message
@@ -269,7 +269,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /comments/{commentId}/assignees:
+  /wsc/comments/{commentId}/assignees:
     put:
       tags: [Comments]
       summary: Replace comment assignees and create a visible system message
@@ -292,7 +292,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /comments/{commentId}/status-history:
+  /wsc/comments/{commentId}/status-history:
     get:
       tags: [Comments]
       summary: Get comment status history
@@ -309,7 +309,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /comments/{commentId}/edit-history:
+  /wsc/comments/{commentId}/edit-history:
     get:
       tags: [Comments]
       summary: Get comment body edit history

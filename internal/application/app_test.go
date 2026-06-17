@@ -4,6 +4,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	commentsDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/comments/v1"
+	locksDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/locks/v1"
+	operationsDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/operations/v1"
+	parts3dDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/parts3d/v1"
+	permissionsDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/permissions/v1"
+	realtimeDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/realtime/v1"
+	sketchesDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/sketches/v1"
+	solverDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/solver/v1"
+	workspacesDelivery "github.com/dnonakolesax/cccad-locks/internal/delivery/workspaces/v1"
 )
 
 func TestAPIMountPathPlacesBasePathAfterVersion(t *testing.T) {
@@ -37,4 +47,24 @@ func TestStripPrefixWithRootMapsExactMountToRoot(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
 	}
+}
+
+func TestRegisterRoutesHasNoServeMuxPatternConflicts(t *testing.T) {
+	app := &App{
+		layers: &Layers{
+			CommentsHTTP:    commentsDelivery.NewCommentsHandler(nil),
+			PermissionsHTTP: permissionsDelivery.NewPermissionsHandler(nil),
+			LocksHTTP:       locksDelivery.NewLocksHandler(nil),
+			OperationsHTTP:  operationsDelivery.NewOperationsHandler(nil),
+			Parts3DHTTP:     parts3dDelivery.NewParts3DHandler(nil),
+			Parts3DWS:       parts3dDelivery.NewParts3DWSHandler(),
+			SketchesHTTP:    sketchesDelivery.NewSketchesHandler(nil),
+			RealtimeWS:      realtimeDelivery.NewHandler(nil, nil, realtimeDelivery.WithRoutePrefix("/")),
+			SolverHTTP:      solverDelivery.NewSolverHandler(nil),
+			WorkspacesHTTP:  workspacesDelivery.NewWorkspacesHandler(nil),
+		},
+	}
+
+	router := http.NewServeMux()
+	app.registerRoutes(router)
 }
