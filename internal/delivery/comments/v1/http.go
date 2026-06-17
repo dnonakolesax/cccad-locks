@@ -52,13 +52,13 @@ func NewCommentsHandler(service CommentsService) *CommentsHandler {
 func (h *CommentsHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /workspaces/{workspaceId}/comments", h.List)
 	mux.HandleFunc("POST /workspaces/{workspaceId}/comments", h.Create)
-	mux.HandleFunc("GET /comments/{commentId}", h.Get)
-	mux.HandleFunc("PATCH /comments/{commentId}", h.Update)
-	mux.HandleFunc("DELETE /comments/{commentId}", h.Delete)
-	mux.HandleFunc("POST /comments/{commentId}/status", h.ChangeStatus)
-	mux.HandleFunc("PUT /comments/{commentId}/assignees", h.ReplaceAssignees)
-	mux.HandleFunc("GET /comments/{commentId}/status-history", h.StatusHistory)
-	mux.HandleFunc("GET /comments/{commentId}/edit-history", h.EditHistory)
+	mux.HandleFunc("GET /wsc/comments/{commentId}", h.Get)
+	mux.HandleFunc("PATCH /wsc/comments/{commentId}", h.Update)
+	mux.HandleFunc("DELETE /wsc/comments/{commentId}", h.Delete)
+	mux.HandleFunc("POST /wsc/comments/{commentId}/status", h.ChangeStatus)
+	mux.HandleFunc("PUT /wsc/comments/{commentId}/assignees", h.ReplaceAssignees)
+	mux.HandleFunc("GET /wsc/comments/{commentId}/status-history", h.StatusHistory)
+	mux.HandleFunc("GET /wsc/comments/{commentId}/edit-history", h.EditHistory)
 }
 
 func (h *CommentsHandler) List(w http.ResponseWriter, r *http.Request) {
