@@ -23,7 +23,7 @@ services:
       - noted-infra_infra-kc-postgres
 
   sk-redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
