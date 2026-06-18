@@ -12,6 +12,7 @@ type repositoryStub struct {
 	listAvailableUserID string
 	listAvailableResult []model.AvailableSketch
 	createCalled        bool
+	revertCalled        bool
 }
 
 func (r *repositoryStub) Create(
@@ -41,7 +42,8 @@ func (r *repositoryStub) Snapshot(context.Context, string, int64, string) (*mode
 }
 
 func (r *repositoryStub) RevertToVersion(context.Context, string, int64, string) (*model.SketchDocument, error) {
-	return &model.SketchDocument{}, nil
+	r.revertCalled = true
+	return &model.SketchDocument{ID: "sketch-id", Version: 8}, nil
 }
 
 func (r *repositoryStub) UpdateMetadata(
@@ -112,6 +114,55 @@ func TestServiceCreateAcceptsPlane(t *testing.T) {
 	}
 	if !repo.createCalled {
 		t.Fatal("repository Create was not called")
+	}
+}
+
+type revertNotifierStub struct {
+	beginSketchID      string
+	beginTargetVersion int64
+	beginActorUserID   string
+	finishDocument     *model.SketchDocument
+	finishErr          error
+}
+
+func (n *revertNotifierStub) BeginRevert(
+	_ context.Context,
+	sketchID string,
+	targetVersion int64,
+	actorUserID string,
+) func(*model.SketchDocument, error) {
+	n.beginSketchID = sketchID
+	n.beginTargetVersion = targetVersion
+	n.beginActorUserID = actorUserID
+	return func(document *model.SketchDocument, err error) {
+		n.finishDocument = document
+		n.finishErr = err
+	}
+}
+
+func TestServiceRevertNotifiesAroundRepositoryCall(t *testing.T) {
+	repo := &repositoryStub{}
+	notifier := &revertNotifierStub{}
+	service := NewService(repo)
+	service.SetRevertNotifier(notifier)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	document, err := service.RevertToVersion(ctx, " sketch-id ", 3)
+	if err != nil {
+		t.Fatalf("RevertToVersion returned error: %v", err)
+	}
+	if !repo.revertCalled {
+		t.Fatal("repository RevertToVersion was not called")
+	}
+	if notifier.beginSketchID != "sketch-id" || notifier.beginTargetVersion != 3 || notifier.beginActorUserID != "user-id" {
+		t.Fatalf("begin notification = %q/%d/%q, want sketch-id/3/user-id",
+			notifier.beginSketchID,
+			notifier.beginTargetVersion,
+			notifier.beginActorUserID,
+		)
+	}
+	if notifier.finishDocument != document || notifier.finishErr != nil {
+		t.Fatalf("finish notification = %#v/%v, want returned document/nil", notifier.finishDocument, notifier.finishErr)
 	}
 }
 

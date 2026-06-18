@@ -31,12 +31,26 @@ type Repository interface {
 	Delete(ctx context.Context, sketchID string) error
 }
 
+type RevertNotifier interface {
+	BeginRevert(
+		ctx context.Context,
+		sketchID string,
+		targetVersion int64,
+		actorUserID string,
+	) func(document *model.SketchDocument, err error)
+}
+
 type Service struct {
-	repo Repository
+	repo           Repository
+	revertNotifier RevertNotifier
 }
 
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+func (s *Service) SetRevertNotifier(notifier RevertNotifier) {
+	s.revertNotifier = notifier
 }
 
 func (s *Service) Create(
@@ -113,7 +127,11 @@ func (s *Service) Snapshot(ctx context.Context, sketchID string, version int64) 
 	return s.repo.Snapshot(ctx, sketchID, version, userID)
 }
 
-func (s *Service) RevertToVersion(ctx context.Context, sketchID string, version int64) (*model.SketchDocument, error) {
+func (s *Service) RevertToVersion(
+	ctx context.Context,
+	sketchID string,
+	version int64,
+) (document *model.SketchDocument, err error) {
 	sketchID = strings.TrimSpace(sketchID)
 	if sketchID == "" {
 		return nil, errors.New("sketchID is required")
@@ -125,6 +143,16 @@ func (s *Service) RevertToVersion(ctx context.Context, sketchID string, version 
 	userID, ok := auth.UserIDFromContext(ctx)
 	if !ok {
 		return nil, errors.New("authenticated user id is required")
+	}
+
+	var finish func(*model.SketchDocument, error)
+	if s.revertNotifier != nil {
+		finish = s.revertNotifier.BeginRevert(ctx, sketchID, version, userID)
+	}
+	if finish != nil {
+		defer func() {
+			finish(document, err)
+		}()
 	}
 
 	return s.repo.RevertToVersion(ctx, sketchID, version, userID)

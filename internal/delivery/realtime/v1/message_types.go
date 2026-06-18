@@ -53,5 +53,7 @@ const (
 	MsgStateSnapshot       = "state.snapshot"
 	MsgStatePatch          = "state.patch"
 
+	MsgSketchRevertStarted = "sketch.revert_started"
+
 	MsgError = "error"
 )

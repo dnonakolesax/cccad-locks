@@ -3,10 +3,12 @@ package realtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/model"
+	"github.com/mailru/easyjson"
 )
 
 type permissionsStub struct {
@@ -217,6 +219,95 @@ func TestSessionJoinRepliesWithActiveUsersAndBroadcastsJoin(t *testing.T) {
 	}
 	if joinedUser.UserName != "User 2" {
 		t.Fatalf("joined userName = %q, want User 2", joinedUser.UserName)
+	}
+}
+
+func TestBeginRevertAlertsBlocksMessagesAndBroadcastsSnapshot(t *testing.T) {
+	service := testService()
+	ctx := context.Background()
+
+	conn, err := service.OpenConnection(ctx, model.OpenRealtimeSessionRequest{
+		SketchID: "sketch-id",
+		UserID:   "user-1",
+		UserName: "User 1",
+	})
+	if err != nil {
+		t.Fatalf("OpenConnection returned error: %v", err)
+	}
+	if err := conn.HandleClientMessage(ctx, joinMessage("req-join", "client-1", 7)); err != nil {
+		t.Fatalf("session.join returned error: %v", err)
+	}
+	_ = nextMessage(t, conn)
+
+	finish := service.BeginRevert(ctx, "sketch-id", 3, "user-admin")
+	if finish == nil {
+		t.Fatal("BeginRevert returned nil finish")
+	}
+	alert := nextMessage(t, conn)
+	if alert.Type != msgSketchRevertStarted {
+		t.Fatalf("alert type = %q, want %q", alert.Type, msgSketchRevertStarted)
+	}
+
+	err = conn.HandleClientMessage(ctx, model.ClientRealtimeMessage{
+		Type:      msgSessionPing,
+		RequestID: "req-ping-blocked",
+		SketchID:  "sketch-id",
+		Payload:   []byte(`{"clientVersion":7}`),
+	})
+	if !errors.Is(err, errSketchRevertInProgress) {
+		t.Fatalf("blocked ping error = %v, want errSketchRevertInProgress", err)
+	}
+	blocked := nextMessage(t, conn)
+	if blocked.Type != msgError || blocked.RequestID != "req-ping-blocked" {
+		t.Fatalf("blocked message = %#v, want error req-ping-blocked", blocked)
+	}
+	var blockedPayload model.RealtimeErrorPayload
+	decodePayload(t, blocked, &blockedPayload)
+	if blockedPayload.Code != "SKETCH_REVERT_IN_PROGRESS" {
+		t.Fatalf("blocked code = %q, want SKETCH_REVERT_IN_PROGRESS", blockedPayload.Code)
+	}
+
+	finish(&model.SketchDocument{
+		ID:          "sketch-id",
+		WorkspaceID: "workspace-id",
+		Name:        "Sketch",
+		Unit:        "mm",
+		Version:     12,
+		Entities: map[string]easyjson.RawMessage{
+			"line-1": []byte(`{"type":"line"}`),
+		},
+		Constraints: map[string]easyjson.RawMessage{},
+		Dimensions:  map[string]easyjson.RawMessage{},
+		Groups:      map[string]easyjson.RawMessage{},
+		SolveStatus: []byte(`{"status":"ok"}`),
+	}, nil)
+	snapshot := nextMessage(t, conn)
+	if snapshot.Type != msgStateSnapshot {
+		t.Fatalf("snapshot type = %q, want %q", snapshot.Type, msgStateSnapshot)
+	}
+	var snapshotPayload model.StateSnapshotPayload
+	decodePayload(t, snapshot, &snapshotPayload)
+	if snapshotPayload.Version != 12 {
+		t.Fatalf("snapshot version = %d, want 12", snapshotPayload.Version)
+	}
+
+	err = conn.HandleClientMessage(ctx, model.ClientRealtimeMessage{
+		Type:      msgSessionPing,
+		RequestID: "req-ping-after",
+		SketchID:  "sketch-id",
+		Payload:   []byte(`{"clientVersion":12}`),
+	})
+	if err != nil {
+		t.Fatalf("ping after revert returned error: %v", err)
+	}
+	pong := nextMessage(t, conn)
+	if pong.Type != msgSessionPong {
+		t.Fatalf("post-revert message = %#v, want session.pong", pong)
+	}
+	var pongPayload model.SessionPongPayload
+	decodePayload(t, pong, &pongPayload)
+	if pongPayload.CurrentVersion != 12 {
+		t.Fatalf("pong currentVersion = %d, want 12", pongPayload.CurrentVersion)
 	}
 }
 

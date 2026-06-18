@@ -121,6 +121,8 @@ channels:
         $ref: '#/components/messages/StateSnapshot'
       StatePatch:
         $ref: '#/components/messages/StatePatch'
+      SketchRevertStarted:
+        $ref: '#/components/messages/SketchRevertStarted'
       PermissionUpdated:
         $ref: '#/components/messages/PermissionUpdated'
       PermissionRevoked:
@@ -289,6 +291,17 @@ operations:
       - $ref: '#/channels/sketchRealtime/messages/StateSnapshot'
       - $ref: '#/channels/sketchRealtime/messages/StateResyncRequired'
       - $ref: '#/channels/sketchRealtime/messages/Error'
+  receiveRevertEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/sketchRealtime'
+    title: Receive sketch revert lifecycle events
+    summary: Active sketch users are alerted before a REST revert starts, realtime inbound messages are rejected while the
+      revert is running, and a fresh state.snapshot is emitted after a successful revert.
+    messages:
+    - $ref: '#/channels/sketchRealtime/messages/SketchRevertStarted'
+    - $ref: '#/channels/sketchRealtime/messages/StateSnapshot'
+    - $ref: '#/channels/sketchRealtime/messages/Error'
 components:
   messages:
     SessionJoin:
@@ -632,6 +645,7 @@ components:
     StateSnapshot:
       name: state.snapshot
       title: State snapshot
+      summary: Full authoritative sketch state, also emitted after a successful sketch revert.
       payload:
         $ref: '#/components/schemas/StateSnapshotMessage'
     StatePatch:
@@ -639,6 +653,23 @@ components:
       title: State patch
       payload:
         $ref: '#/components/schemas/StatePatchMessage'
+    SketchRevertStarted:
+      name: sketch.revert_started
+      title: Sketch revert started
+      summary: Backend alert sent to active sketch users immediately before a REST revert begins.
+      payload:
+        $ref: '#/components/schemas/SketchRevertStartedMessage'
+      examples:
+      - name: Revert started
+        payload:
+          type: sketch.revert_started
+          eventId: evt_revert_1
+          sketchId: sk_123
+          serverTime: '2026-06-18T12:00:00Z'
+          payload:
+            targetVersion: 17
+            actorUserId: usr_admin
+            message: Sketch revert is in progress
     PermissionUpdated:
       name: permission.updated
       title: Permission updated
@@ -2629,6 +2660,8 @@ components:
               - reconnect
     StateSnapshotMessage:
       type: object
+      description: Full authoritative sketch document. After a successful revert, this message carries the post-revert state
+        and version.
       required:
       - type
       - sketchId
@@ -2657,6 +2690,43 @@ components:
               format: int64
             document:
               $ref: '#/components/schemas/SketchDocument'
+    SketchRevertStartedMessage:
+      type: object
+      description: Alert sent before the backend starts reverting a sketch. Until the matching post-revert state.snapshot is
+        queued, the server rejects inbound realtime messages for this sketch with SKETCH_REVERT_IN_PROGRESS.
+      required:
+      - type
+      - sketchId
+      - serverTime
+      - payload
+      properties:
+        type:
+          type: string
+          enum:
+          - sketch.revert_started
+        eventId:
+          type: string
+        sketchId:
+          type: string
+        serverTime:
+          type: string
+          format: date-time
+        payload:
+          type: object
+          required:
+          - targetVersion
+          - actorUserId
+          properties:
+            targetVersion:
+              type: integer
+              format: int64
+              minimum: 0
+              description: Version requested as the revert source.
+            actorUserId:
+              type: string
+              description: User ID that initiated the revert.
+            message:
+              type: string
     StatePatchMessage:
       type: object
       description: Generic sparse state patch. For committed user operations prefer op.committed because it carries op metadata
@@ -2943,6 +3013,7 @@ components:
           - PERMISSION_DENIED
           - SKETCH_NOT_FOUND
           - STALE_VERSION
+          - SKETCH_REVERT_IN_PROGRESS
           - LOCK_CONFLICT
           - RATE_LIMITED
           - INTERNAL_ERROR

@@ -77,6 +77,8 @@ const (
 	msgStateSnapshot       = "state.snapshot"
 	msgStatePatch          = "state.patch"
 
+	msgSketchRevertStarted = "sketch.revert_started"
+
 	msgError = "error"
 )
 
@@ -102,6 +104,7 @@ const reasonPermissionDenied = "permission_denied"
 const reasonStaleBaseVersion = "stale_base_version"
 
 var errPermissionDenied = errors.New("permission denied")
+var errSketchRevertInProgress = errors.New("sketch revert is in progress")
 
 type Permissions interface {
 	List(ctx context.Context, sketchID string) ([]model.Permission, error)
@@ -139,17 +142,97 @@ type Service struct {
 	locks       Locks
 	operations  Operations
 
-	mu          sync.Mutex
-	connections map[string]map[string]*Connection
+	mu                sync.Mutex
+	connections       map[string]map[string]*Connection
+	revertsInProgress map[string]int
 }
 
 func NewService(permissions Permissions, sketches Sketches, locks Locks, operations Operations) *Service {
 	return &Service{
-		permissions: permissions,
-		sketches:    sketches,
-		locks:       locks,
-		operations:  operations,
-		connections: make(map[string]map[string]*Connection),
+		permissions:       permissions,
+		sketches:          sketches,
+		locks:             locks,
+		operations:        operations,
+		connections:       make(map[string]map[string]*Connection),
+		revertsInProgress: make(map[string]int),
+	}
+}
+
+func (s *Service) BeginRevert(
+	_ context.Context,
+	sketchID string,
+	targetVersion int64,
+	actorUserID string,
+) func(document *model.SketchDocument, err error) {
+	sketchID = strings.TrimSpace(sketchID)
+	actorUserID = strings.TrimSpace(actorUserID)
+	if sketchID == "" {
+		return nil
+	}
+
+	s.mu.Lock()
+	s.revertsInProgress[sketchID]++
+	s.mu.Unlock()
+
+	s.broadcast(sketchID, model.ServerRealtimeMessage{
+		Type:       msgSketchRevertStarted,
+		EventID:    newID(),
+		SketchID:   sketchID,
+		ServerTime: time.Now().UTC().Format(time.RFC3339Nano),
+		Payload: mustJSON(map[string]any{
+			"targetVersion": targetVersion,
+			"actorUserId":   actorUserID,
+			"message":       "Sketch revert is in progress",
+		}),
+	})
+
+	return func(document *model.SketchDocument, err error) {
+		var msg *model.ServerRealtimeMessage
+		if err == nil && document != nil {
+			body, marshalErr := json.Marshal(document)
+			if marshalErr != nil {
+				msg = &model.ServerRealtimeMessage{
+					Type:       msgStateResyncRequired,
+					EventID:    newID(),
+					SketchID:   sketchID,
+					ServerTime: time.Now().UTC().Format(time.RFC3339Nano),
+					Payload: mustJSON(model.StateResyncRequiredPayload{
+						CurrentVersion:    document.Version,
+						Reason:            "missed_events",
+						RecommendedAction: "fetch_snapshot",
+					}),
+				}
+			} else {
+				msg = &model.ServerRealtimeMessage{
+					Type:       msgStateSnapshot,
+					EventID:    newID(),
+					SketchID:   sketchID,
+					ServerTime: time.Now().UTC().Format(time.RFC3339Nano),
+					Payload: mustJSON(model.StateSnapshotPayload{
+						Version:  document.Version,
+						Document: json.RawMessage(body),
+					}),
+				}
+			}
+		}
+
+		s.mu.Lock()
+		if s.revertsInProgress[sketchID] <= 1 {
+			delete(s.revertsInProgress, sketchID)
+		} else {
+			s.revertsInProgress[sketchID]--
+		}
+		if msg != nil {
+			for _, conn := range s.connections[sketchID] {
+				if conn.joined {
+					if document != nil {
+						conn.currentVersion = maxInt64(conn.currentVersion, document.Version)
+					}
+					conn.enqueue(*msg)
+				}
+			}
+		}
+		s.mu.Unlock()
 	}
 }
 
@@ -263,6 +346,11 @@ func (c *Connection) HandleClientMessage(ctx context.Context, msg model.ClientRe
 }
 
 func (c *Connection) handleClientMessage(ctx context.Context, msg model.ClientRealtimeMessage) error {
+	if c.service.revertInProgress(c.sketchID) {
+		c.sendError(msg.RequestID, "SKETCH_REVERT_IN_PROGRESS", errSketchRevertInProgress.Error())
+		return errSketchRevertInProgress
+	}
+
 	switch msg.Type {
 	case msgSessionJoin:
 		return c.handleInvalidMessage(msg.RequestID, c.handleSessionJoin(msg))
@@ -1789,6 +1877,13 @@ func (s *Service) userNameForUser(sketchID, userID string) string {
 	}
 
 	return ""
+}
+
+func (s *Service) revertInProgress(sketchID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.revertsInProgress[sketchID] > 0
 }
 
 func (s *Service) broadcastExcept(sketchID, excludedConnectionID string, msg model.ServerRealtimeMessage) {

@@ -168,27 +168,34 @@ func (a *App) SetupComponents() error {
 	a.initLogger.InfoContext(context.Background(), "Auth grpc service is ready",
 		slog.String("address", a.configs.Auth.Address))
 
+	permissionsSvc := permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker))
+	locksSvc := locksService.NewService(locksRepo.NewRepository(redisClient))
+	operationsSvc := operationsService.NewServiceWithSolver(operationsRepo.NewRepository(psqlWorker), solverClient)
+	sketchesSvc := sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker))
+	realtimeSvc := realtimeService.NewService(
+		permissionsSvc,
+		sketchesSvc,
+		locksSvc,
+		operationsSvc,
+	)
+	sketchesSvc.SetRevertNotifier(realtimeSvc)
+
 	a.components = &Components{
 		pgsql:       psqlWorker,
 		redis:       redisClient,
 		s3:          s3Worker,
 		solver:      solverClient,
 		geometry:    geometryClient,
-		locks:       locksService.NewService(locksRepo.NewRepository(redisClient)),
+		locks:       locksSvc,
 		comments:    commentsService.NewService(commentsRepo.NewRepository(psqlWorker)),
-		operations:  operationsService.NewServiceWithSolver(operationsRepo.NewRepository(psqlWorker), solverClient),
+		operations:  operationsSvc,
 		parts3d:     parts3dService.NewService(parts3dRepo.NewRepository(psqlWorker)),
-		permissions: permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
-		realtime: realtimeService.NewService(
-			permissionsService.NewService(permissionsRepo.NewRepository(psqlWorker)),
-			sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
-			locksService.NewService(locksRepo.NewRepository(redisClient)),
-			operationsService.NewServiceWithSolver(operationsRepo.NewRepository(psqlWorker), solverClient),
-		),
-		sketches:   sketchesService.NewService(sketchesRepo.NewRepository(psqlWorker)),
-		solverSvc:  solverService.NewService(sketchesRepo.NewRepository(psqlWorker), solverClient),
-		workspaces: workspacesService.NewService(workspacesRepo.NewRepository(psqlWorker)),
-		auth:       authClient,
+		permissions: permissionsSvc,
+		realtime:    realtimeSvc,
+		sketches:    sketchesSvc,
+		solverSvc:   solverService.NewService(sketchesRepo.NewRepository(psqlWorker), solverClient),
+		workspaces:  workspacesService.NewService(workspacesRepo.NewRepository(psqlWorker)),
+		auth:        authClient,
 	}
 	return nil
 }
