@@ -444,6 +444,56 @@
         }
       }
     },
+    "/api/v1/sketches/reverts/{sketchId}/{version}": {
+      "post": {
+        "tags": [
+          "Sketches"
+        ],
+        "operationId": "revertSketchToVersion",
+        "summary": "Revert sketch state to a selected version",
+        "description": "Creator-only operation. Restores the sketch graph/materialized state from the selected version and records the rollback as a new committed operation, so the returned document version is the new current version.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sketch state after rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SketchDocument"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Sketch version is unavailable or the caller is not the sketch creator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/api/v1/sketches/{sketchId}/model-history": {
       "get": {
         "tags": [

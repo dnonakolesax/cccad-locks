@@ -16,6 +16,7 @@ const (
 	listAvailableSketchesRequest = "sketch_list_available"
 	getSketchRequest             = "sketch_get"
 	getSketchSnapshotRequest     = "sketch_snapshot_get"
+	revertSketchToVersionRequest = "sketch_revert_to_version"
 	updateSketchMetadataRequest  = "sketch_update_metadata"
 	deleteSketchRequest          = "sketch_delete"
 )
@@ -149,6 +150,35 @@ func (r *Repository) Snapshot(ctx context.Context, sketchID string, version int6
 	}
 
 	return snapshot, nil
+}
+
+func (r *Repository) RevertToVersion(ctx context.Context, sketchID string, version int64, userID string) (*model.SketchDocument, error) {
+	sqlRequest, err := r.db.Request(revertSketchToVersionRequest)
+	if err != nil {
+		return nil, fmt.Errorf("revert sketch to version request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, sketchID, version, userID)
+	if err != nil {
+		return nil, fmt.Errorf("revert sketch to version: %w", err)
+	}
+
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("revert sketch to version rows: %w", closeErr)
+		}
+		return nil, errors.New("revert sketch to version returned no rows")
+	}
+
+	document, err := scanDocument(rows)
+	if err != nil {
+		return nil, err
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("revert sketch to version rows: %w", closeErr)
+	}
+
+	return document, nil
 }
 
 func (r *Repository) UpdateMetadata(

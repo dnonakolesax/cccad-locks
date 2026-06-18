@@ -42,6 +42,10 @@ func (s *stubSketchesService) Snapshot(_ context.Context, _ string, _ int64) (*m
 	return &model.SketchSnapshot{}, nil
 }
 
+func (s *stubSketchesService) RevertToVersion(_ context.Context, _ string, _ int64) (*model.SketchDocument, error) {
+	return &model.SketchDocument{}, nil
+}
+
 func (s *stubSketchesService) UpdateMetadata(
 	_ context.Context,
 	_ string,

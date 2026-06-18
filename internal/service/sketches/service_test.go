@@ -40,6 +40,10 @@ func (r *repositoryStub) Snapshot(context.Context, string, int64, string) (*mode
 	return &model.SketchSnapshot{}, nil
 }
 
+func (r *repositoryStub) RevertToVersion(context.Context, string, int64, string) (*model.SketchDocument, error) {
+	return &model.SketchDocument{}, nil
+}
+
 func (r *repositoryStub) UpdateMetadata(
 	context.Context,
 	string,

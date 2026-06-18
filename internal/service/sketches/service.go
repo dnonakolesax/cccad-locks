@@ -22,6 +22,7 @@ type Repository interface {
 	ListAvailable(ctx context.Context, userID string) ([]model.AvailableSketch, error)
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
 	Snapshot(ctx context.Context, sketchID string, version int64, userID string) (*model.SketchSnapshot, error)
+	RevertToVersion(ctx context.Context, sketchID string, version int64, userID string) (*model.SketchDocument, error)
 	UpdateMetadata(
 		ctx context.Context,
 		sketchID string,
@@ -110,6 +111,23 @@ func (s *Service) Snapshot(ctx context.Context, sketchID string, version int64) 
 	}
 
 	return s.repo.Snapshot(ctx, sketchID, version, userID)
+}
+
+func (s *Service) RevertToVersion(ctx context.Context, sketchID string, version int64) (*model.SketchDocument, error) {
+	sketchID = strings.TrimSpace(sketchID)
+	if sketchID == "" {
+		return nil, errors.New("sketchID is required")
+	}
+	if version < 0 {
+		return nil, errors.New("version must be greater than or equal to 0")
+	}
+
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authenticated user id is required")
+	}
+
+	return s.repo.RevertToVersion(ctx, sketchID, version, userID)
 }
 
 func (s *Service) UpdateMetadata(

@@ -26,6 +26,7 @@ type SketchesService interface {
 	ListAvailable(ctx context.Context) ([]model.AvailableSketch, error)
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
 	Snapshot(ctx context.Context, sketchID string, version int64) (*model.SketchSnapshot, error)
+	RevertToVersion(ctx context.Context, sketchID string, version int64) (*model.SketchDocument, error)
 	UpdateMetadata(
 		ctx context.Context,
 		sketchID string,
@@ -49,6 +50,7 @@ func (h *SketchesHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /", h.ListAvailable)
 	mux.HandleFunc("GET /{sketchId}", h.Get)
 	mux.HandleFunc("GET /snapshots/{sketchId}/{version}", h.Snapshot)
+	mux.HandleFunc("POST /reverts/{sketchId}/{version}", h.RevertToVersion)
 	mux.HandleFunc("PATCH /{sketchId}", h.UpdateMetadata)
 	mux.HandleFunc("DELETE /{sketchId}", h.Delete)
 }
@@ -161,6 +163,40 @@ func (h *SketchesHandler) Snapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, snapshot)
+}
+
+func (h *SketchesHandler) RevertToVersion(w http.ResponseWriter, r *http.Request) {
+	sketchID := r.PathValue("sketchId")
+	if strings.TrimSpace(sketchID) == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId is required")
+		return
+	}
+	if !isValidUUID(sketchID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
+		return
+	}
+
+	version, err := strconv.ParseInt(r.PathValue("version"), 10, 64)
+	if err != nil || version < 0 {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "version must be a non-negative integer")
+		return
+	}
+
+	document, err := h.service.RevertToVersion(r.Context(), sketchID, version)
+	if err != nil {
+		if strings.Contains(err.Error(), "revert sketch to version returned no rows") {
+			writeError(w, http.StatusNotFound, "SKETCH_VERSION_NOT_FOUND", "sketch version is not available or user is not the sketch creator")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	if document == nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "sketches service returned nil document")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, document)
 }
 
 func (h *SketchesHandler) UpdateMetadata(w http.ResponseWriter, r *http.Request) {
