@@ -19,6 +19,7 @@ const (
 	revertSketchToVersionRequest = "sketch_revert_to_version"
 	updateSketchMetadataRequest  = "sketch_update_metadata"
 	deleteSketchRequest          = "sketch_delete"
+	getDeletedEntityGeometry     = "sketch_deleted_entity_geometry_get"
 )
 
 type Repository struct {
@@ -150,6 +151,40 @@ func (r *Repository) Snapshot(ctx context.Context, sketchID string, version int6
 	}
 
 	return snapshot, nil
+}
+
+func (r *Repository) DeletedEntityGeometry(
+	ctx context.Context,
+	sketchID string,
+	entityID string,
+	userID string,
+) (*model.DeletedSketchEntityGeometry, error) {
+	sqlRequest, err := r.db.Request(getDeletedEntityGeometry)
+	if err != nil {
+		return nil, fmt.Errorf("get deleted sketch entity geometry request: %w", err)
+	}
+
+	rows, err := r.db.Query(ctx, sqlRequest, sketchID, entityID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get deleted sketch entity geometry: %w", err)
+	}
+
+	if !rows.Next() {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("get deleted sketch entity geometry rows: %w", closeErr)
+		}
+		return nil, errors.New("get deleted sketch entity geometry returned no rows")
+	}
+
+	geometry, err := scanDeletedEntityGeometry(rows)
+	if err != nil {
+		return nil, err
+	}
+	if closeErr := rows.Close(); closeErr != nil {
+		return nil, fmt.Errorf("get deleted sketch entity geometry rows: %w", closeErr)
+	}
+
+	return geometry, nil
 }
 
 func (r *Repository) RevertToVersion(ctx context.Context, sketchID string, version int64, userID string) (*model.SketchDocument, error) {
@@ -349,6 +384,27 @@ func scanSnapshot(rows *dbsql.PGXResponse) (*model.SketchSnapshot, error) {
 	snapshot.CreatedAt = createdAt.UTC().Format(time.RFC3339Nano)
 
 	return &snapshot, nil
+}
+
+func scanDeletedEntityGeometry(rows *dbsql.PGXResponse) (*model.DeletedSketchEntityGeometry, error) {
+	var geometry model.DeletedSketchEntityGeometry
+	var entity []byte
+	var materializedGeometry []byte
+
+	if err := rows.Scan(
+		&geometry.SketchID,
+		&geometry.EntityID,
+		&geometry.Version,
+		&entity,
+		&materializedGeometry,
+	); err != nil {
+		return nil, fmt.Errorf("scan deleted sketch entity geometry: %w", err)
+	}
+
+	geometry.Entity = append(geometry.Entity, entity...)
+	geometry.MaterializedGeometry = append(geometry.MaterializedGeometry, materializedGeometry...)
+
+	return &geometry, nil
 }
 
 func scanMetadata(rows *dbsql.PGXResponse) (*model.SketchMetadata, error) {

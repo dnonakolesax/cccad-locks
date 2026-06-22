@@ -394,6 +394,49 @@
         }
       }
     },
+    "/api/v1/sketches/deleted-entity-geometry/{sketchId}/{entityId}": {
+      "get": {
+        "tags": [
+          "Sketches"
+        ],
+        "operationId": "getDeletedSketchEntityGeometry",
+        "summary": "Get historical geometry for a deleted sketch entity",
+        "description": "Returns the latest persisted operation state where the entity still existed, provided it is no longer present in the current sketch state. This allows clients to render deleted geometry on the canvas for history, review, or undo UI.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SketchId"
+          },
+          {
+            "$ref": "#/components/parameters/EntityId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historical geometry for the deleted entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletedSketchEntityGeometry"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deleted entity geometry is not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
     "/api/v1/sketches/snapshots/{sketchId}/{version}": {
       "get": {
         "tags": [
@@ -1233,6 +1276,15 @@
         },
         "example": "018f1d24-7c5a-7a30-bd74-001122334455"
       },
+      "EntityId": {
+        "name": "entityId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "line-1"
+      },
       "LockId": {
         "name": "lockId",
         "in": "path",
@@ -1696,6 +1748,55 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "DeletedSketchEntityGeometry": {
+        "type": "object",
+        "required": [
+          "sketchId",
+          "entityId",
+          "version",
+          "entity",
+          "materializedGeometry"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "sketchId": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Latest committed version where the entity geometry was still available."
+          },
+          "entity": {
+            "description": "Original graph entity payload from the historical operation state.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SketchEntity"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          },
+          "materializedGeometry": {
+            "description": "Materialized geometry payload suitable for canvas rendering when available; falls back to the graph entity payload if no materialized entry exists.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SketchEntity"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
           }
         }
       },

@@ -26,6 +26,11 @@ type SketchesService interface {
 	ListAvailable(ctx context.Context) ([]model.AvailableSketch, error)
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
 	Snapshot(ctx context.Context, sketchID string, version int64) (*model.SketchSnapshot, error)
+	DeletedEntityGeometry(
+		ctx context.Context,
+		sketchID string,
+		entityID string,
+	) (*model.DeletedSketchEntityGeometry, error)
 	RevertToVersion(ctx context.Context, sketchID string, version int64) (*model.SketchDocument, error)
 	UpdateMetadata(
 		ctx context.Context,
@@ -49,6 +54,7 @@ func (h *SketchesHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /workspaces/{workspaceId}/sketches", h.Create)
 	mux.HandleFunc("GET /", h.ListAvailable)
 	mux.HandleFunc("GET /{sketchId}", h.Get)
+	mux.HandleFunc("GET /deleted-entity-geometry/{sketchId}/{entityId}", h.DeletedEntityGeometry)
 	mux.HandleFunc("GET /snapshots/{sketchId}/{version}", h.Snapshot)
 	mux.HandleFunc("POST /reverts/{sketchId}/{version}", h.RevertToVersion)
 	mux.HandleFunc("PATCH /{sketchId}", h.UpdateMetadata)
@@ -163,6 +169,40 @@ func (h *SketchesHandler) Snapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, snapshot)
+}
+
+func (h *SketchesHandler) DeletedEntityGeometry(w http.ResponseWriter, r *http.Request) {
+	sketchID := r.PathValue("sketchId")
+	if strings.TrimSpace(sketchID) == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId is required")
+		return
+	}
+	if !isValidUUID(sketchID) {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "sketchId must be a valid uuid")
+		return
+	}
+
+	entityID := strings.TrimSpace(r.PathValue("entityId"))
+	if entityID == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_OPERATION", "entityId is required")
+		return
+	}
+
+	geometry, err := h.service.DeletedEntityGeometry(r.Context(), sketchID, entityID)
+	if err != nil {
+		if strings.Contains(err.Error(), "get deleted sketch entity geometry returned no rows") {
+			writeError(w, http.StatusNotFound, "ENTITY_GEOMETRY_NOT_FOUND", "deleted entity geometry is not available")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	if geometry == nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "sketches service returned nil deleted entity geometry")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, geometry)
 }
 
 func (h *SketchesHandler) RevertToVersion(w http.ResponseWriter, r *http.Request) {

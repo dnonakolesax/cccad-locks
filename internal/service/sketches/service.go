@@ -22,6 +22,12 @@ type Repository interface {
 	ListAvailable(ctx context.Context, userID string) ([]model.AvailableSketch, error)
 	Get(ctx context.Context, sketchID string) (*model.SketchDocument, error)
 	Snapshot(ctx context.Context, sketchID string, version int64, userID string) (*model.SketchSnapshot, error)
+	DeletedEntityGeometry(
+		ctx context.Context,
+		sketchID string,
+		entityID string,
+		userID string,
+	) (*model.DeletedSketchEntityGeometry, error)
 	RevertToVersion(ctx context.Context, sketchID string, version int64, userID string) (*model.SketchDocument, error)
 	UpdateMetadata(
 		ctx context.Context,
@@ -125,6 +131,28 @@ func (s *Service) Snapshot(ctx context.Context, sketchID string, version int64) 
 	}
 
 	return s.repo.Snapshot(ctx, sketchID, version, userID)
+}
+
+func (s *Service) DeletedEntityGeometry(
+	ctx context.Context,
+	sketchID string,
+	entityID string,
+) (*model.DeletedSketchEntityGeometry, error) {
+	sketchID = strings.TrimSpace(sketchID)
+	if sketchID == "" {
+		return nil, errors.New("sketchID is required")
+	}
+	entityID = strings.TrimSpace(entityID)
+	if entityID == "" {
+		return nil, errors.New("entityID is required")
+	}
+
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, errors.New("authenticated user id is required")
+	}
+
+	return s.repo.DeletedEntityGeometry(ctx, sketchID, entityID, userID)
 }
 
 func (s *Service) RevertToVersion(

@@ -15,6 +15,7 @@ type stubSketchesService struct {
 	getCalled    bool
 	createCalled bool
 	snapshotErr  error
+	deletedErr   error
 }
 
 func (s *stubSketchesService) Create(
@@ -40,6 +41,17 @@ func (s *stubSketchesService) Snapshot(_ context.Context, _ string, _ int64) (*m
 		return nil, s.snapshotErr
 	}
 	return &model.SketchSnapshot{}, nil
+}
+
+func (s *stubSketchesService) DeletedEntityGeometry(
+	_ context.Context,
+	_ string,
+	_ string,
+) (*model.DeletedSketchEntityGeometry, error) {
+	if s.deletedErr != nil {
+		return nil, s.deletedErr
+	}
+	return &model.DeletedSketchEntityGeometry{}, nil
 }
 
 func (s *stubSketchesService) RevertToVersion(_ context.Context, _ string, _ int64) (*model.SketchDocument, error) {
@@ -150,5 +162,29 @@ func TestSnapshotUnavailableReturnsNotFound(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "SNAPSHOT_NOT_FOUND") {
 		t.Fatalf("body = %q, want SNAPSHOT_NOT_FOUND", rec.Body.String())
+	}
+}
+
+func TestDeletedEntityGeometryUnavailableReturnsNotFound(t *testing.T) {
+	service := &stubSketchesService{
+		deletedErr: errors.New("get deleted sketch entity geometry returned no rows"),
+	}
+	mux := http.NewServeMux()
+	NewSketchesHandler(service).RegisterRoutes(mux)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/deleted-entity-geometry/11111111-1111-1111-1111-111111111111/line-1",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "ENTITY_GEOMETRY_NOT_FOUND") {
+		t.Fatalf("body = %q, want ENTITY_GEOMETRY_NOT_FOUND", rec.Body.String())
 	}
 }

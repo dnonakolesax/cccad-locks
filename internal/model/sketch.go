@@ -91,3 +91,12 @@ type SketchSnapshot struct {
 	SolveStatus          easyjson.RawMessage `json:"solveStatus"`
 	CreatedAt            string              `json:"createdAt"`
 }
+
+//easyjson:json
+type DeletedSketchEntityGeometry struct {
+	SketchID             string              `json:"sketchId"`
+	EntityID             string              `json:"entityId"`
+	Version              int64               `json:"version"`
+	Entity               easyjson.RawMessage `json:"entity"`
+	MaterializedGeometry easyjson.RawMessage `json:"materializedGeometry"`
+}

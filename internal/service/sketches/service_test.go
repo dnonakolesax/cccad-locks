@@ -41,6 +41,15 @@ func (r *repositoryStub) Snapshot(context.Context, string, int64, string) (*mode
 	return &model.SketchSnapshot{}, nil
 }
 
+func (r *repositoryStub) DeletedEntityGeometry(
+	context.Context,
+	string,
+	string,
+	string,
+) (*model.DeletedSketchEntityGeometry, error) {
+	return &model.DeletedSketchEntityGeometry{}, nil
+}
+
 func (r *repositoryStub) RevertToVersion(context.Context, string, int64, string) (*model.SketchDocument, error) {
 	r.revertCalled = true
 	return &model.SketchDocument{ID: "sketch-id", Version: 8}, nil
