@@ -2,12 +2,15 @@ package sketches
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 
 	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/model"
+	"github.com/mailru/easyjson"
 )
 
 const defaultUnit = "mm"
@@ -152,7 +155,15 @@ func (s *Service) DeletedEntityGeometry(
 		return nil, errors.New("authenticated user id is required")
 	}
 
-	return s.repo.DeletedEntityGeometry(ctx, sketchID, entityID, userID)
+	geometry, err := s.repo.DeletedEntityGeometry(ctx, sketchID, entityID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := enrichDeletedEntityGeometry(geometry); err != nil {
+		return nil, err
+	}
+
+	return geometry, nil
 }
 
 func (s *Service) RevertToVersion(
@@ -255,4 +266,120 @@ func isFinite(value float64) bool {
 
 func vectorLengthSquared(vector model.Vector3) float64 {
 	return vector.X*vector.X + vector.Y*vector.Y + vector.Z*vector.Z
+}
+
+func enrichDeletedEntityGeometry(geometry *model.DeletedSketchEntityGeometry) error {
+	if geometry == nil {
+		return nil
+	}
+
+	candidateIDs := make(map[string]struct{}, len(geometry.HistoricalEntities)+len(geometry.HistoricalMaterializedGeometry))
+	for id := range geometry.HistoricalEntities {
+		candidateIDs[id] = struct{}{}
+	}
+	for id := range geometry.HistoricalMaterializedGeometry {
+		candidateIDs[id] = struct{}{}
+	}
+
+	seen := map[string]struct{}{geometry.EntityID: {}}
+	queue := []json.RawMessage{
+		json.RawMessage(geometry.Entity),
+		json.RawMessage(geometry.MaterializedGeometry),
+	}
+
+	for len(queue) > 0 {
+		raw := queue[0]
+		queue = queue[1:]
+
+		ids, err := referencedEntityIDs(raw, candidateIDs)
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			if _, exists := seen[id]; exists {
+				continue
+			}
+			seen[id] = struct{}{}
+
+			entity, hasEntity := geometry.HistoricalEntities[id]
+			materialized, hasMaterialized := geometry.HistoricalMaterializedGeometry[id]
+			if !hasEntity && !hasMaterialized {
+				continue
+			}
+
+			if hasEntity {
+				if geometry.RelatedEntities == nil {
+					geometry.RelatedEntities = make(map[string]easyjson.RawMessage)
+				}
+				geometry.RelatedEntities[id] = cloneRaw(entity)
+				queue = append(queue, json.RawMessage(entity))
+			}
+			if geometry.RelatedMaterializedGeometry == nil {
+				geometry.RelatedMaterializedGeometry = make(map[string]easyjson.RawMessage)
+			}
+			if hasMaterialized {
+				geometry.RelatedMaterializedGeometry[id] = cloneRaw(materialized)
+				queue = append(queue, json.RawMessage(materialized))
+			} else {
+				geometry.RelatedMaterializedGeometry[id] = cloneRaw(entity)
+			}
+		}
+	}
+
+	geometry.HistoricalEntities = nil
+	geometry.HistoricalMaterializedGeometry = nil
+
+	return nil
+}
+
+func referencedEntityIDs(raw json.RawMessage, candidateIDs map[string]struct{}) ([]string, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, fmt.Errorf("decode deleted entity geometry references: %w", err)
+	}
+
+	ids := make([]string, 0)
+	seen := make(map[string]struct{})
+	collectReferencedEntityIDs(value, candidateIDs, seen, &ids, "")
+
+	return ids, nil
+}
+
+func collectReferencedEntityIDs(
+	value any,
+	candidateIDs map[string]struct{},
+	seen map[string]struct{},
+	ids *[]string,
+	parentKey string,
+) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			collectReferencedEntityIDs(child, candidateIDs, seen, ids, key)
+		}
+	case []any:
+		for _, child := range typed {
+			collectReferencedEntityIDs(child, candidateIDs, seen, ids, parentKey)
+		}
+	case string:
+		if parentKey == "id" {
+			return
+		}
+		if _, exists := candidateIDs[typed]; !exists {
+			return
+		}
+		if _, exists := seen[typed]; exists {
+			return
+		}
+		seen[typed] = struct{}{}
+		*ids = append(*ids, typed)
+	}
+}
+
+func cloneRaw(raw easyjson.RawMessage) easyjson.RawMessage {
+	return append(easyjson.RawMessage(nil), raw...)
 }

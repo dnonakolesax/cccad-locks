@@ -94,9 +94,13 @@ type SketchSnapshot struct {
 
 //easyjson:json
 type DeletedSketchEntityGeometry struct {
-	SketchID             string              `json:"sketchId"`
-	EntityID             string              `json:"entityId"`
-	Version              int64               `json:"version"`
-	Entity               easyjson.RawMessage `json:"entity"`
-	MaterializedGeometry easyjson.RawMessage `json:"materializedGeometry"`
+	SketchID                       string                         `json:"sketchId"`
+	EntityID                       string                         `json:"entityId"`
+	Version                        int64                          `json:"version"`
+	Entity                         easyjson.RawMessage            `json:"entity"`
+	MaterializedGeometry           easyjson.RawMessage            `json:"materializedGeometry"`
+	RelatedEntities                map[string]easyjson.RawMessage `json:"relatedEntities,omitempty"`
+	RelatedMaterializedGeometry    map[string]easyjson.RawMessage `json:"relatedMaterializedGeometry,omitempty"`
+	HistoricalEntities             map[string]easyjson.RawMessage `json:"-"`
+	HistoricalMaterializedGeometry map[string]easyjson.RawMessage `json:"-"`
 }

@@ -2,15 +2,18 @@ package sketches
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/dnonakolesax/cccad-locks/internal/auth"
 	"github.com/dnonakolesax/cccad-locks/internal/model"
+	"github.com/mailru/easyjson"
 )
 
 type repositoryStub struct {
 	listAvailableUserID string
 	listAvailableResult []model.AvailableSketch
+	deletedGeometry     *model.DeletedSketchEntityGeometry
 	createCalled        bool
 	revertCalled        bool
 }
@@ -47,6 +50,9 @@ func (r *repositoryStub) DeletedEntityGeometry(
 	string,
 	string,
 ) (*model.DeletedSketchEntityGeometry, error) {
+	if r.deletedGeometry != nil {
+		return r.deletedGeometry, nil
+	}
 	return &model.DeletedSketchEntityGeometry{}, nil
 }
 
@@ -172,6 +178,51 @@ func TestServiceRevertNotifiesAroundRepositoryCall(t *testing.T) {
 	}
 	if notifier.finishDocument != document || notifier.finishErr != nil {
 		t.Fatalf("finish notification = %#v/%v, want returned document/nil", notifier.finishDocument, notifier.finishErr)
+	}
+}
+
+func TestServiceDeletedEntityGeometryIncludesReferencedPointCoordinates(t *testing.T) {
+	repo := &repositoryStub{
+		deletedGeometry: &model.DeletedSketchEntityGeometry{
+			SketchID:             "sketch-id",
+			EntityID:             "line-1",
+			Version:              4,
+			Entity:               []byte(`{"id":"line-1","type":"line","startPointId":"p1","endPointId":"p2"}`),
+			MaterializedGeometry: []byte(`{"id":"line-1","type":"line","startPointId":"p1","endPointId":"p2"}`),
+			HistoricalEntities: map[string]easyjson.RawMessage{
+				"line-1": []byte(`{"id":"line-1","type":"line","startPointId":"p1","endPointId":"p2"}`),
+				"p1":     []byte(`{"id":"p1","type":"point","x":0,"y":0}`),
+				"p2":     []byte(`{"id":"p2","type":"point","x":12,"y":5}`),
+			},
+			HistoricalMaterializedGeometry: map[string]easyjson.RawMessage{
+				"line-1": []byte(`{"id":"line-1","type":"line","startPointId":"p1","endPointId":"p2"}`),
+				"p1":     []byte(`{"id":"p1","type":"point","x":0,"y":0}`),
+				"p2":     []byte(`{"id":"p2","type":"point","x":12,"y":5}`),
+			},
+		},
+	}
+	service := NewService(repo)
+	ctx := auth.ContextWithUserID(context.Background(), "user-id")
+
+	geometry, err := service.DeletedEntityGeometry(ctx, "sketch-id", "line-1")
+	if err != nil {
+		t.Fatalf("DeletedEntityGeometry returned error: %v", err)
+	}
+
+	if len(geometry.RelatedMaterializedGeometry) != 2 {
+		t.Fatalf("related materialized geometry = %#v, want p1 and p2", geometry.RelatedMaterializedGeometry)
+	}
+	if !strings.Contains(string(geometry.RelatedMaterializedGeometry["p1"]), `"x":0`) {
+		t.Fatalf("p1 materialized geometry = %s, want coordinates", geometry.RelatedMaterializedGeometry["p1"])
+	}
+	if !strings.Contains(string(geometry.RelatedMaterializedGeometry["p2"]), `"x":12`) {
+		t.Fatalf("p2 materialized geometry = %s, want coordinates", geometry.RelatedMaterializedGeometry["p2"])
+	}
+	if geometry.HistoricalEntities != nil || geometry.HistoricalMaterializedGeometry != nil {
+		t.Fatalf("historical maps should not be exposed: %#v %#v",
+			geometry.HistoricalEntities,
+			geometry.HistoricalMaterializedGeometry,
+		)
 	}
 }
 

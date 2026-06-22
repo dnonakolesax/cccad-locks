@@ -996,6 +996,54 @@ func easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel6(in *jle
 			} else {
 				(out.MaterializedGeometry).UnmarshalEasyJSON(in)
 			}
+		case "relatedEntities":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				in.Delim('{')
+				if !in.IsDelim('}') {
+					out.RelatedEntities = make(map[string]easyjson.RawMessage)
+				} else {
+					out.RelatedEntities = nil
+				}
+				for !in.IsDelim('}') {
+					key := string(in.String())
+					in.WantColon()
+					var v15 easyjson.RawMessage
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						(v15).UnmarshalEasyJSON(in)
+					}
+					(out.RelatedEntities)[key] = v15
+					in.WantComma()
+				}
+				in.Delim('}')
+			}
+		case "relatedMaterializedGeometry":
+			if in.IsNull() {
+				in.Skip()
+			} else {
+				in.Delim('{')
+				if !in.IsDelim('}') {
+					out.RelatedMaterializedGeometry = make(map[string]easyjson.RawMessage)
+				} else {
+					out.RelatedMaterializedGeometry = nil
+				}
+				for !in.IsDelim('}') {
+					key := string(in.String())
+					in.WantColon()
+					var v16 easyjson.RawMessage
+					if in.IsNull() {
+						in.Skip()
+					} else {
+						(v16).UnmarshalEasyJSON(in)
+					}
+					(out.RelatedMaterializedGeometry)[key] = v16
+					in.WantComma()
+				}
+				in.Delim('}')
+			}
 		default:
 			in.SkipRecursive()
 		}
@@ -1034,6 +1082,44 @@ func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel6(out *jw
 		const prefix string = ",\"materializedGeometry\":"
 		out.RawString(prefix)
 		(in.MaterializedGeometry).MarshalEasyJSON(out)
+	}
+	if len(in.RelatedEntities) != 0 {
+		const prefix string = ",\"relatedEntities\":"
+		out.RawString(prefix)
+		{
+			out.RawByte('{')
+			v17First := true
+			for v17Name, v17Value := range in.RelatedEntities {
+				if v17First {
+					v17First = false
+				} else {
+					out.RawByte(',')
+				}
+				out.String(string(v17Name))
+				out.RawByte(':')
+				(v17Value).MarshalEasyJSON(out)
+			}
+			out.RawByte('}')
+		}
+	}
+	if len(in.RelatedMaterializedGeometry) != 0 {
+		const prefix string = ",\"relatedMaterializedGeometry\":"
+		out.RawString(prefix)
+		{
+			out.RawByte('{')
+			v18First := true
+			for v18Name, v18Value := range in.RelatedMaterializedGeometry {
+				if v18First {
+					v18First = false
+				} else {
+					out.RawByte(',')
+				}
+				out.String(string(v18Name))
+				out.RawByte(':')
+				(v18Value).MarshalEasyJSON(out)
+			}
+			out.RawByte('}')
+		}
 	}
 	out.RawByte('}')
 }
@@ -1190,13 +1276,13 @@ func easyjson51c6e670DecodeGithubComDnonakolesaxCccadLocksInternalModel8(in *jle
 					out.Sketches = (out.Sketches)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v15 AvailableSketch
+					var v19 AvailableSketch
 					if in.IsNull() {
 						in.Skip()
 					} else {
-						(v15).UnmarshalEasyJSON(in)
+						(v19).UnmarshalEasyJSON(in)
 					}
-					out.Sketches = append(out.Sketches, v15)
+					out.Sketches = append(out.Sketches, v19)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -1222,11 +1308,11 @@ func easyjson51c6e670EncodeGithubComDnonakolesaxCccadLocksInternalModel8(out *jw
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v16, v17 := range in.Sketches {
-				if v16 > 0 {
+			for v20, v21 := range in.Sketches {
+				if v20 > 0 {
 					out.RawByte(',')
 				}
-				(v17).MarshalEasyJSON(out)
+				(v21).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}

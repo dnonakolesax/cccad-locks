@@ -390,6 +390,8 @@ func scanDeletedEntityGeometry(rows *dbsql.PGXResponse) (*model.DeletedSketchEnt
 	var geometry model.DeletedSketchEntityGeometry
 	var entity []byte
 	var materializedGeometry []byte
+	var historicalEntities []byte
+	var historicalMaterializedGeometry []byte
 
 	if err := rows.Scan(
 		&geometry.SketchID,
@@ -397,12 +399,20 @@ func scanDeletedEntityGeometry(rows *dbsql.PGXResponse) (*model.DeletedSketchEnt
 		&geometry.Version,
 		&entity,
 		&materializedGeometry,
+		&historicalEntities,
+		&historicalMaterializedGeometry,
 	); err != nil {
 		return nil, fmt.Errorf("scan deleted sketch entity geometry: %w", err)
 	}
 
 	geometry.Entity = append(geometry.Entity, entity...)
 	geometry.MaterializedGeometry = append(geometry.MaterializedGeometry, materializedGeometry...)
+	if err := json.Unmarshal(historicalEntities, &geometry.HistoricalEntities); err != nil {
+		return nil, fmt.Errorf("scan deleted sketch entity historical entities: %w", err)
+	}
+	if err := json.Unmarshal(historicalMaterializedGeometry, &geometry.HistoricalMaterializedGeometry); err != nil {
+		return nil, fmt.Errorf("scan deleted sketch entity historical materialized geometry: %w", err)
+	}
 
 	return &geometry, nil
 }

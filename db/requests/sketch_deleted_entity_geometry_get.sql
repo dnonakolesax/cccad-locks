@@ -19,7 +19,9 @@ historical_entity AS (
         so.sketch_id,
         so.version,
         COALESCE(so.graph_state->'entities'->$2, '{}'::jsonb) AS entity,
-        COALESCE(so.materialized_geometry->'entities'->$2, so.graph_state->'entities'->$2, '{}'::jsonb) AS materialized_geometry
+        COALESCE(so.materialized_geometry->'entities'->$2, so.graph_state->'entities'->$2, '{}'::jsonb) AS materialized_geometry,
+        COALESCE(so.graph_state->'entities', '{}'::jsonb) AS entities,
+        COALESCE(so.materialized_geometry->'entities', '{}'::jsonb) AS materialized_entities
     FROM sketch_ops so
     JOIN authorized a ON a.id = so.sketch_id
     WHERE NOT EXISTS (SELECT 1 FROM current_entity)
@@ -35,5 +37,7 @@ SELECT
     $2::text AS entity_id,
     version,
     entity,
-    materialized_geometry
+    materialized_geometry,
+    entities,
+    materialized_entities
 FROM historical_entity

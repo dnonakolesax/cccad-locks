@@ -401,7 +401,7 @@
         ],
         "operationId": "getDeletedSketchEntityGeometry",
         "summary": "Get historical geometry for a deleted sketch entity",
-        "description": "Returns the latest persisted operation state where the entity still existed, provided it is no longer present in the current sketch state. This allows clients to render deleted geometry on the canvas for history, review, or undo UI.",
+        "description": "Returns the latest persisted operation state where the entity still existed, provided it is no longer present in the current sketch state. The response includes referenced entities and materialized geometry needed for rendering, such as endpoint point coordinates for a deleted line.",
         "parameters": [
           {
             "$ref": "#/components/parameters/SketchId"
@@ -1797,6 +1797,28 @@
                 "additionalProperties": true
               }
             ]
+          },
+          "relatedEntities": {
+            "type": "object",
+            "description": "Referenced graph entities from the same historical version, keyed by entity ID. For a line, this typically includes its deleted endpoint points.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SketchEntity"
+            }
+          },
+          "relatedMaterializedGeometry": {
+            "type": "object",
+            "description": "Referenced materialized geometry from the same historical version, keyed by entity ID. This contains render-ready coordinates when available.",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/SketchEntity"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              ]
+            }
           }
         }
       },
